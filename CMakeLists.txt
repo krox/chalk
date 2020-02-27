@@ -7,9 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(util)
+add_subdirectory(fmt)
 
 include_directories(src)
 include_directories(util/src)
+include_directories(fmt/include)
+
 
 file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
