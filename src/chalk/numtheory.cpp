@@ -1,98 +1,13 @@
 #include "chalk/numtheory.h"
 
 #include "util/bitset.h"
+#include "util/random.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 using namespace util;
 
 namespace chalk {
-
-int64_t addmod(int64_t a, int64_t b, int64_t m)
-{
-	assert(m > 0);
-	assert(0 <= a && a < m);
-	assert(0 <= b && b < m);
-
-	if (b < m - a)
-		return a + b;
-	else
-		return a + b - m;
-}
-
-int64_t submod(int64_t a, int64_t b, int64_t m)
-{
-	assert(m > 0);
-	assert(0 <= a && a < m);
-	assert(0 <= b && b < m);
-
-	if (a >= b)
-		return a - b;
-	else
-		return a - b + m;
-}
-
-int64_t mulmod(int64_t a, int64_t b, int64_t m)
-{
-	assert(m > 0);
-	assert(0 <= a && a < m);
-	assert(0 <= b && b < m);
-
-	if (a > b)
-		std::swap(a, b);
-
-	int64_t r = 0;
-	for (; a != 0; a >>= 1, b = addmod(b, b, m))
-		if (a & 1)
-			r = addmod(r, b, m);
-	return r;
-}
-
-int64_t powmod(int64_t a, int64_t b, int64_t m)
-{
-	assert(m > 0);
-	assert(0 <= a && a < m);
-
-	if (b < 0)
-	{
-		a = invmod(a, m);
-		b = -b;
-	}
-
-	int64_t r = 1;
-	for (; b != 0; b >>= 1, a = mulmod(a, a, m))
-		if (b & 1)
-			r = mulmod(r, a, m);
-	return r;
-}
-
-int64_t invmod(int64_t a, int64_t m)
-{
-	assert(m > 0);
-	assert(0 <= a && a < m);
-
-	int64_t a0 = m;
-	int64_t a1 = a;
-	int64_t b0 = 0;
-	int64_t b1 = 1;
-
-	while (a1 > 1)
-	{
-		int64_t q = a0 / a1;
-		int64_t a2 = a0 - q * a1;
-		int64_t b2 = b0 - q * b1;
-
-		a0 = a1;
-		a1 = a2;
-		b0 = b1;
-		b1 = b2;
-	}
-
-	if (b1 < 0)
-		b1 += m;
-	assert(0 <= b1 && b1 < m);
-	return b1;
-}
 
 int64_t gcd(int64_t a, int64_t b)
 {
@@ -195,8 +110,13 @@ bool isSPRP(int64_t a, int64_t n)
 	if (a == 0 || a == 1 || a == n - 1)
 		return true;
 
-	int64_t s = __builtin_ctz(n - 1);
-	int64_t d = (n - 1) >> s;
+	int s = 0;
+	int64_t d = n - 1;
+	while (d % 2 == 0)
+	{
+		d /= 2;
+		s += 1;
+	}
 	// now it is n-1 = d*2^s, t odd
 
 	a = powmod(a, d, n);
@@ -220,11 +140,23 @@ bool isPrime(int64_t n)
 	// small (<= 2^64) numbers. Seee http://priv.ckp.pl/wizykowski/sprp.pdf for
 	// details and http://miller-rabin.appspot.com for the actual values used
 
+	// largest product of primes fitting in 63/64 bit
+	constexpr int64_t primorial =
+	    2L * 3 * 5 * 7 * 11 * 13 * 17 * 19 * 23 * 29 * 31 * 37 * 41 * 43 * 47;
+
 	if (n < 2)
 		return false;
 
-	if (n % 2 == 0)
-		return n == 2;
+	if (n < 51)
+		return n == 2 || n == 3 || n == 5 || n == 7 || n == 11 || n == 13 ||
+		       n == 17 || n == 19 || n == 23 || n == 29 || n == 31 || n == 37 ||
+		       n == 41 || n == 43 || n == 47;
+
+	if (gcd(n, primorial) != 1)
+		return false;
+
+	if (n < 51 * 51)
+		return true;
 
 	if (n < 291831L)
 		return isSPRP(126401071349994536L, n);
@@ -250,13 +182,23 @@ bool isPrime(int64_t n)
 		       isSPRP(761179012939631437L, n) &&
 		       isSPRP(1263739024124850375L, n);
 
-	if (true) // should work for all n < 2^64
-		return isSPRP(2L, n) && isSPRP(325L, n) && isSPRP(9375L, n) &&
-		       isSPRP(28178L, n) && isSPRP(450775L, n) && isSPRP(9780504L, n) &&
-		       isSPRP(1795265022L, n);
+	// if (n < UINT64_MAX) // should work for all n < 2^64
+	return isSPRP(2L, n) && isSPRP(325L, n) && isSPRP(9375L, n) &&
+	       isSPRP(28178L, n) && isSPRP(450775L, n) && isSPRP(9780504L, n) &&
+	       isSPRP(1795265022L, n);
+
+	// fall back to randomized test for very large numbers
+	/*if (true)
+	{
+	    util::xoshiro256 rng(0);
+	    for (int i = 0; i < 25; ++i)
+	        if (!isSPRP(rng(), n))
+	            return false;
+	    return true;
+	}*/
 }
 
-int64_t findFactor(int64_t n, int64_t c)
+int64_t findFactorPollardRho(int64_t n, int64_t c)
 {
 	assert(n > 0);
 	assert(0 < c && c < n);
@@ -272,7 +214,7 @@ int64_t findFactor(int64_t n, int64_t c)
 		{
 			x = mulmod(x, x, n);
 			x = addmod(x, c, n);
-			long d = gcd(x - y, n);
+			int64_t d = gcd(x - y, n);
 
 			if (d != 1)
 				return d;
@@ -280,6 +222,16 @@ int64_t findFactor(int64_t n, int64_t c)
 
 		runLength *= 2;
 	}
+}
+
+int64_t findFactor(int64_t n)
+{
+	assert(n >= 2 && !isPrime(n));
+
+	int64_t d = n;
+	for (int64_t c = 1; d == n; ++c)
+		d = findFactorPollardRho(n, c);
+	return d;
 }
 
 std::vector<int64_t> factor(int64_t n)
@@ -293,10 +245,7 @@ std::vector<int64_t> factor(int64_t n)
 	for (size_t i = 0; i < f.size(); ++i)
 		while (!isPrime(f[i]))
 		{
-			int64_t d = f[i];
-			for (int64_t c = 1; d == f[i]; ++c)
-				d = findFactor(f[i], c);
-
+			int64_t d = findFactor(f[i]);
 			f[i] /= d;
 			f.push_back(d);
 		}
