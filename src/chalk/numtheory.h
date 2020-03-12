@@ -2,7 +2,8 @@
 #define CHALK_NUMTHEORY_H
 
 /**
- * Fast number theory for 64 bit and 128 bit integers.
+ * Fast number theory for 64 bit integers.
+ * Also some combinatorics for convenience.
  */
 
 #include "chalk/modular.h"
@@ -41,6 +42,15 @@ int64_t findFactor(int64_t n);
 
 /** Factor n (>= 1) into primes. Result is in ascending order. */
 std::vector<int64_t> factor(int64_t n);
+
+/** Jacobi symbol (a/n) defined for any odd integer n */
+int jacobi(int64_t a, int64_t n);
+
+/** factorial(n) = n! = n * (n-1) * ... * 2 * 1 */
+int64_t factorial(int64_t n);
+
+/** binomial(n,k) = (n choose k) = n! / (k! * (n-k)!) */
+int64_t binomial(int64_t n, int64_t k);
 
 } // namespace chalk
 

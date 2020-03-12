@@ -254,4 +254,64 @@ std::vector<int64_t> factor(int64_t n)
 	return f;
 }
 
+int jacobi(int64_t a, int64_t n)
+{
+	assert(n > 0 && n % 2 == 1);
+
+	a %= n;
+	if (a < 0)
+		a += n;
+	if (n == 1)
+		return 1;
+
+	int r = 1;
+	while (true)
+	{
+		if (a == 0)
+			return 0;
+		if (a == 1)
+			return r;
+
+		if (a % 2 == 0)
+		{
+			if (n % 8 == 3 || n % 8 == 5)
+				r = -r;
+			a /= 2;
+		}
+		else
+		{
+			if (a % 4 == 3 && n % 4 == 3)
+				r = -r;
+			std::swap(a, n);
+			a %= n;
+		}
+	}
+}
+
+int64_t factorial(int64_t n)
+{
+	assert(0 <= n && n <= 20); // n=20 is the biggest possible in int64_t
+	int64_t r = 1;
+	for (int64_t i = 2; i <= n; ++i)
+		r *= i;
+	return r;
+}
+
+int64_t binomial(int64_t n, int64_t k)
+{
+	assert(n >= 0 && k >= 0);
+	if (k > n)
+		return 0;
+	if (n - k < k)
+		k = n - k;
+	int64_t r = 1;
+	for (int64_t i = 1; i <= k; ++i)
+	{
+		assert(r <= INT64_MAX / (n + 1 - i));
+		r *= (n + 1 - i);
+		r /= i;
+	}
+	return r;
+}
+
 } // namespace chalk
