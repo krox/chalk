@@ -17,7 +17,7 @@ include_directories(fmt/include)
 file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
 
-foreach(bin "test_primes")
+foreach(bin "test_primes" "test_rings")
 	add_executable(${bin} src/tests/${bin}.cpp)
 	target_link_libraries(${bin} chalk fmt stdc++)
 endforeach(bin)
