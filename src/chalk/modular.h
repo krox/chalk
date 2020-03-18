@@ -2,17 +2,23 @@
 #define CHALK_MODULAR_H
 
 /**
- * Basic modular arithmetic for 64-bit and 128-bit integers.
- *   - overflow safe
- *   - plenty of asserts
+ * Basic modular arithmetic for 64-bit (and some 128-bit) integers.
  */
 
+#include "fmt/format.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 
 namespace chalk {
 
+/**
+ * basic arithmetic operations
+ *   - overflow safe
+ *   - plenty of asserts
+ *   - might be faster than naive expressions
+ *     (turns out a branch is faster than a '%' at times)
+ */
 inline int64_t negmod(int64_t a, int64_t m)
 {
 	assert(m > 0);
@@ -215,6 +221,121 @@ inline __int128_t powmod(__int128_t a, __int128_t b, __int128_t m)
 	return r;
 }
 
+/**
+ * Greatest common divisor and least common multiple.
+ * Sign of a and b is ignored, result is always >= 0.
+ * Convention: gcd(0,x) = gcd(x,0) = abs(x)
+ *             lcm(0,x) = lcm(x,0) = 0
+ */
+int64_t gcd(int64_t a, int64_t b);
+int64_t lcm(int64_t a, int64_t b);
+
+/**
+ * Residual classes [a] = a + mℤ with a,m ∈ ℤ, m > 0
+ *   - is a field iff m is prime
+ *   - might be refactored into general quotient-ring-class
+ */
+class IntMod
+{
+	int64_t a_ = 0, m_ = 0; // m_=0 corresponds to NaN state
+
+  public:
+	/** constructors */
+	IntMod() = default;
+	explicit IntMod(int64_t a, int64_t m) : a_(a), m_(m)
+	{
+		assert(m_ > 0);
+		assert(0 <= a_ && a_ < m_);
+	}
+
+	int64_t a() const { return a_; }
+	int64_t m() const { return m_; }
+
+	static IntMod make(int64_t a, int64_t b)
+	{
+		if (b < 0)
+			b = -b;
+		assert(b != 0);
+		a %= b;
+		if (a < 0)
+			a += b;
+		return IntMod(a, b);
+	}
+};
+
+/** properties of elements */
+inline bool invertible(IntMod a) { return gcd(a.a(), a.m()) == 1; }
+inline bool regular(IntMod a) { return gcd(a.a(), a.m()) == 1; }
+
+/** unary operations */
+inline IntMod operator-(IntMod a)
+{
+	return IntMod(negmod(a.a(), a.m()), a.m());
+}
+inline IntMod inverse(IntMod a) { return IntMod(invmod(a.a(), a.m()), a.m()); }
+
+/** binary operations */
+inline IntMod operator+(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(addmod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod operator-(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(submod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod operator*(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(mulmod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod operator/(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(divmod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod pow(IntMod a, int b)
+{
+	return IntMod(powmod(a.a(), b, a.m()), a.m());
+}
+
+/** binary assigns */
+inline void operator+=(IntMod &a, IntMod b) { a = a + b; }
+inline void operator-=(IntMod &a, IntMod b) { a = a - b; }
+inline void operator*=(IntMod &a, IntMod b) { a = a * b; }
+inline void operator/=(IntMod &a, IntMod b) { a = a / b; }
+
+/** comparisons */
+inline bool operator==(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return a.a() == b.a();
+}
+inline bool operator!=(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return a.a() == b.a();
+}
+inline bool operator==(IntMod a, int b) { return a == IntMod::make(b, a.m()); }
+inline bool operator!=(IntMod a, int b) { return a != IntMod::make(b, a.m()); }
+
 } // namespace chalk
+
+namespace fmt {
+
+template <> struct formatter<chalk::IntMod>
+{
+	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+
+	template <typename FormatContext>
+	auto format(const chalk::IntMod &a, FormatContext &ctx)
+	    -> decltype(ctx.out())
+	{
+		return format_to(ctx.out(), "[{}]", a.a());
+	}
+};
+
+} // namespace fmt
 
 #endif

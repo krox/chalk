@@ -12,15 +12,6 @@
 
 namespace chalk {
 
-/**
- * Greatest common divisor and least common multiple.
- * Sign of a and b is ignored, result is always >= 0.
- * Convention: gcd(0,x) = gcd(x,0) = abs(x)
- *             lcm(0,x) = lcm(x,0) = 0
- */
-int64_t gcd(int64_t a, int64_t b);
-int64_t lcm(int64_t a, int64_t b);
-
 /** Compute all primes up to n (inclusive) */
 std::vector<int64_t> primes(int64_t n);
 

@@ -2,8 +2,8 @@
 #include "fmt/format.h"
 #include "util/random.h"
 #include <cassert>
-
 #include <random>
+
 using namespace chalk;
 using namespace util;
 
@@ -54,6 +54,13 @@ int main()
 			assert(m == n);
 			fmt::print("\n");
 		}
+	}
+
+	{
+		auto a = IntMod(3, 499);
+		assert(a * inverse(a) == 1);
+		assert(pow(a, 499 - 1) == 1);
+		assert(pow(a, (499 - 1) / 2) == -1); // only bc 3 mod 499 is cyclic
 	}
 
 	fmt::print("all done\n");
