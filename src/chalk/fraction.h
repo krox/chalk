@@ -7,10 +7,10 @@
 namespace chalk {
 
 /** helper functions to make Fraction<int64_t> work */
-bool invertible(int64_t a) { return a == 1 || a == -1; }
-bool regular(int64_t a) { return a != 0; }
+bool is_negative(int64_t a) { return a < 0; }
+bool is_invertible(int64_t a) { return a == 1 || a == -1; }
+bool is_regular(int64_t a) { return a != 0; }
 int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
-int64_t regular_factor(int64_t a) { return a == 0 ? 1 : a; }
 // int64_t gcd(int64_t,int64_t); // defined in numtheory
 
 /**
@@ -48,21 +48,21 @@ template <typename R> class Fraction
 };
 
 /** unary operators */
-template <typename R> bool invertible(Fraction<R> const &a)
+template <typename R> bool is_negative(Fraction<R> const &a)
 {
-	return regular(a.num());
+	return is_negative(a.num());
 }
-template <typename R> bool regular(Fraction<R> const &a)
+template <typename R> bool is_invertible(Fraction<R> const &a)
 {
-	return regular(a.num());
+	return is_regular(a.num());
+}
+template <typename R> bool is_regular(Fraction<R> const &a)
+{
+	return is_regular(a.num());
 }
 template <typename R> Fraction<R> invertible_factor(Fraction<R> const &a)
 {
 	return Fraction<R>{regular_factor(a.num()), a.denom()};
-}
-template <typename R> Fraction<R> regular_factor(Fraction<R> const &a)
-{
-	return Fraction<R>{regular_faction(a.num()), a.denom()};
 }
 template <typename R> Fraction<R> operator-(Fraction<R> const &a)
 {
@@ -70,11 +70,11 @@ template <typename R> Fraction<R> operator-(Fraction<R> const &a)
 }
 template <typename R> Fraction<R> inverse(Fraction<R> const &a)
 {
-	assert(regular(a.num()));
+	assert(is_regular(a.num()));
 	return Fraction<R>{a.denom(), a.num()};
 }
 
-/** binary operators */
+/** binary operators (Fraction <-> Fraction) */
 template <typename R>
 Fraction<R> operator+(Fraction<R> const &a, Fraction<R> const &b)
 {
@@ -105,24 +105,39 @@ Fraction<R> operator/(Fraction<R> const &a, Fraction<R> const &b)
 	return Fraction<R>{num, denom};
 }
 
+/** binary operators (Fraction <-> int) */
+template <typename R> Fraction<R> operator+(Fraction<R> const &a, int b)
+{
+	return Fraction<R>{a.num() + b * a.denom(), a.denom()};
+}
+template <typename R> Fraction<R> operator-(Fraction<R> const &a, int b)
+{
+	return Fraction<R>{a.num() - b * a.denom(), a.denom()};
+}
+template <typename R> Fraction<R> operator*(Fraction<R> const &a, int b)
+{
+	return Fraction<R>{a.num() * b, a.denom()};
+}
+template <typename R> Fraction<R> operator/(Fraction<R> const &a, int b)
+{
+	assert(is_regular(b));
+	return Fraction<R>{a.num(), a.denom() * b};
+}
+
 /** binary operators assignments */
-template <typename R>
-void operator+=(Fraction<R> const &a, Fraction<R> const &b)
+template <typename R> void operator+=(Fraction<R> &a, Fraction<R> const &b)
 {
 	a = a + b;
 }
-template <typename R>
-void operator-=(Fraction<R> const &a, Fraction<R> const &b)
+template <typename R> void operator-=(Fraction<R> &a, Fraction<R> const &b)
 {
 	a = a - b;
 }
-template <typename R>
-void operator*=(Fraction<R> const &a, Fraction<R> const &b)
+template <typename R> void operator*=(Fraction<R> &a, Fraction<R> const &b)
 {
 	a = a * b;
 }
-template <typename R>
-void operator/=(Fraction<R> const &a, Fraction<R> const &b)
+template <typename R> void operator/=(Fraction<R> &a, Fraction<R> const &b)
 {
 	a = a / b;
 }
@@ -131,12 +146,23 @@ void operator/=(Fraction<R> const &a, Fraction<R> const &b)
 template <typename R>
 bool operator==(Fraction<R> const &a, Fraction<R> const &b)
 {
+	// return a.num() * b.denom() == a.denom() * b.num();
+
+	// TODO: check for which class for rings R this optimization is true
 	return a.num() == b.num() && a.denom() == b.denom();
 }
 template <typename R>
 bool operator!=(Fraction<R> const &a, Fraction<R> const &b)
 {
 	return a.num() != b.num() || a.denom() != b.denom();
+}
+template <typename R> bool operator==(Fraction<R> const &a, int b)
+{
+	return a.denom() == 1 && a.num() == b;
+}
+template <typename R> bool operator!=(Fraction<R> const &a, int b)
+{
+	return !(a.denom() == 1 && a.num() == b);
 }
 
 } // namespace chalk
