@@ -8,6 +8,12 @@ int main()
 {
 	{
 		using R = Fraction<int64_t>;
+		auto x = Polynomial<R>::generator();
+		assert(fmt::format("{}", (x + 1) * (x - 1)) == "x^2 - 1");
+		assert(fmt::format("{}", (x + 1) * (x + 1)) == "x^2 + 2*x + 1");
+	}
+	{
+		using R = Fraction<int64_t>;
 		assert(fmt::format("{}", R(6, 2)) == "3");
 		assert(fmt::format("{}", inverse(R(6, 2))) == "1/3");
 		assert(fmt::format("{}", R(12, -9)) == "-4/3");

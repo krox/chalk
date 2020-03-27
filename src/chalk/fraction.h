@@ -141,6 +141,14 @@ template <typename R> void operator/=(Fraction<R> &a, Fraction<R> const &b)
 {
 	a = a / b;
 }
+template <typename R> void operator+=(Fraction<R> &a, R const &b) { a = a + b; }
+template <typename R> void operator-=(Fraction<R> &a, R const &b) { a = a - b; }
+template <typename R> void operator*=(Fraction<R> &a, R const &b) { a = a * b; }
+template <typename R> void operator/=(Fraction<R> &a, R const &b) { a = a / b; }
+template <typename R> void operator+=(Fraction<R> &a, int b) { a = a + b; }
+template <typename R> void operator-=(Fraction<R> &a, int b) { a = a - b; }
+template <typename R> void operator*=(Fraction<R> &a, int b) { a = a * b; }
+template <typename R> void operator/=(Fraction<R> &a, int b) { a = a / b; }
 
 /** comparisons */
 template <typename R>
