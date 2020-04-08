@@ -3,6 +3,7 @@
 
 #include "fmt/format.h"
 #include <algorithm>
+#include <cassert>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -31,7 +32,11 @@ inline bool operator<(CovariantAtom const &a, CovariantAtom const &b)
 		return false;
 
 	// descending number of indices
-	return a.indices.size() > b.indices.size();
+	if (a.indices.size() != b.indices.size())
+		return a.indices.size() > b.indices.size();
+
+	// otherwise arbitrary
+	return a.indices < b.indices;
 }
 
 /** product of atoms and a pre-factor */
@@ -39,6 +44,20 @@ template <typename R> struct CovariantTerm
 {
 	R coefficient;
 	std::vector<CovariantAtom> atoms;
+
+	void rename_index(int from, int to)
+	{
+		assert(from != to);
+		int count = 0;
+		for (auto &atom : atoms)
+			for (int &k : atom.indices)
+				if (k == from)
+				{
+					k = to;
+					count += 1;
+				}
+		assert(count == 1 || count == 2);
+	}
 
 	/**
 	 * Brings atoms into partial normal form:
@@ -65,23 +84,52 @@ template <typename R> struct CovariantTerm
 			else if (c == 2)
 				continue;
 			else
-				throw std::runtime_error("inconsistent indices");
+				throw std::runtime_error(
+				    "inconsistent indices in expression (index-count != 1,2)");
 		}
 		std::sort(open.begin(), open.end());
 
-		// renmae inner indices
-		int z = open.empty() ? 1 : open.back() + 1; // first inner index
+		// handle delta
+		for (size_t i = 0; i < atoms.size(); ++i)
+		{
+			auto &a = atoms[i];
+			if (a.symbol != "delta")
+				continue;
 
-		std::map<int, int> trans;
-		for (auto &a : atoms)
-			for (int &k : a.indices)
-			{
-				if (count[k] != 2)
-					continue;
-				if (trans.count(k) == 0)
-					trans[k] = z++;
-				k = trans[k];
-			}
+			if (a.indices.size() != 2)
+				throw std::runtime_error("delta needs exactly two indices");
+			if (a.indices[0] == a.indices[1])
+				throw std::runtime_error(
+				    "'delta_ii' not implemented (unknown dimension)");
+
+			if (count[a.indices[0]] == 2)
+				rename_index(a.indices[0], a.indices[1]);
+			else if (count[a.indices[1]] == 2)
+				rename_index(a.indices[1], a.indices[0]);
+			else
+				continue; // both outer indices -> do nothing
+
+			assert(a.indices[0] == a.indices[1]);
+			std::swap(a, atoms.back());
+			atoms.pop_back();
+			--i;
+		}
+
+		// rename inner indices
+		{
+			int z = open.empty() ? 1 : open.back() + 1; // first inner index
+
+			std::map<int, int> trans;
+			for (auto &a : atoms)
+				for (int &k : a.indices)
+				{
+					if (count[k] != 2)
+						continue;
+					if (trans.count(k) == 0)
+						trans[k] = z++;
+					k = trans[k];
+				}
+		}
 
 		return open;
 	}
@@ -106,18 +154,33 @@ template <typename R> class Covariant
   private:
 	std::vector<Term> terms_;
 	int first_inner_index_ = 1;
+	std::vector<int> open_indices_;
 
 	void cleanup()
 	{
 		if (terms_.size() == 0)
 			return;
 
+		// prune zero-elements
+		// (has to be done early because 0 is allowed to have wrong indices)
+		for (size_t i = 0; i < terms_.size(); ++i)
+			if (terms_[i].coefficient == 0)
+			{
+				std::swap(terms_[i], terms_.back());
+				terms_.pop_back();
+				--i;
+			}
+		if (terms_.size() == 0)
+			return;
+
 		// cleanup individual terms
-		std::vector<int> open = terms_[0].cleanup();
-		first_inner_index_ = open.empty() ? 1 : open.back() + 1;
+		open_indices_ = terms_[0].cleanup();
+		first_inner_index_ =
+		    open_indices_.empty() ? 1 : open_indices_.back() + 1;
 		for (size_t i = 1; i < terms_.size(); ++i)
-			if (open != terms_[i].cleanup())
-				throw std::runtime_error("inconsistent indices");
+			if (open_indices_ != terms_[i].cleanup())
+				throw std::runtime_error(
+				    fmt::format("inconsistent indices in '{}'", *this));
 
 		// sort and collect terms
 		std::sort(terms_.begin(), terms_.end());
@@ -180,8 +243,19 @@ template <typename R> class Covariant
 
 	std::vector<Term> const &terms() const { return terms_; }
 	int first_inner_index() const { return first_inner_index_; }
+	std::vector<int> const &open_indices() const { return open_indices_; }
 };
 
+/** unary operations */
+template <typename R> Covariant<R> inline operator-(Covariant<R> const &a)
+{
+	auto terms = a.terms();
+	for (auto &t : terms)
+		t.coefficient = -t.coefficient;
+	return Covariant<R>(std::move(terms));
+}
+
+/** binary operations (Covariant <-> Covariant) */
 template <typename R>
 Covariant<R> inline operator+(Covariant<R> const &a, Covariant<R> const &b)
 {
@@ -232,6 +306,25 @@ Covariant<R> inline operator*(Covariant<R> const &a, Covariant<R> const &b)
 	return Covariant<R>(std::move(terms));
 }
 
+/** binary operations (Covariant <-> R) */
+template <typename R>
+inline Covariant<R> operator*(Covariant<R> const &a, R const &b)
+{
+	std::vector<CovariantTerm<R>> terms = a.terms();
+	for (auto &t : terms)
+		t.coefficient *= b;
+	return Covariant<R>(std::move(terms));
+}
+template <typename R>
+inline Covariant<R> operator/(Covariant<R> const &a, R const &b)
+{
+	std::vector<CovariantTerm<R>> terms = a.terms();
+	for (auto &t : terms)
+		t.coefficient /= b;
+	return Covariant<R>(std::move(terms));
+}
+
+/** binary operations (Covariant <-> int) */
 template <typename R>
 inline Covariant<R> operator*(Covariant<R> const &a, int b)
 {
@@ -247,6 +340,309 @@ inline Covariant<R> operator/(Covariant<R> const &a, int b)
 	for (auto &t : terms)
 		t.coefficient /= b;
 	return Covariant<R>(std::move(terms));
+}
+
+/** convenience operators */
+template <typename R>
+inline void operator+=(Covariant<R> &a, Covariant<R> const &b)
+{
+	a = a + b;
+}
+template <typename R>
+inline void operator-=(Covariant<R> &a, Covariant<R> const &b)
+{
+	a = a - b;
+}
+template <typename R>
+inline void operator*=(Covariant<R> &a, Covariant<R> const &b)
+{
+	a = a * b;
+}
+template <typename R> inline void operator+=(Covariant<R> &a, R const &b)
+{
+	a = a + b;
+}
+template <typename R> inline void operator-=(Covariant<R> &a, R const &b)
+{
+	a = a - b;
+}
+template <typename R> inline void operator*=(Covariant<R> &a, R const &b)
+{
+	a = a * b;
+}
+template <typename R> inline void operator+=(Covariant<R> &a, int b)
+{
+	a = a + b;
+}
+template <typename R> inline void operator-=(Covariant<R> &a, int b)
+{
+	a = a - b;
+}
+template <typename R> inline void operator*=(Covariant<R> &a, int b)
+{
+	a = a * b;
+}
+template <typename R> inline void operator/=(Covariant<R> &a, int b)
+{
+	a = a / b;
+}
+
+/**
+ * replace open index 'from' to 'to'
+ */
+template <typename R>
+inline Covariant<R> rename_index(Covariant<R> const &a, int from, int to)
+{
+	if (from == to)
+		return a;
+	auto terms = a.terms();
+	for (auto &t : terms)
+	{
+		int found = 0;
+		for (auto &atom : t.atoms)
+			for (int &k : atom.indices)
+			{
+				// get old inner index 'to' out of the way
+				if (k == to)
+					k = 1000000;
+
+				// rename 'from' to 'to'
+				if (k == from)
+				{
+					k = to;
+					++found;
+				}
+			}
+		if (found != 1)
+			throw std::runtime_error(
+			    "tried renaming an index that wasn't there");
+	}
+	return Covariant<R>(std::move(terms));
+}
+
+/**
+ * apply a function to all coefficients
+ */
+template <typename R, typename F>
+inline Covariant<R> map_coefficients(Covariant<R> const &a, F &&f)
+{
+	auto terms = a.terms();
+	for (auto &t : terms)
+		t.coefficient = f(t.coefficient);
+	return Covariant<R>(std::move(terms));
+}
+
+/**
+ * differentiate with index k
+ * lower-case symbols are assumed to be constants
+ * upper-case symbols simply obtain new indices
+ */
+template <typename R> inline Covariant<R> diff(Covariant<R> const &a, int k)
+{
+	std::vector<CovariantTerm<R>> terms;
+	for (auto &t : a.terms())
+		for (size_t i = 0; i < t.atoms.size(); ++i)
+		{
+			if (!std::isupper(t.atoms[i].symbol[0]))
+				continue;
+			terms.push_back(t);
+			terms.back().atoms[i].indices.push_back(k);
+		}
+	return Covariant<R>(std::move(terms));
+}
+
+/**
+ * build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
+ *   - f needs exactly one open index
+ *   - S can have arbitrary open indices (which simply stay that way)
+ */
+template <typename R>
+inline Covariant<R> taylor(Covariant<R> const &S, Covariant<R> const &force,
+                           int degree)
+{
+	// the force should have exactly one open index
+	assert(force.open_indices().size() == 1);
+	int k = force.open_indices()[0];
+
+	Covariant<R> result = Covariant<R>(0);
+	for (int d = 0; d <= degree; ++d)
+	{
+		Covariant<R> term = S;
+		R prefactor = R(1);
+		for (int i = 0; i < d; ++i)
+			term = diff(term, i + 100);
+		for (int i = 0; i < d; ++i)
+		{
+			term *= rename_index(force, k, i + 100);
+			prefactor /= (i + 1);
+		}
+		result += term * prefactor;
+	}
+	return result;
+}
+
+std::vector<std::vector<std::pair<int, int>>> wick_list(int n)
+{
+	assert(n >= 0);
+	std::vector<std::vector<std::pair<int, int>>> result;
+	if (n % 2 != 0)
+		return result;
+
+	if (n == 0)
+	{
+		result.push_back({});
+		return result;
+	}
+
+	for (auto &partial : wick_list(n - 2))
+	{
+		result.push_back(partial);
+		result.back().push_back({n - 2, n - 1});
+		for (int k = 0; k < n / 2 - 1; ++k)
+		{
+			result.push_back(partial);
+			result.back().push_back({n - 2, n - 1});
+			std::swap(result.back().back().first, result.back()[k].first);
+			result.push_back(partial);
+			result.back().push_back({n - 2, n - 1});
+			std::swap(result.back().back().first, result.back()[k].second);
+		}
+	}
+	return result;
+}
+
+template <typename R>
+inline Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
+                                  R const &variance)
+{
+	std::vector<CovariantTerm<R>> result;
+	for (auto const &term : a.terms())
+	{
+		// split term into eta / non-eta
+		std::vector<int> indices;
+		std::vector<CovariantAtom> other;
+		for (auto const &atom : term.atoms)
+		{
+			if (atom.symbol == eta)
+			{
+				assert(atom.indices.size() == 1);
+				indices.push_back(atom.indices[0]);
+			}
+			else
+				other.push_back(atom);
+		}
+		// odd powers vanish
+		if (indices.size() % 2 != 0)
+			continue;
+
+		// otherwise, remainder * wick-contraction terms
+		for (auto &l : wick_list((int)indices.size()))
+		{
+			assert(l.size() == indices.size() / 2);
+			result.push_back({term.coefficient, other});
+			for (size_t i = 0; i < indices.size() / 2; ++i)
+				result.back().coefficient *= variance;
+			for (auto &p : l)
+				result.back().atoms.push_back(
+				    {"delta", {indices[p.first], indices[p.second]}});
+		}
+	}
+	return Covariant<R>(std::move(result));
+}
+
+/** reorder lie-derivative indices */
+template <typename R>
+Covariant<R> simplify_lie_indices(Covariant<R> const &a,
+                                  std::string const &symbol, R const &cA)
+{
+	std::vector<CovariantTerm<R>> terms = a.terms();
+	bool change = false;
+	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
+	{
+		auto &term = terms[term_i];
+		for (size_t atom_i = 0; atom_i < term.atoms.size(); ++atom_i)
+		{
+			auto &atom = term.atoms[atom_i];
+			if (atom.symbol != symbol)
+				continue;
+			std::vector<int> &inds = atom.indices;
+
+			// double-indices commute completey -> move them to the back
+			for (int i = 0; i < (int)inds.size() - 2; ++i)
+				// is double index?
+				if (inds[i] == inds[i + 1])
+					// following is not double index ?
+					if (i + 3 == (int)inds.size() || inds[i + 2] != inds[i + 3])
+					{
+						change = true;
+						std::swap(inds[i], inds[i + 2]);
+					}
+
+			// aba -> baa + cA/2 b
+			for (int i = 0; i < (int)inds.size() - 2; ++i)
+				if (inds[i] == inds[i + 2])
+				{
+					std::swap(inds[i], inds[i + 1]);
+
+					CovariantTerm<R> new_term = term;
+					std::vector<int> &new_inds = new_term.atoms[atom_i].indices;
+					new_inds.erase(new_inds.begin() + i + 2);
+					new_inds.erase(new_inds.begin() + i + 1);
+					new_term.coefficient *= cA / 2;
+					terms.push_back(new_term);
+					change = true;
+				}
+
+			// S(ab)S(ba) = S(ab)S(ab) - cA/2 S(c) S(c)
+			for (size_t atom_i2 = atom_i + 1; atom_i2 < term.atoms.size();
+			     ++atom_i2)
+			{
+				auto &atom2 = term.atoms[atom_i2];
+				std::vector<int> &inds2 = atom2.indices;
+
+				if (inds.size() != 2)
+					continue;
+				if (inds2.size() != 2)
+					continue;
+				if (inds[0] == inds2[1] && inds[1] == inds2[0])
+				{
+					std::swap(inds2[0], inds2[1]);
+					CovariantTerm<R> new_term = term;
+					new_term.atoms[atom_i].indices.pop_back();
+					new_term.atoms[atom_i2].indices.pop_back();
+					new_term.coefficient *= -cA / 2;
+					terms.push_back(new_term);
+					change = true;
+				}
+			}
+		}
+	}
+	if (!change)
+		return a;
+	return simplify_lie_indices(Covariant<R>(std::move(terms)), symbol, cA);
+}
+
+/**
+ *  Write to stdout using multiple lines.
+ *  More readable than fmt::print("{}",a) for large expressions
+ */
+template <typename R> void dump(Covariant<R> const &a)
+{
+	for (auto &t : a.terms())
+	{
+		if (t.atoms.empty())
+			fmt::print("1");
+		for (auto &atom : t.atoms)
+		{
+			fmt::print(" {}", atom.symbol);
+			if (!atom.indices.empty())
+				fmt::print("_");
+			for (int k : atom.indices)
+				fmt::print("{}", k);
+		}
+
+		fmt::print(" : {}\n", t.coefficient);
+	}
 }
 
 } // namespace chalk
@@ -272,7 +668,9 @@ template <typename R> struct fmt::formatter<chalk::Covariant<R>>
 			if (i != 0)
 				it = format_to(it, " + ");
 
-			it = format_to(it, "{}", terms[i].coefficient);
+			// TODO: skip the parens if the coeffs are already atomic
+			// (also skip fully if coeff == 1)
+			it = format_to(it, "({})", terms[i].coefficient);
 			for (auto &atom : terms[i].atoms)
 			{
 				it = format_to(it, "*{}", atom.symbol);

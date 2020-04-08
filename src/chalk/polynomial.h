@@ -266,7 +266,7 @@ template <typename R, size_t rank> class SparsePolynomial
 				terms_[j++] = std::move(terms_[i]);
 			else
 				j++;
-
+			assert(j);
 			if (terms_[j - 1].coefficient == 0)
 				--j;
 		}
@@ -381,6 +381,69 @@ SparsePolynomial<R, rank> operator*(SparsePolynomial<R, rank> const &a,
 	return SparsePolynomial(unify(a.ring(), b.ring()), std::move(terms));
 }
 
+/** comparisons */
+template <typename R, size_t rank>
+bool operator==(SparsePolynomial<R, rank> const &a,
+                SparsePolynomial<R, rank> const &b)
+{
+	unify(a.ring(), b.ring());
+	return a.terms() == b.terms();
+}
+template <typename R, size_t rank>
+bool operator==(SparsePolynomial<R, rank> const &a, int b)
+{
+	if (b == 0)
+		return a.terms().empty();
+	if (a.terms().size() != 1)
+		return false;
+	if (!(a.terms()[0].coefficient == b))
+		return false;
+	for (auto k : a.terms()[0].exponent)
+		if (k != 0)
+			return false;
+	return true;
+}
+
+/** op-assign for convenience */
+template <typename R, size_t rank>
+void operator+=(SparsePolynomial<R, rank> &a,
+                SparsePolynomial<R, rank> const &b)
+{
+	a = a + b;
+}
+template <typename R, size_t rank>
+void operator-=(SparsePolynomial<R, rank> &a,
+                SparsePolynomial<R, rank> const &b)
+{
+	a = a - b;
+}
+template <typename R, size_t rank>
+void operator*=(SparsePolynomial<R, rank> &a,
+                SparsePolynomial<R, rank> const &b)
+{
+	a = a * b;
+}
+template <typename R, size_t rank>
+void operator*=(SparsePolynomial<R, rank> &a, R const &b)
+{
+	a = a * b;
+}
+template <typename R, size_t rank>
+void operator/=(SparsePolynomial<R, rank> &a, R const &b)
+{
+	a = a / b;
+}
+template <typename R, size_t rank>
+void operator*=(SparsePolynomial<R, rank> &a, int b)
+{
+	a = a * b;
+}
+template <typename R, size_t rank>
+void operator/=(SparsePolynomial<R, rank> &a, int b)
+{
+	a = a / b;
+}
+
 /** constant polynomial */
 template <typename R, size_t rank>
 SparsePolynomial<R, rank> PolynomialRing<R, rank>::
@@ -408,6 +471,47 @@ SparsePolynomial<R, rank> PolynomialRing<R, rank>::generator(int k)
 	std::vector<Monomial<R, rank>> terms;
 	terms.push_back({R(1), exp});
 	return SparsePolynomial<R, rank>(this, std::move(terms));
+}
+
+/** remove all odd powers of x_k */
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> remove_odd_powers(SparsePolynomial<R, rank> const &a,
+                                            size_t k)
+{
+	assert(0 <= k && k < rank);
+	auto terms = a.terms();
+	for (auto &t : terms)
+		if (t.exponent[k] % 2)
+			t.coefficient = R(0);
+	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
+}
+
+/** remove all powers above x_k^n */
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> truncate(SparsePolynomial<R, rank> const &a, size_t k,
+                                   int n)
+{
+	assert(0 <= k && k < rank);
+	auto terms = a.terms();
+	for (auto &t : terms)
+		if (t.exponent[k] > n)
+			t.coefficient = R(0);
+	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
+}
+
+/** get coefficient of x_k^n */
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> get_coefficient(SparsePolynomial<R, rank> const &a,
+                                          size_t k, int n)
+{
+	assert(0 <= k && k < rank);
+	auto terms = a.terms();
+	for (auto &t : terms)
+		if (t.exponent[k] == n)
+			t.exponent[k] = 0;
+		else
+			t.coefficient = R(0);
+	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
 }
 
 } // namespace chalk
