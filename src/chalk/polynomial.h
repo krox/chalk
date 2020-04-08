@@ -6,6 +6,7 @@
 #include "util/vector2d.h"
 #include <array>
 #include <cassert>
+#include <climits>
 #include <utility>
 #include <vector>
 
@@ -196,16 +197,26 @@ template <typename R, size_t rank> class SparsePolynomial;
 template <typename R, size_t rank> class PolynomialRing
 {
 	std::array<std::string, rank> varNames_;
+	std::array<int, rank> max_order_;
+	size_t namedVars_ = 0;
 
   public:
 	constexpr PolynomialRing()
 	{
+		namedVars_ = 0;
 		for (size_t i = 0; i < rank; ++i)
+		{
 			varNames_[i] = fmt::format("x_{}", i);
+			max_order_[i] = INT_MAX;
+		}
 	}
 	explicit constexpr PolynomialRing(std::array<std::string, rank> varNames)
 	    : varNames_(std::move(varNames))
-	{}
+	{
+		namedVars_ = rank;
+		for (size_t i = 0; i < rank; ++i)
+			max_order_[i] = INT_MAX;
+	}
 
 	// pointers to the ring are stored inside the polynomial, so moving the
 	// ring is usually bad, therefore we disable copy/move
@@ -214,6 +225,7 @@ template <typename R, size_t rank> class PolynomialRing
 
 	/** names of the variables */
 	auto const &varNames() const { return varNames_; }
+	auto const &max_order() const { return max_order_; }
 
 	/** constant polynomial */
 	SparsePolynomial<R, rank> operator()(R const &value) const;
@@ -221,6 +233,8 @@ template <typename R, size_t rank> class PolynomialRing
 
 	/** generator x_k */
 	SparsePolynomial<R, rank> generator(int k);
+	SparsePolynomial<R, rank> generator(std::string const &varName,
+	                                    int maxOrder = INT_MAX);
 };
 
 template <typename R, size_t rank> struct Monomial
@@ -230,12 +244,20 @@ template <typename R, size_t rank> struct Monomial
 };
 
 template <typename R, size_t rank>
-bool order_lex(Monomial<R, rank> const &a, Monomial<R, rank> const &b)
+bool order_degrevlex(Monomial<R, rank> const &a, Monomial<R, rank> const &b)
 {
+	int totA = 0, totB = 0;
+	for (auto e : a.exponent)
+		totA += e;
+	for (auto e : b.exponent)
+		totB += e;
+	if (totA != totB)
+		return totA > totB;
+
 	for (size_t i = 0; i < rank; ++i)
-		if (a.exponent[i] > b.exponent[i])
+		if (a.exponent[i] < b.exponent[i])
 			return true;
-		else if (a.exponent[i] < b.exponent[i])
+		else if (a.exponent[i] > b.exponent[i])
 			return false;
 	return false;
 }
@@ -256,31 +278,53 @@ template <typename R, size_t rank> class SparsePolynomial
 	/** sort terms and collect common terms */
 	void cleanup()
 	{
-		std::sort(terms_.begin(), terms_.end(), order_lex<R, rank>);
+		std::sort(terms_.begin(), terms_.end(), order_degrevlex<R, rank>);
 		size_t j = 0;
 		for (size_t i = 0; i < terms_.size(); ++i)
 		{
+			// effectively remove terms of too-high order
+			for (size_t k = 0; k < rank; ++k)
+				if (terms_[i].exponent[k] > ring_->max_order()[k])
+					goto next_term;
+
+			// if exponent == previous exponent -> join
 			if (j != 0 && terms_[j - 1].exponent == terms_[i].exponent)
 				terms_[j - 1].coefficient += terms_[i].coefficient;
+
+			// else new term
 			else if (i != j)
 				terms_[j++] = std::move(terms_[i]);
 			else
 				j++;
+
+			// if coeff = 0 -> remove term
 			assert(j);
 			if (terms_[j - 1].coefficient == 0)
 				--j;
+
+		next_term:;
 		}
 		terms_.resize(j);
 	}
 
   public:
+	/** zero polynomial */
 	SparsePolynomial() = default;
+	explicit SparsePolynomial(PolynomialRing<R, rank> const *r) : ring_(r) {}
+
+	/** constant polynomial */
 	explicit SparsePolynomial(int value) : terms_{{R(value), {}}} { cleanup(); }
 	explicit SparsePolynomial(R const &value) : terms_{{value, {}}}
 	{
 		cleanup();
 	};
-	explicit SparsePolynomial(PolynomialRing<R, rank> const *r) : ring_(r) {}
+
+	/** monomial */
+	explicit SparsePolynomial(std::array<int, rank> const &exponent)
+	    : terms_{{R(1), exponent}}
+	{}
+
+	/** general constructor */
 	explicit SparsePolynomial(PolynomialRing<R, rank> const *r,
 	                          std::vector<Monomial<R, rank>> ts)
 	    : ring_(r), terms_(std::move(ts))
@@ -291,6 +335,18 @@ template <typename R, size_t rank> class SparsePolynomial
 	/** (read-only) access to the ring and the terms */
 	PolynomialRing<R, rank> const *ring() const { return ring_; }
 	std::vector<Monomial<R, rank>> const &terms() const { return terms_; }
+
+	/** lead coefficient and exponent */
+	R const &lc() const
+	{
+		assert(!terms_.empty());
+		return terms_[0].coefficient;
+	}
+	std::array<int, rank> const &le() const
+	{
+		assert(!terms_.empty());
+		return terms_[0].exponent;
+	}
 };
 
 /** helper function to determine ring of result of binary operations */
@@ -329,6 +385,28 @@ SparsePolynomial<R, rank> operator*(SparsePolynomial<R, rank> const &a, int b)
 }
 template <typename R, size_t rank>
 SparsePolynomial<R, rank> operator/(SparsePolynomial<R, rank> const &a, int b)
+{
+	std::vector<Monomial<R, rank>> terms;
+	terms.reserve(a.terms().size());
+	for (auto &t : a.terms())
+		terms.push_back({t.coefficient / b, t.exponent});
+	return SparsePolynomial(a.ring(), std::move(terms));
+}
+
+/** binary operations (Poly <-> R) */
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> operator*(SparsePolynomial<R, rank> const &a,
+                                    R const &b)
+{
+	std::vector<Monomial<R, rank>> terms;
+	terms.reserve(a.terms().size());
+	for (auto &t : a.terms())
+		terms.push_back({t.coefficient * b, t.exponent});
+	return SparsePolynomial(a.ring(), std::move(terms));
+}
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> operator/(SparsePolynomial<R, rank> const &a,
+                                    R const &b)
 {
 	std::vector<Monomial<R, rank>> terms;
 	terms.reserve(a.terms().size());
@@ -471,6 +549,23 @@ SparsePolynomial<R, rank> PolynomialRing<R, rank>::generator(int k)
 	std::vector<Monomial<R, rank>> terms;
 	terms.push_back({R(1), exp});
 	return SparsePolynomial<R, rank>(this, std::move(terms));
+}
+template <typename R, size_t rank>
+SparsePolynomial<R, rank>
+PolynomialRing<R, rank>::generator(std::string const &varName, int max_order)
+{
+	assert(max_order >= 0);
+	for (size_t i = 0; i < namedVars_; ++i)
+		if (varNames_[i] == varName)
+		{
+			assert(max_order_[i] == max_order);
+			return generator(i);
+		}
+	if (namedVars_ >= rank)
+		throw std::runtime_error("too many generators in polynomial ring");
+	varNames_[namedVars_] = varName;
+	max_order_[namedVars_] = max_order;
+	return generator(namedVars_++);
 }
 
 /** remove all odd powers of x_k */
