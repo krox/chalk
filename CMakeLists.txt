@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 add_subdirectory(util)
 add_subdirectory(fmt)
+add_subdirectory(abseil-cpp)
 
 include_directories(src)
 include_directories(util/src)
@@ -19,5 +20,5 @@ add_library(chalk STATIC ${files_cpp})
 
 foreach(bin "test_primes" "test_rings" "test_covariant")
 	add_executable(${bin} src/tests/${bin}.cpp)
-	target_link_libraries(${bin} chalk fmt stdc++)
+	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector)
 endforeach(bin)

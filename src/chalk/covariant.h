@@ -1,6 +1,8 @@
 #ifndef CHALK_COVARIANT
 #define CHALK_COVARIANT
 
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/inlined_vector.h"
 #include "fmt/format.h"
 #include <algorithm>
 #include <cassert>
@@ -15,7 +17,7 @@ namespace chalk {
 struct CovariantAtom
 {
 	std::string symbol;
-	std::vector<int> indices; // first internal, then derivatives
+	absl::InlinedVector<int, 4> indices; // first internal, then derivatives
 };
 
 inline bool operator==(CovariantAtom const &a, CovariantAtom const &b)
@@ -72,7 +74,7 @@ template <typename R> struct CovariantTerm
 		std::sort(atoms.begin(), atoms.end());
 
 		// count occurences of indices (should be 1 or 2)
-		std::map<int, int> count;
+		absl::flat_hash_map<int, int> count;
 		for (auto &a : atoms)
 			for (int k : a.indices)
 				count[k] += 1;
@@ -119,7 +121,7 @@ template <typename R> struct CovariantTerm
 		{
 			int z = open.empty() ? 1 : open.back() + 1; // first inner index
 
-			std::map<int, int> trans;
+			absl::flat_hash_map<int, int> trans;
 			for (auto &a : atoms)
 				for (int &k : a.indices)
 				{
@@ -565,7 +567,7 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 			auto &atom = term.atoms[atom_i];
 			if (atom.symbol != symbol)
 				continue;
-			std::vector<int> &inds = atom.indices;
+			auto &inds = atom.indices;
 
 			// double-indices commute completey -> move them to the back
 			for (int i = 0; i < (int)inds.size() - 2; ++i)
@@ -585,7 +587,7 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 					std::swap(inds[i], inds[i + 1]);
 
 					CovariantTerm<R> new_term = term;
-					std::vector<int> &new_inds = new_term.atoms[atom_i].indices;
+					auto &new_inds = new_term.atoms[atom_i].indices;
 					new_inds.erase(new_inds.begin() + i + 2);
 					new_inds.erase(new_inds.begin() + i + 1);
 					new_term.coefficient *= cA / 2;
@@ -598,7 +600,7 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 			     ++atom_i2)
 			{
 				auto &atom2 = term.atoms[atom_i2];
-				std::vector<int> &inds2 = atom2.indices;
+				auto &inds2 = atom2.indices;
 
 				if (inds.size() != 2)
 					continue;

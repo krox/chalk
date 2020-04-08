@@ -4,3 +4,6 @@
 [submodule "fmt"]
 	path = fmt
 	url = git@github.com:fmtlib/fmt.git
+[submodule "abseil-cpp"]
+	path = abseil-cpp
+	url = git@github.com:abseil/abseil-cpp
