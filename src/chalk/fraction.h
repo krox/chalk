@@ -99,7 +99,7 @@ Fraction<R> operator*(Fraction<R> const &a, Fraction<R> const &b)
 template <typename R>
 Fraction<R> operator/(Fraction<R> const &a, Fraction<R> const &b)
 {
-	assert(regular(b.num()));
+	assert(is_regular(b.num()));
 	R num = a.num() * b.denom();
 	R denom = a.denom() * b.num();
 	return Fraction<R>{num, denom};
