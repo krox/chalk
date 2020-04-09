@@ -569,15 +569,15 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 				continue;
 			auto &inds = atom.indices;
 
-			// double-indices commute completey -> move them to the back
-			for (int i = 0; i < (int)inds.size() - 2; ++i)
+			// double-indices commute completey -> move them to the front
+			for (int i = 1; i < (int)inds.size() - 1; ++i)
 				// is double index?
 				if (inds[i] == inds[i + 1])
-					// following is not double index ?
-					if (i + 3 == (int)inds.size() || inds[i + 2] != inds[i + 3])
+					// preceding is not double index ?
+					if (i == 1 || inds[i - 1] != inds[i - 2])
 					{
 						change = true;
-						std::swap(inds[i], inds[i + 2]);
+						std::swap(inds[i + 1], inds[i - 1]);
 					}
 
 			// aba -> baa + cA/2 b
@@ -591,31 +591,51 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 					new_inds.erase(new_inds.begin() + i + 2);
 					new_inds.erase(new_inds.begin() + i + 1);
 					new_term.coefficient *= cA / 2;
-					terms.push_back(new_term);
+					terms.push_back(std::move(new_term));
 					change = true;
 				}
 
-			// S(ab)S(ba) = S(ab)S(ab) - cA/2 S(c) S(c)
+			// abcab -> aabcb + cA bcb
+			for (int i = 0; i < (int)inds.size() - 4; ++i)
+				if (inds[i] == inds[i + 3] && inds[i + 1] == inds[i + 4])
+				{
+					inds[i + 3] = inds[i + 2];
+					inds[i + 2] = inds[i + 4];
+					inds[i + 1] = inds[i];
+					assert(inds[i] == inds[i + 1] &&
+					       inds[i + 2] == inds[i + 4]);
+
+					CovariantTerm<R> new_term = term;
+					auto &new_inds = new_term.atoms[atom_i].indices;
+					new_inds.erase(new_inds.begin() + i + 1);
+					new_inds.erase(new_inds.begin() + i);
+					new_term.coefficient *= cA;
+					terms.push_back(std::move(new_term));
+					change = true;
+				}
+
+			// S(..ab..)S(..ba..) = S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
 			for (size_t atom_i2 = atom_i + 1; atom_i2 < term.atoms.size();
 			     ++atom_i2)
 			{
 				auto &atom2 = term.atoms[atom_i2];
+				if (atom2.symbol != symbol)
+					continue;
 				auto &inds2 = atom2.indices;
 
-				if (inds.size() != 2)
-					continue;
-				if (inds2.size() != 2)
-					continue;
-				if (inds[0] == inds2[1] && inds[1] == inds2[0])
-				{
-					std::swap(inds2[0], inds2[1]);
-					CovariantTerm<R> new_term = term;
-					new_term.atoms[atom_i].indices.pop_back();
-					new_term.atoms[atom_i2].indices.pop_back();
-					new_term.coefficient *= -cA / 2;
-					terms.push_back(new_term);
-					change = true;
-				}
+				for (int i = 0; i < (int)inds.size() - 1; ++i)
+					for (int i2 = 0; i2 < (int)inds2.size() - 1; ++i2)
+						if (inds[i] == inds2[i2 + 1] &&
+						    inds[i + 1] == inds2[i2])
+						{
+							std::swap(inds2[i2], inds2[i2 + 1]);
+							CovariantTerm<R> new_term = term;
+							new_term.atoms[atom_i].indices.erase(
+							    new_term.atoms[atom_i].indices.begin() + i);
+							new_term.atoms[atom_i2].indices.erase(
+							    new_term.atoms[atom_i2].indices.begin() + i2);
+							new_term.coefficient *= -cA / 2;
+						}
 			}
 		}
 	}
@@ -644,6 +664,25 @@ template <typename R> void dump(Covariant<R> const &a)
 		}
 
 		fmt::print(" : {}\n", t.coefficient);
+	}
+}
+template <typename R> void dump_summary(Covariant<R> const &a)
+{
+	for (auto &t : a.terms())
+	{
+		if (t.atoms.empty())
+			fmt::print("1");
+		for (auto &atom : t.atoms)
+		{
+			fmt::print(" {}", atom.symbol);
+			if (!atom.indices.empty())
+				fmt::print("_");
+			for (int k : atom.indices)
+				fmt::print("{}", k);
+		}
+
+		fmt::print(" : ... polynomial with {} terms ...\n",
+		           t.coefficient.terms().size());
 	}
 }
 
