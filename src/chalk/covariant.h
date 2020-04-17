@@ -58,6 +58,8 @@ template <typename R> struct CovariantTerm
 					k = to;
 					count += 1;
 				}
+				else if (k == to)
+					count += 1;
 		assert(count == 1 || count == 2);
 	}
 
@@ -103,18 +105,19 @@ template <typename R> struct CovariantTerm
 			if (a.indices[0] == a.indices[1])
 				throw std::runtime_error(
 				    "'delta_ii' not implemented (unknown dimension)");
+			auto ind1 = a.indices[0];
+			auto ind2 = a.indices[1];
 
-			if (count[a.indices[0]] == 2)
-				rename_index(a.indices[0], a.indices[1]);
-			else if (count[a.indices[1]] == 2)
-				rename_index(a.indices[1], a.indices[0]);
-			else
-				continue; // both outer indices -> do nothing
+			if (count[ind1] == 1)
+				std::swap(ind1, ind2);
+			if (count[ind2] != 2)
+				continue;
 
-			assert(a.indices[0] == a.indices[1]);
 			std::swap(a, atoms.back());
 			atoms.pop_back();
 			--i;
+
+			rename_index(ind1, ind2);
 		}
 
 		// rename inner indices
@@ -552,7 +555,41 @@ inline Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
 	return Covariant<R>(std::move(result));
 }
 
-/** reorder lie-derivative indices */
+/** reorder indices assuming complete symmetry */
+template <typename R>
+Covariant<R> simplify_commutative_indices(Covariant<R> const &a,
+                                          std::string const &symbol)
+{
+	std::vector<CovariantTerm<R>> terms = a.terms();
+	for (auto &term : terms)
+		for (auto &atom : term.atoms)
+			if (atom.symbol == symbol)
+				std::sort(atom.indices.begin(), atom.indices.end());
+	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
+	{
+		auto &term = terms[term_i];
+		for (size_t atom_i = 0; atom_i < term.atoms.size(); ++atom_i)
+		{
+			auto &atom = term.atoms[atom_i];
+			if (atom.symbol != symbol)
+				continue;
+			auto &inds = atom.indices;
+
+			// double-indices commute completey -> move them to the front
+			for (int i = 1; i < (int)inds.size() - 1; ++i)
+				// is double index?
+				if (inds[i] == inds[i + 1])
+					// preceding is not double index ?
+					if (i == 1 || inds[i - 1] != inds[i - 2])
+					{
+						std::swap(inds[i + 1], inds[i - 1]);
+					}
+		}
+	}
+	return Covariant<R>(std::move(terms));
+}
+
+/** reorder lie-derivative indices using relations with the casimir operator */
 template <typename R>
 Covariant<R> simplify_lie_indices(Covariant<R> const &a,
                                   std::string const &symbol, R const &cA)
@@ -593,6 +630,7 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 					new_term.coefficient *= cA / 2;
 					terms.push_back(std::move(new_term));
 					change = true;
+					goto next_term;
 				}
 
 			// abcab -> aabcb + cA bcb
@@ -612,6 +650,7 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 					new_term.coefficient *= cA;
 					terms.push_back(std::move(new_term));
 					change = true;
+					goto next_term;
 				}
 
 			// S(..ab..)S(..ba..) = S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
@@ -635,9 +674,13 @@ Covariant<R> simplify_lie_indices(Covariant<R> const &a,
 							new_term.atoms[atom_i2].indices.erase(
 							    new_term.atoms[atom_i2].indices.begin() + i2);
 							new_term.coefficient *= -cA / 2;
+							terms.push_back(std::move(new_term));
+							change = true;
+							goto next_term;
 						}
 			}
 		}
+	next_term:;
 	}
 	if (!change)
 		return a;
