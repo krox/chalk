@@ -10,6 +10,9 @@
 #include <utility>
 #include <vector>
 
+/** helpers to make Polynomial<double> work */
+inline bool is_negative(double x) { return x < 0; }
+
 namespace chalk {
 
 /**
@@ -22,7 +25,7 @@ template <typename R> class Polynomial
 
 	void cleanup()
 	{
-		while (!coefficients_.empty() && coefficients_.back() == 0)
+		while (!coefficients_.empty() && coefficients_.back() == R(0))
 			coefficients_.pop_back();
 	}
 
@@ -58,6 +61,19 @@ template <typename R> class Polynomial
 		for (int i = degree(); i >= 0; --i)
 			y = y * x + coefficients_[i];
 		return y;
+	}
+
+	void operator*=(R const &b)
+	{
+		for (auto &a : coefficients_)
+			a *= b;
+		cleanup();
+	}
+	void operator/=(R const &b)
+	{
+		for (auto &a : coefficients_)
+			a /= b;
+		cleanup();
 	}
 };
 
