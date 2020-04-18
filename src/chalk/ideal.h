@@ -3,9 +3,27 @@
 
 /** ideals in multivariate polynomial rings */
 
-#include "chalk/polynomial.h"
+#include "chalk/sparse_polynomial.h"
 
 namespace chalk {
+
+/** reduce f using g */
+template <typename R, size_t rank>
+bool reduce(SparsePolynomial<R, rank> &f, SparsePolynomial<R, rank> const &g)
+{
+	if (g.terms().empty())
+		return false;
+	assert(f.ring() == g.ring()); // need consistent term-order
+	bool change = false;
+	for (size_t i = 0; i < f.terms().size(); ++i)
+		if (auto d = f.terms()[i] / g.terms()[0])
+		{
+			f -= g * d.value();
+			--i;
+			change = true;
+		}
+	return change;
+}
 
 template <typename R, size_t rank> class Ideal
 {
@@ -15,27 +33,6 @@ template <typename R, size_t rank> class Ideal
 
   private:
 	std::vector<polynomial_t> basis_;
-
-	static bool divides(std::array<int, rank> const &a,
-	                    std::array<int, rank> const &b)
-	{
-		for (size_t i = 0; i < rank; ++i)
-			if (a[i] > b[i])
-				return false;
-		return true;
-	}
-
-	static std::array<int, rank> divide(std::array<int, rank> const &a,
-	                                    std::array<int, rank> const &b)
-	{
-		std::array<int, rank> c;
-		for (size_t i = 0; i < rank; ++i)
-		{
-			assert(a[i] <= b[i]);
-			c[i] = b[i] - a[i];
-		}
-		return c;
-	}
 
 	void cleanup()
 	{
@@ -50,24 +47,8 @@ template <typename R, size_t rank> class Ideal
 					continue;
 				basis_[i] /= basis_[i].terms()[0].coefficient;
 				for (size_t j = 0; j < basis_.size(); ++j)
-				{
-					if (i == j)
-						continue;
-
-					for (auto &t : basis_[j].terms())
-						if (divides(basis_[i].terms()[0].exponent, t.exponent))
-						{
-							auto tmp = basis_[i] * polynomial_t(t.coefficient);
-							basis_[j] -=
-							    basis_[i] * polynomial_t(t.coefficient) *
-							    polynomial_t(divide(
-							        basis_[i].terms()[0].exponent, t.exponent));
-							change = true;
-
-							// 't' is dangling now, so get out asap
-							break;
-						}
-				}
+					if (j != i)
+						change |= reduce(basis_[j], basis_[i]);
 			}
 		} while (change == true);
 
@@ -76,6 +57,11 @@ template <typename R, size_t rank> class Ideal
 		    std::remove_if(basis_.begin(), basis_.end(),
 		                   [](polynomial_t const &poly) { return poly == 0; }),
 		    basis_.end());
+
+		// sort by leading term
+		std::sort(basis_.begin(), basis_.end(), [](auto &a, auto &b) {
+			return order_degrevlex(b.terms()[0], a.terms()[0]);
+		});
 	}
 
   public:

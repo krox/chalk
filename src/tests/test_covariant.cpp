@@ -1,7 +1,7 @@
 #include "chalk/covariant.h"
 #include "chalk/fraction.h"
 #include "chalk/ideal.h"
-#include "chalk/polynomial.h"
+#include "chalk/sparse_polynomial.h"
 #include <cassert>
 #include <fmt/format.h>
 using namespace chalk;
@@ -97,6 +97,17 @@ int main()
 	}
 
 	auto ideal = Ideal(cond_list);
-	fmt::print("\n");
+	fmt::print("\n(general form)\n");
 	dump(ideal);
+
+	fmt::print("\n(bf / trapezoid)\n");
+	cond_list.push_back(k2 - 1);
+	auto ideal2 = Ideal(cond_list);
+	cond_list.pop_back();
+	dump(ideal2);
+
+	fmt::print("\n(torrero / minimal step)\n");
+	cond_list.push_back(k3);
+	auto ideal3 = Ideal(cond_list);
+	dump(ideal3);
 }
