@@ -48,7 +48,7 @@ bool order_degrevlex(Monomial<R, rank> const &a, Monomial<R, rank> const &b)
 	if (totA != totB)
 		return totA > totB;
 
-	for (size_t i = 0; i < rank; ++i)
+	for (int i = (int)rank - 1; i >= 0; --i)
 		if (a.exponent[i] < b.exponent[i])
 			return true;
 		else if (a.exponent[i] > b.exponent[i])
