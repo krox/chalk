@@ -98,16 +98,19 @@ int main()
 
 	auto ideal = Ideal(cond_list);
 	fmt::print("\n(general form)\n");
+	ideal.groebner();
 	dump(ideal);
 
 	fmt::print("\n(bf / trapezoid)\n");
 	cond_list.push_back(k2 - 1);
 	auto ideal2 = Ideal(cond_list);
 	cond_list.pop_back();
+	ideal2.groebner();
 	dump(ideal2);
 
 	fmt::print("\n(torrero / minimal step)\n");
 	cond_list.push_back(k3);
 	auto ideal3 = Ideal(cond_list);
+	ideal3.groebner();
 	dump(ideal3);
 }
