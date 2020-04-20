@@ -589,102 +589,144 @@ Covariant<R> simplify_commutative_indices(Covariant<R> const &a,
 	return Covariant<R>(std::move(terms));
 }
 
+// "private" building-blocks for Lie-simplification
+namespace {
+
+/** moves double-indices to the front */
+inline void move_double_indices(CovariantAtom &atom)
+{
+	auto &inds = atom.indices;
+	while (true)
+	{
+		bool change = false;
+		for (int i = 1; i < (int)inds.size() - 1; ++i)
+			// is double index?
+			if (inds[i] == inds[i + 1])
+				// preceding is not double index ?
+				if (i == 1 || inds[i - 1] != inds[i - 2])
+				{
+					std::swap(inds[i + 1], inds[i - 1]);
+					change = true;
+				}
+		if (!change)
+			break;
+	}
+}
+
+/**
+ * modifies term inplace, returns new extra term if one was generated
+ * (needs to be repeated in that case)
+ */
+template <typename R>
+std::optional<CovariantTerm<R>>
+simplify_lie_term_sandwich(CovariantTerm<R> &term, std::string const &symbol,
+                           R const &cA)
+{
+	for (size_t atom_i = 0; atom_i < term.atoms.size(); ++atom_i)
+	{
+		auto &atom = term.atoms[atom_i];
+		if (atom.symbol != symbol)
+			continue;
+		auto &inds = atom.indices;
+
+		// aba -> baa + cA/2 b
+		for (int i = 0; i < (int)inds.size() - 2; ++i)
+			if (inds[i] == inds[i + 2])
+			{
+				std::swap(inds[i], inds[i + 1]);
+
+				CovariantTerm<R> new_term = term;
+				auto &new_inds = new_term.atoms[atom_i].indices;
+				new_inds.erase(new_inds.begin() + i + 2);
+				new_inds.erase(new_inds.begin() + i + 1);
+				new_term.coefficient *= cA / 2;
+				return new_term;
+			}
+
+		// abcab -> aabcb + cA bcb
+		for (int i = 0; i < (int)inds.size() - 4; ++i)
+			if (inds[i] == inds[i + 3] && inds[i + 1] == inds[i + 4])
+			{
+				inds[i + 3] = inds[i + 2];
+				inds[i + 2] = inds[i + 4];
+				inds[i + 1] = inds[i];
+				assert(inds[i] == inds[i + 1] && inds[i + 2] == inds[i + 4]);
+
+				CovariantTerm<R> new_term = term;
+				auto &new_inds = new_term.atoms[atom_i].indices;
+				new_inds.erase(new_inds.begin() + i + 1);
+				new_inds.erase(new_inds.begin() + i);
+				new_term.coefficient *= cA;
+				return new_term;
+			}
+	}
+	return std::nullopt;
+}
+
+template <typename R>
+std::optional<CovariantTerm<R>>
+simplify_lie_term_order(CovariantTerm<R> &term, std::string const &symbol,
+                        R const &cA)
+{
+	// S(..ab..)S(..ba..) = S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
+	for (size_t ai = 0; ai < term.atoms.size(); ++ai)
+		for (size_t ai2 = ai + 1; ai2 < term.atoms.size(); ++ai2)
+		{
+			if (term.atoms[ai].symbol != symbol ||
+			    term.atoms[ai2].symbol != symbol)
+				continue;
+
+			auto &inds = term.atoms[ai].indices;
+			auto &inds2 = term.atoms[ai2].indices;
+
+			for (int i = 0; i < (int)inds.size() - 1; ++i)
+				for (int i2 = 0; i2 < (int)inds2.size() - 1; ++i2)
+					if (inds[i] == inds2[i2 + 1] && inds[i + 1] == inds2[i2])
+					{
+						std::swap(inds2[i2], inds2[i2 + 1]);
+						CovariantTerm<R> new_term = term;
+						new_term.atoms[ai].indices.erase(
+						    new_term.atoms[ai].indices.begin() + i);
+						new_term.atoms[ai2].indices.erase(
+						    new_term.atoms[ai2].indices.begin() + i2);
+						new_term.coefficient *= -cA / 2;
+						return new_term;
+					}
+		}
+	return std::nullopt;
+}
+} // namespace
+
 /** reorder lie-derivative indices using relations with the casimir operator */
 template <typename R>
-Covariant<R> simplify_lie_indices(Covariant<R> const &a,
-                                  std::string const &symbol, R const &cA)
+Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
+                          R const &cA)
 {
 	std::vector<CovariantTerm<R>> terms = a.terms();
-	bool change = false;
 	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
 	{
-		auto &term = terms[term_i];
-		for (size_t atom_i = 0; atom_i < term.atoms.size(); ++atom_i)
+		while (true)
 		{
-			auto &atom = term.atoms[atom_i];
-			if (atom.symbol != symbol)
-				continue;
-			auto &inds = atom.indices;
+			auto &term = terms[term_i];
+			for (auto &atom : term.atoms)
+				if (atom.symbol == symbol)
+					move_double_indices(atom);
 
-			// double-indices commute completey -> move them to the front
-			for (int i = 1; i < (int)inds.size() - 1; ++i)
-				// is double index?
-				if (inds[i] == inds[i + 1])
-					// preceding is not double index ?
-					if (i == 1 || inds[i - 1] != inds[i - 2])
-					{
-						change = true;
-						std::swap(inds[i + 1], inds[i - 1]);
-					}
+			auto new_term = simplify_lie_term_sandwich(term, symbol, cA);
+			if (!new_term)
+				new_term = simplify_lie_term_order(term, symbol, cA);
 
-			// aba -> baa + cA/2 b
-			for (int i = 0; i < (int)inds.size() - 2; ++i)
-				if (inds[i] == inds[i + 2])
-				{
-					std::swap(inds[i], inds[i + 1]);
-
-					CovariantTerm<R> new_term = term;
-					auto &new_inds = new_term.atoms[atom_i].indices;
-					new_inds.erase(new_inds.begin() + i + 2);
-					new_inds.erase(new_inds.begin() + i + 1);
-					new_term.coefficient *= cA / 2;
-					terms.push_back(std::move(new_term));
-					change = true;
-					goto next_term;
-				}
-
-			// abcab -> aabcb + cA bcb
-			for (int i = 0; i < (int)inds.size() - 4; ++i)
-				if (inds[i] == inds[i + 3] && inds[i + 1] == inds[i + 4])
-				{
-					inds[i + 3] = inds[i + 2];
-					inds[i + 2] = inds[i + 4];
-					inds[i + 1] = inds[i];
-					assert(inds[i] == inds[i + 1] &&
-					       inds[i + 2] == inds[i + 4]);
-
-					CovariantTerm<R> new_term = term;
-					auto &new_inds = new_term.atoms[atom_i].indices;
-					new_inds.erase(new_inds.begin() + i + 1);
-					new_inds.erase(new_inds.begin() + i);
-					new_term.coefficient *= cA;
-					terms.push_back(std::move(new_term));
-					change = true;
-					goto next_term;
-				}
-
-			// S(..ab..)S(..ba..) = S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
-			for (size_t atom_i2 = atom_i + 1; atom_i2 < term.atoms.size();
-			     ++atom_i2)
+			if (new_term)
 			{
-				auto &atom2 = term.atoms[atom_i2];
-				if (atom2.symbol != symbol)
-					continue;
-				auto &inds2 = atom2.indices;
-
-				for (int i = 0; i < (int)inds.size() - 1; ++i)
-					for (int i2 = 0; i2 < (int)inds2.size() - 1; ++i2)
-						if (inds[i] == inds2[i2 + 1] &&
-						    inds[i + 1] == inds2[i2])
-						{
-							std::swap(inds2[i2], inds2[i2 + 1]);
-							CovariantTerm<R> new_term = term;
-							new_term.atoms[atom_i].indices.erase(
-							    new_term.atoms[atom_i].indices.begin() + i);
-							new_term.atoms[atom_i2].indices.erase(
-							    new_term.atoms[atom_i2].indices.begin() + i2);
-							new_term.coefficient *= -cA / 2;
-							terms.push_back(std::move(new_term));
-							change = true;
-							goto next_term;
-						}
+				// NOTE: this potentially makes 'term' a dangling reference!
+				terms.push_back(std::move(new_term.value()));
 			}
+			else
+				break;
 		}
-	next_term:;
 	}
-	if (!change)
-		return a;
-	return simplify_lie_indices(Covariant<R>(std::move(terms)), symbol, cA);
+
+	return Covariant<R>(std::move(terms));
 }
 
 /**

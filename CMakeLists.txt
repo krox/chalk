@@ -22,3 +22,8 @@ foreach(bin "test_primes" "test_rings" "test_covariant" "test_numerics")
 	add_executable(${bin} src/tests/${bin}.cpp)
 	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector)
 endforeach(bin)
+
+foreach(bin "langevin_scheme")
+	add_executable(${bin} src/apps/${bin}.cpp)
+	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector)
+endforeach(bin)

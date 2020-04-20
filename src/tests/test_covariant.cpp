@@ -83,7 +83,7 @@ int main()
 			}
 			cond += tmp;
 		}
-		cond = simplify_lie_indices(cond, "S", cA);
+		cond = simplify_lie(cond, "S", cA);
 
 		for (int k = 0; k <= 1; ++k)
 		{
