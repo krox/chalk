@@ -58,6 +58,34 @@ std::vector<std::complex<double>> roots(Polynomial<std::complex<double>> poly)
 
 std::vector<double> roots(Polynomial<double> const &poly)
 {
+	// analytical formulas for low degrees:
+	if (poly.degree() == -1)
+		throw std::runtime_error("cant factorize zero-polynomial");
+	if (poly.degree() == 1)
+		return {-poly[0] / poly[1]};
+	if (poly.degree() == 2)
+	{
+		auto p = poly[1] / poly[2];
+		auto q = poly[0] / poly[2];
+		auto d = 0.25 * p * p - q;
+		if (d < 0)
+			return {};
+		d = std::sqrt(d);
+
+		// solutions are now -p/2 +- d. But it is numerically more precise to
+		// determine only one root this way, and the other by Vieta lemma
+		if (p > 0)
+		{
+			auto x = -0.5 * p - d;
+			return {x, q / x};
+		}
+		else
+		{
+			auto x = -0.5 * p + d;
+			return {q / x, x};
+		}
+	}
+
 	std::vector<std::complex<double>> coeffs;
 	coeffs.reserve(poly.degree() + 1);
 	for (auto &c : poly.coefficients())

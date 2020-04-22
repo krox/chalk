@@ -584,51 +584,6 @@ SparsePolynomial<R, rank> get_coefficient(SparsePolynomial<R, rank> const &a,
 
 } // namespace chalk
 
-template <typename R> struct fmt::formatter<chalk::Polynomial<R>>
-{
-	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
-
-	template <typename FormatContext>
-	auto format(const chalk::Polynomial<R> &poly, FormatContext &ctx)
-	    -> decltype(ctx.out())
-	{
-		// no terms -> output "0"
-		if (poly.coefficients().empty())
-			return format_to(ctx.out(), "0");
-
-		// otherwise list the terms with " + " inbetween
-		auto it = ctx.out();
-		for (int i = poly.degree(); i >= 0; --i)
-		{
-			auto c = poly[i];
-			if (c == 0)
-				continue;
-
-			if (is_negative(c))
-			{
-				if (i == poly.degree())
-					it = format_to(it, "-");
-				else
-					it = format_to(it, " - ");
-				c = -c;
-			}
-			else if (i != poly.degree())
-				it = format_to(it, " + ");
-
-			if (i == 0)
-				it = format_to(it, "{}", c);
-			else if (!(c == 1))
-				it = format_to(it, "{}*", c);
-
-			if (i == 1)
-				it = format_to(it, "x");
-			else if (i >= 2)
-				it = format_to(it, "x^{}", i);
-		}
-		return it;
-	}
-};
-
 template <typename R, size_t rank>
 struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 {
