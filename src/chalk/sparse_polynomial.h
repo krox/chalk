@@ -5,6 +5,7 @@
 #include "fmt/format.h"
 #include "util/span.h"
 #include <array>
+#include <bitset>
 #include <cassert>
 #include <climits>
 #include <utility>
@@ -61,7 +62,7 @@ template <typename R, size_t rank> class SparsePolynomial;
 
 template <typename R, size_t rank> class PolynomialRing
 {
-	std::array<std::string, rank> varNames_;
+	std::array<std::string, rank> var_names_;
 	std::array<int, rank> max_order_;
 	size_t namedVars_ = 0;
 
@@ -71,12 +72,12 @@ template <typename R, size_t rank> class PolynomialRing
 		namedVars_ = 0;
 		for (size_t i = 0; i < rank; ++i)
 		{
-			varNames_[i] = fmt::format("x_{}", i);
+			var_names_[i] = fmt::format("x_{}", i);
 			max_order_[i] = INT_MAX;
 		}
 	}
-	explicit constexpr PolynomialRing(std::array<std::string, rank> varNames)
-	    : varNames_(std::move(varNames))
+	explicit constexpr PolynomialRing(std::array<std::string, rank> var_names)
+	    : var_names_(std::move(var_names))
 	{
 		namedVars_ = rank;
 		for (size_t i = 0; i < rank; ++i)
@@ -89,7 +90,7 @@ template <typename R, size_t rank> class PolynomialRing
 	PolynomialRing &operator=(PolynomialRing const &) = delete;
 
 	/** names of the variables */
-	auto const &varNames() const { return varNames_; }
+	auto const &var_names() const { return var_names_; }
 	auto const &max_order() const { return max_order_; }
 
 	/** constant polynomial */
@@ -148,6 +149,11 @@ template <typename R, size_t rank> class SparsePolynomial
 	}
 
   public:
+	static PolynomialRing<R, rank> const *default_ring()
+	{
+		return &trivialRing;
+	}
+
 	/** zero polynomial */
 	SparsePolynomial() = default;
 	explicit SparsePolynomial(PolynomialRing<R, rank> const *r) : ring_(r) {}
@@ -175,6 +181,97 @@ template <typename R, size_t rank> class SparsePolynomial
 	/** (read-only) access to the ring and the terms */
 	PolynomialRing<R, rank> const *ring() const { return ring_; }
 	std::vector<Monomial<R, rank>> const &terms() const { return terms_; }
+
+	/** number of variables occuring in this polynomials */
+	size_t var_count() const
+	{
+		std::bitset<rank> seen = {};
+		for (auto &term : terms_)
+			for (size_t i = 0; i < rank; ++i)
+				if (term.exponent[i] != 0)
+					seen[i] = true;
+		return seen.count();
+	}
+
+	/**
+	 * map to a new polynomial ring.
+	 *  - coefficients are converted using a callback
+	 *  - variables are matched by names
+	 *  - reducing rank is okay if some variables dont actually occur
+	 */
+	template <typename R2, size_t rank2, typename F>
+	SparsePolynomial<R2, rank2>
+	change_ring(PolynomialRing<R2, rank2> const *ring2, F &&convert) const
+	{
+		// translation of variable names
+		auto trans = std::vector<int>(rank, -1);
+		for (int i = 0; i < (int)rank; ++i)
+			for (int j = 0; j < (int)rank2; ++j)
+				if (ring()->var_names()[i] == ring2->var_names()[j])
+				{
+					assert(trans[i] == -1);
+					trans[i] = j;
+				}
+
+		// translate all the terms
+		std::vector<Monomial<R2, rank2>> r;
+		r.reserve(terms().size());
+		for (auto &term : terms())
+		{
+			r.push_back({convert(term.coefficient), {}});
+			for (size_t i = 0; i < rank; ++i)
+			{
+				if (term.exponent[i] == 0)
+					continue;
+				if (trans[i] == -1)
+					throw std::runtime_error(
+					    "SparsePolynomial::change_ring failed");
+				assert(r.back().exponent[trans[i]] == 0);
+				r.back().exponent[trans[i]] = term.exponent[i];
+			}
+		}
+		return SparsePolynomial<R2, rank2>(ring2, std::move(r));
+	}
+
+	/** convert to univariate polynomial, assuming only one variable occurs */
+	std::pair<int, Polynomial<R>> to_univariate() const
+	{
+		std::vector<R> coeffs;
+		int pivot = -1;
+		for (auto &term : terms_)
+		{
+			int ex = 0;
+			for (int i = 0; i < (int)rank; ++i)
+				if (term.exponent[i] != 0)
+				{
+					if (pivot == -1)
+						pivot = i;
+					else if (pivot != i)
+						throw std::runtime_error(
+						    "polynomial with more than one variable");
+					assert(ex == 0);
+					ex = term.exponent[i];
+				}
+
+			if ((int)coeffs.size() < ex + 1)
+				coeffs.resize(ex + 1, R(0));
+			assert(coeffs[ex] == 0);
+			coeffs[ex] = term.coefficient;
+		}
+		if (pivot == -1)
+			pivot = 0;
+		return {pivot, Polynomial<R>(std::move(coeffs))};
+	}
+
+	/** substitue x_i = val */
+	SparsePolynomial substitute(int i, R const &val) const
+	{
+		auto r = terms();
+		for (auto &term : r)
+			for (; term.exponent[i] > 0; --term.exponent[i])
+				term.coefficient *= val;
+		return SparsePolynomial(ring(), std::move(r));
+	}
 
 	/** lead coefficient and exponent */
 	R const &lc() const
@@ -432,14 +529,14 @@ PolynomialRing<R, rank>::generator(std::string const &varName, int max_order)
 {
 	assert(max_order >= 0);
 	for (size_t i = 0; i < namedVars_; ++i)
-		if (varNames_[i] == varName)
+		if (var_names_[i] == varName)
 		{
 			assert(max_order_[i] == max_order);
 			return generator(i);
 		}
 	if (namedVars_ >= rank)
 		throw std::runtime_error("too many generators in polynomial ring");
-	varNames_[namedVars_] = varName;
+	var_names_[namedVars_] = varName;
 	max_order_[namedVars_] = max_order;
 	return generator(namedVars_++);
 }
@@ -577,9 +674,9 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 					it++ = '*';
 				first = false;
 				if (exp[k] == 1)
-					it = format_to(it, "{}", poly.ring()->varNames()[k]);
+					it = format_to(it, "{}", poly.ring()->var_names()[k]);
 				else
-					it = format_to(it, "{}^{}", poly.ring()->varNames()[k],
+					it = format_to(it, "{}^{}", poly.ring()->var_names()[k],
 					               exp[k]);
 			}
 		}

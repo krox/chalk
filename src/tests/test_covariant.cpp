@@ -12,6 +12,7 @@ int main()
 
 	/** polynomial ring of coefficients */
 	auto ring = PolynomialRing<Fraction<int64_t>, 7>();
+
 	auto seps = ring.generator("seps", max_order * 2);
 	auto cA = ring.generator("cA");
 	auto eps = seps * seps;
@@ -20,7 +21,7 @@ int main()
 	auto k3 = ring.generator("k3");
 	auto k4 = ring.generator("k4");
 	auto k5 = ring.generator("k5");
-
+	auto double_ring = PolynomialRing<double, 7>(ring.var_names());
 	using R = SparsePolynomial<Fraction<int64_t>, 7>;
 
 	/** indexed expressions */
@@ -96,10 +97,15 @@ int main()
 		}
 	}
 
+	auto convert = [](Fraction<int64_t> const &x) {
+		return (double)x.num() / x.denom();
+	};
+
 	auto ideal = Ideal(cond_list);
 	fmt::print("\n(general form)\n");
 	ideal.groebner();
 	dump(ideal);
+	analyze_variety(ideal.change_ring(&double_ring, convert));
 
 	fmt::print("\n(bf / trapezoid)\n");
 	cond_list.push_back(k2 - 1);
@@ -107,10 +113,12 @@ int main()
 	cond_list.pop_back();
 	ideal2.groebner();
 	dump(ideal2);
+	analyze_variety(ideal2.change_ring(&double_ring, convert));
 
 	fmt::print("\n(torrero / minimal step)\n");
 	cond_list.push_back(k3);
 	auto ideal3 = Ideal(cond_list);
 	ideal3.groebner();
 	dump(ideal3);
+	analyze_variety(ideal3.change_ring(&double_ring, convert));
 }
