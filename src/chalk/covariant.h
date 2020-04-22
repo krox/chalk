@@ -122,23 +122,56 @@ template <typename R> struct CovariantTerm
 
 		// rename inner indices
 		{
-			int z = open.empty() ? 1 : open.back() + 1; // first inner index
+			// determine priorities
+			absl::flat_hash_map<int, int64_t> prio;
+			for (size_t ai = 0; ai < atoms.size(); ++ai)
+			{
+				auto &a = atoms[ai];
+				for (size_t ki = 0; ki < a.indices.size(); ++ki)
+				{
+					int k = a.indices[ki];
+					if (count[k] == 1) // ignore external legs
+						continue;
+					// first: prioritze structure constants over other
+					// indices
+					if (a.symbol == "f")
+						prio[k] -= 1000000000; // prioritize structure consts
+					// second: prioritize short index-lists
+					prio[k] += 1000000 * (int)a.indices.size();
+					// third: position in list
+					prio[k] += (a.symbol == "f" ? 100 : 10000) * (int64_t)ki;
+					// fourth: global position
+					// (only this part is not homeomorphic under renaming)
+					prio[k] += (int64_t)ai;
+				}
+			}
 
+			std::vector<std::pair<int64_t, int>> prio_list;
+			for (auto [k, p] : prio)
+				prio_list.push_back({p, k});
+			std::sort(prio_list.begin(), prio_list.end());
+
+			int z = open.empty() ? 1 : open.back() + 1; // first inner index
 			absl::flat_hash_map<int, int> trans;
+			for (auto [_, k] : prio_list)
+			{
+				(void)_;
+				trans[k] = z++;
+			}
+
 			for (auto &a : atoms)
 				for (int &k : a.indices)
 				{
 					if (count[k] != 2)
 						continue;
-					if (trans.count(k) == 0)
-						trans[k] = z++;
+					assert(trans.count(k));
 					k = trans[k];
 				}
 		}
 
 		return open;
 	}
-};
+}; // namespace chalk
 
 template <typename R>
 inline bool operator<(CovariantTerm<R> const &a, CovariantTerm<R> const &b)
@@ -695,27 +728,184 @@ simplify_lie_term_order(CovariantTerm<R> &term, std::string const &symbol,
 		}
 	return std::nullopt;
 }
+
+/** commute the indices simplfy by explicitly using structure constants */
+template <typename R>
+std::optional<CovariantTerm<R>>
+simplify_lie_term_order_full(CovariantTerm<R> &term, std::string const &symbol)
+{
+	for (size_t ai = 0; ai < term.atoms.size(); ++ai)
+	{
+		if (term.atoms[ai].symbol != symbol)
+			continue;
+		auto &inds = term.atoms[ai].indices;
+
+		for (int i = 0; i < (int)inds.size() - 1; ++i)
+		{
+			// good order -> nothing to do
+			if (inds[i] <= inds[i + 1])
+				continue;
+
+			// one index is part of a pair -> leave it alone
+			if (i >= 1 && inds[i - 1] == inds[i])
+				continue;
+			if (i < (int)inds.size() - 2 && inds[i + 1] == inds[i + 2])
+				continue;
+
+			// otherwise -> transpose indices by adding extra term involving an
+			//              explicit structure constant f_{ijk}
+			std::swap(inds[i], inds[i + 1]);
+			CovariantTerm<R> new_term = term;
+			new_term.atoms[ai].indices.erase(
+			    new_term.atoms[ai].indices.begin() + i + 1);
+			new_term.atoms[ai].indices[i] = 500;
+			new_term.atoms.push_back({"f", {inds[i], inds[i + 1], 500}});
+			return new_term;
+		}
+	}
+	return std::nullopt;
+}
+
+template <typename R>
+void simplify_lie_term_structure_constants(CovariantTerm<R> &term,
+                                           std::string const &symbol,
+                                           R const &cA)
+{
+	// true if a<->b is symmetric excluding occurences in f
+	auto is_symmetric = [&term](int a, int b) {
+		std::vector<CovariantAtom> atoms = term.atoms;
+		int count_a = 0, count_b = 0; // for sanity check
+		for (auto &atom : atoms)
+		{
+			if (atom.symbol == "f")
+				continue;
+			for (auto &k : atom.indices)
+			{
+				if (k == a)
+				{
+					count_a++;
+					k = b;
+				}
+				else if (k == b)
+				{
+					count_b++;
+					k = a;
+				}
+			}
+		}
+		assert(count_a <= 1);
+		assert(count_b <= 1);
+		if (count_a == 0 || count_b == 0)
+			return false;
+		std::sort(atoms.begin(), atoms.end());
+		return atoms == term.atoms;
+	};
+
+	for (size_t ai = 0; ai < term.atoms.size(); ++ai)
+	{
+		if (term.atoms[ai].symbol != "f")
+			continue;
+		auto &inds = term.atoms[ai].indices;
+		assert(inds.size() == 3);
+
+		if (inds[0] > inds[1])
+		{
+			std::swap(inds[0], inds[1]);
+			term.coefficient = -term.coefficient;
+		}
+		if (inds[1] > inds[2])
+		{
+			std::swap(inds[1], inds[2]);
+			term.coefficient = -term.coefficient;
+		}
+		if (inds[0] > inds[1])
+		{
+			std::swap(inds[0], inds[1]);
+			term.coefficient = -term.coefficient;
+		}
+
+		if (is_symmetric(inds[0], inds[1]))
+			term.coefficient = R(0);
+		else if (is_symmetric(inds[0], inds[2]))
+			term.coefficient = R(0);
+		else if (is_symmetric(inds[1], inds[2]))
+			term.coefficient = R(0);
+	}
+
+// f_abc S_ab = 1/2 C_A f_c
+again:
+	for (auto &atom_f : term.atoms)
+		for (auto &atom_s : term.atoms)
+		{
+			if (atom_s.symbol != symbol)
+				continue;
+			if (atom_f.symbol != "f")
+				continue;
+			for (int i = 0; i < (int)atom_s.indices.size() - 1; ++i)
+			{
+				if (atom_s.indices[i] == atom_f.indices[0] &&
+				    atom_s.indices[i + 1] == atom_f.indices[1])
+				{
+					atom_s.indices.erase(atom_s.indices.begin() + i + 1);
+					atom_s.indices[i] = atom_f.indices[2];
+					term.coefficient *= cA / 2;
+					std::swap(atom_f, term.atoms.back());
+					term.atoms.pop_back(); // invalidated refs, so get out
+					goto again;
+				}
+				if (atom_s.indices[i] == atom_f.indices[1] &&
+				    atom_s.indices[i + 1] == atom_f.indices[2])
+				{
+					atom_s.indices.erase(atom_s.indices.begin() + i + 1);
+					atom_s.indices[i] = atom_f.indices[0];
+					term.coefficient *= cA / 2;
+					std::swap(atom_f, term.atoms.back());
+					term.atoms.pop_back(); // invalidated refs, so get out
+					goto again;
+				}
+			}
+		}
+} // namespace
+
 } // namespace
 
 /** reorder lie-derivative indices using relations with the casimir operator */
 template <typename R>
 Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
-                          R const &cA)
+                          R const &cA, bool full = false)
 {
-	std::vector<CovariantTerm<R>> terms = a.terms();
+	// optimization: before a full run, first do a basic run
+	std::vector<CovariantTerm<R>> terms =
+	    full ? simplify_lie(a, symbol, cA, false).terms() : a.terms();
+
 	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
 	{
 		while (true)
 		{
+			if (terms.size() > 10000)
+			{
+				fmt::print("WARNING: simplification produced a LOT of terms. "
+				           "aborting.");
+				return Covariant<R>(std::move(terms));
+			}
+			// step 1: move double-indices (those are commutative)
 			auto &term = terms[term_i];
 			for (auto &atom : term.atoms)
 				if (atom.symbol == symbol)
 					move_double_indices(atom);
+			// step 2: rename inner indices (important for the brute-force step)
+			term.cleanup();
 
+			simplify_lie_term_structure_constants(term, symbol, cA);
+
+			// step 3: simplification rules that create new (lower order) terms
 			auto new_term = simplify_lie_term_sandwich(term, symbol, cA);
 			if (!new_term)
 				new_term = simplify_lie_term_order(term, symbol, cA);
+			if (!new_term && full)
+				new_term = simplify_lie_term_order_full(term, symbol);
 
+			// if a new term was created, we need to repeat the whole thing
 			if (new_term)
 			{
 				// NOTE: this potentially makes 'term' a dangling reference!
