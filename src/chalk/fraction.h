@@ -6,12 +6,17 @@
 
 namespace chalk {
 
-/** helper functions to make Fraction<int64_t> work */
+/** helper functions to make Fraction<int64/128_t> work */
 bool is_negative(int64_t a) { return a < 0; }
 bool is_invertible(int64_t a) { return a == 1 || a == -1; }
 bool is_regular(int64_t a) { return a != 0; }
 int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
+bool is_negative(int128_t a) { return a < 0; }
+bool is_invertible(int128_t a) { return a == 1 || a == -1; }
+bool is_regular(int128_t a) { return a != 0; }
+int128_t invertible_factor(int128_t a) { return a < 0 ? -1 : 1; }
 // int64_t gcd(int64_t,int64_t); // defined in numtheory
+// int128_t gcd(int128_t,int128_t); // defined in numtheory
 
 /**
  * Ring of fractions a/b with a,b ∈ R
@@ -120,7 +125,7 @@ template <typename R> Fraction<R> operator*(Fraction<R> const &a, int b)
 }
 template <typename R> Fraction<R> operator/(Fraction<R> const &a, int b)
 {
-	assert(is_regular(b));
+	assert(is_regular(R(b)));
 	return Fraction<R>{a.num(), a.denom() * b};
 }
 

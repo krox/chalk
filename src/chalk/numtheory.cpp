@@ -31,6 +31,28 @@ int64_t lcm(int64_t a, int64_t b)
 		return a / gcd(a, b) * b;
 }
 
+int128_t gcd(int128_t a, int128_t b)
+{
+	while (true)
+	{
+		if (a == 0)
+			return b >= 0 ? b : -b;
+		b %= a;
+
+		if (b == 0)
+			return a >= 0 ? a : -a;
+		a %= b;
+	}
+}
+
+int128_t lcm(int128_t a, int128_t b)
+{
+	if (a == 0 || b == 0)
+		return 0;
+	else
+		return a / gcd(a, b) * b;
+}
+
 std::vector<int64_t> primes(int64_t n)
 {
 	// Idea: Sieve of Eratosthenes with multiples of 2 and 3 excluded

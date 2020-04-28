@@ -12,6 +12,8 @@
 
 namespace chalk {
 
+using int128_t = __int128_t;
+
 /**
  * basic arithmetic operations
  *   - overflow safe
