@@ -18,159 +18,36 @@ struct CovariantAtom
 {
 	std::string symbol;
 	absl::InlinedVector<int, 4> indices; // first internal, then derivatives
+
+	bool operator==(CovariantAtom const &other) const
+	{
+		return symbol == other.symbol && indices == other.indices;
+	}
 };
 
-inline bool operator==(CovariantAtom const &a, CovariantAtom const &b)
-{
-	return a.symbol == b.symbol && a.indices == b.indices;
-}
+bool operator<(CovariantAtom const &a, CovariantAtom const &b);
 
-inline bool operator<(CovariantAtom const &a, CovariantAtom const &b)
-{
-	// ascending name
-	if (a.symbol < b.symbol)
-		return true;
-	if (a.symbol > b.symbol)
-		return false;
+/**
+ * Sort atoms and rename indices.
+ * returns list of open indices, for convenience
+ */
+std::vector<int> normalize_indices(std::vector<CovariantAtom> &atoms);
 
-	// descending number of indices
-	if (a.indices.size() != b.indices.size())
-		return a.indices.size() > b.indices.size();
+/** contract all deltas involving inner indices */
+bool simplify_delta(std::vector<CovariantAtom> &atoms);
 
-	// otherwise arbitrary
-	return a.indices < b.indices;
-}
+/** moves double-indices to the front */
+void move_double_indices(absl::InlinedVector<int, 4> &inds);
+
+/** simplify antisymmetric symbol by sorting its indices. returns sign */
+int simplify_antisymmetric(std::vector<CovariantAtom> &atoms,
+                           std::string const &symbol);
 
 /** product of atoms and a pre-factor */
 template <typename R> struct CovariantTerm
 {
 	R coefficient;
 	std::vector<CovariantAtom> atoms;
-
-	void rename_index(int from, int to)
-	{
-		assert(from != to);
-		int count = 0;
-		for (auto &atom : atoms)
-			for (int &k : atom.indices)
-				if (k == from)
-				{
-					k = to;
-					count += 1;
-				}
-				else if (k == to)
-					count += 1;
-		assert(count == 1 || count == 2);
-	}
-
-	/**
-	 * Brings atoms into partial normal form:
-	 *   - sort atoms
-	 *   - rename summed indices
-	 *   - return list of outer indices
-	 */
-	std::vector<int> cleanup()
-	{
-		// sort atoms by symbol and number of indices
-		// (this assumes all atoms commute)
-		std::sort(atoms.begin(), atoms.end());
-
-		// count occurences of indices (should be 1 or 2)
-		absl::flat_hash_map<int, int> count;
-		for (auto &a : atoms)
-			for (int k : a.indices)
-				count[k] += 1;
-		std::vector<int> open;
-		for (auto &[k, c] : count)
-		{
-			if (c == 1)
-				open.push_back(k);
-			else if (c == 2)
-				continue;
-			else
-				throw std::runtime_error(
-				    "inconsistent indices in expression (index-count != 1,2)");
-		}
-		std::sort(open.begin(), open.end());
-
-		// handle delta
-		for (size_t i = 0; i < atoms.size(); ++i)
-		{
-			auto &a = atoms[i];
-			if (a.symbol != "delta")
-				continue;
-
-			if (a.indices.size() != 2)
-				throw std::runtime_error("delta needs exactly two indices");
-			if (a.indices[0] == a.indices[1])
-				throw std::runtime_error(
-				    "'delta_ii' not implemented (unknown dimension)");
-			auto ind1 = a.indices[0];
-			auto ind2 = a.indices[1];
-
-			if (count[ind1] == 1)
-				std::swap(ind1, ind2);
-			if (count[ind2] != 2)
-				continue;
-
-			std::swap(a, atoms.back());
-			atoms.pop_back();
-			--i;
-
-			rename_index(ind1, ind2);
-		}
-
-		// rename inner indices
-		{
-			// determine priorities
-			absl::flat_hash_map<int, int64_t> prio;
-			for (size_t ai = 0; ai < atoms.size(); ++ai)
-			{
-				auto &a = atoms[ai];
-				for (size_t ki = 0; ki < a.indices.size(); ++ki)
-				{
-					int k = a.indices[ki];
-					if (count[k] == 1) // ignore external legs
-						continue;
-					// first: prioritze structure constants over other
-					// indices
-					if (a.symbol == "f")
-						prio[k] -= 1000000000; // prioritize structure consts
-					// second: prioritize short index-lists
-					prio[k] += 1000000 * (int)a.indices.size();
-					// third: position in list
-					prio[k] += (a.symbol == "f" ? 100 : 10000) * (int64_t)ki;
-					// fourth: global position
-					// (only this part is not homeomorphic under renaming)
-					prio[k] += (int64_t)ai;
-				}
-			}
-
-			std::vector<std::pair<int64_t, int>> prio_list;
-			for (auto [k, p] : prio)
-				prio_list.push_back({p, k});
-			std::sort(prio_list.begin(), prio_list.end());
-
-			int z = open.empty() ? 1 : open.back() + 1; // first inner index
-			absl::flat_hash_map<int, int> trans;
-			for (auto [_, k] : prio_list)
-			{
-				(void)_;
-				trans[k] = z++;
-			}
-
-			for (auto &a : atoms)
-				for (int &k : a.indices)
-				{
-					if (count[k] != 2)
-						continue;
-					assert(trans.count(k));
-					k = trans[k];
-				}
-		}
-
-		return open;
-	}
 }; // namespace chalk
 
 template <typename R>
@@ -212,13 +89,16 @@ template <typename R> class Covariant
 			return;
 
 		// cleanup individual terms
-		open_indices_ = terms_[0].cleanup();
+		open_indices_ = normalize_indices(terms_[0].atoms);
 		first_inner_index_ =
 		    open_indices_.empty() ? 1 : open_indices_.back() + 1;
 		for (size_t i = 1; i < terms_.size(); ++i)
-			if (open_indices_ != terms_[i].cleanup())
+			if (open_indices_ != normalize_indices(terms_[i].atoms))
 				throw std::runtime_error(
 				    fmt::format("inconsistent indices in '{}'", *this));
+		for (auto &term : terms_)
+			if (simplify_delta(term.atoms))
+				normalize_indices(term.atoms);
 
 		// sort and collect terms
 		std::sort(terms_.begin(), terms_.end());
@@ -519,35 +399,7 @@ inline Covariant<R> taylor(Covariant<R> const &S, Covariant<R> const &force,
 	return result;
 }
 
-std::vector<std::vector<std::pair<int, int>>> wick_list(int n)
-{
-	assert(n >= 0);
-	std::vector<std::vector<std::pair<int, int>>> result;
-	if (n % 2 != 0)
-		return result;
-
-	if (n == 0)
-	{
-		result.push_back({});
-		return result;
-	}
-
-	for (auto &partial : wick_list(n - 2))
-	{
-		result.push_back(partial);
-		result.back().push_back({n - 2, n - 1});
-		for (int k = 0; k < n / 2 - 1; ++k)
-		{
-			result.push_back(partial);
-			result.back().push_back({n - 2, n - 1});
-			std::swap(result.back().back().first, result.back()[k].first);
-			result.push_back(partial);
-			result.back().push_back({n - 2, n - 1});
-			std::swap(result.back().back().first, result.back()[k].second);
-		}
-	}
-	return result;
-}
+std::vector<std::vector<std::pair<int, int>>> wick_list(int n);
 
 template <typename R>
 inline Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
@@ -624,27 +476,6 @@ Covariant<R> simplify_commutative_indices(Covariant<R> const &a,
 
 // "private" building-blocks for Lie-simplification
 namespace {
-
-/** moves double-indices to the front */
-inline void move_double_indices(CovariantAtom &atom)
-{
-	auto &inds = atom.indices;
-	while (true)
-	{
-		bool change = false;
-		for (int i = 1; i < (int)inds.size() - 1; ++i)
-			// is double index?
-			if (inds[i] == inds[i + 1])
-				// preceding is not double index ?
-				if (i == 1 || inds[i - 1] != inds[i - 2])
-				{
-					std::swap(inds[i + 1], inds[i - 1]);
-					change = true;
-				}
-		if (!change)
-			break;
-	}
-}
 
 /**
  * modifies term inplace, returns new extra term if one was generated
@@ -759,7 +590,7 @@ simplify_lie_term_order_full(CovariantTerm<R> &term, std::string const &symbol)
 			new_term.atoms[ai].indices.erase(
 			    new_term.atoms[ai].indices.begin() + i + 1);
 			new_term.atoms[ai].indices[i] = 500;
-			new_term.atoms.push_back({"f", {inds[i], inds[i + 1], 500}});
+			new_term.atoms.push_back({"f", {inds[i + 1], inds[i], 500}});
 			return new_term;
 		}
 	}
@@ -771,67 +602,6 @@ void simplify_lie_term_structure_constants(CovariantTerm<R> &term,
                                            std::string const &symbol,
                                            R const &cA)
 {
-	// true if a<->b is symmetric excluding occurences in f
-	auto is_symmetric = [&term](int a, int b) {
-		std::vector<CovariantAtom> atoms = term.atoms;
-		int count_a = 0, count_b = 0; // for sanity check
-		for (auto &atom : atoms)
-		{
-			if (atom.symbol == "f")
-				continue;
-			for (auto &k : atom.indices)
-			{
-				if (k == a)
-				{
-					count_a++;
-					k = b;
-				}
-				else if (k == b)
-				{
-					count_b++;
-					k = a;
-				}
-			}
-		}
-		assert(count_a <= 1);
-		assert(count_b <= 1);
-		if (count_a == 0 || count_b == 0)
-			return false;
-		std::sort(atoms.begin(), atoms.end());
-		return atoms == term.atoms;
-	};
-
-	for (size_t ai = 0; ai < term.atoms.size(); ++ai)
-	{
-		if (term.atoms[ai].symbol != "f")
-			continue;
-		auto &inds = term.atoms[ai].indices;
-		assert(inds.size() == 3);
-
-		if (inds[0] > inds[1])
-		{
-			std::swap(inds[0], inds[1]);
-			term.coefficient = -term.coefficient;
-		}
-		if (inds[1] > inds[2])
-		{
-			std::swap(inds[1], inds[2]);
-			term.coefficient = -term.coefficient;
-		}
-		if (inds[0] > inds[1])
-		{
-			std::swap(inds[0], inds[1]);
-			term.coefficient = -term.coefficient;
-		}
-
-		if (is_symmetric(inds[0], inds[1]))
-			term.coefficient = R(0);
-		else if (is_symmetric(inds[0], inds[2]))
-			term.coefficient = R(0);
-		else if (is_symmetric(inds[1], inds[2]))
-			term.coefficient = R(0);
-	}
-
 // f_abc S_ab = 1/2 C_A f_c
 again:
 	for (auto &atom_f : term.atoms)
@@ -872,49 +642,99 @@ again:
 /** reorder lie-derivative indices using relations with the casimir operator */
 template <typename R>
 Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
-                          R const &cA, bool full = false)
+                          R const &cA)
 {
+	std::vector<CovariantTerm<R>> terms = a.terms();
+
+	// step 1: simple rules that do NOT depend on index naming
+	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
+	{
+		auto &term = terms[term_i];
+
+		// move all double-indices to the front
+		for (auto &atom : term.atoms)
+			if (atom.symbol == symbol)
+				move_double_indices(atom.indices);
+
+		// simple rules (that do NOT depend on index naming)
+		auto new_term = simplify_lie_term_sandwich(term, symbol, cA);
+		if (!new_term)
+			new_term = simplify_lie_term_order(term, symbol, cA);
+
+		// if something was found -> new term and repeat on this term
+		if (new_term)
+		{
+			// NOTE: this can make 'term' a dangling reference
+			terms.push_back(new_term.value());
+			--term_i;
+			continue;
+		}
+
+		// brute-force rule (that does depends on index naming)
+		normalize_indices(term.atoms);
+		term.coefficient *= simplify_antisymmetric(term.atoms, "f");
+		simplify_lie_term_structure_constants(term, symbol, cA);
+		new_term = simplify_lie_term_order_full(term, symbol);
+
+		if (new_term)
+		{
+			// NOTE: this can make 'term' a dangling reference
+			terms.push_back(new_term.value());
+			--term_i;
+			continue;
+		}
+	}
+
+	// step 2: rename indices into standard form
+	// for (auto &term : terms)
+	//	normalize_indices(term.atoms);
+
+	// step 3: collect similar terms (because to next steps might be expensive)
+	// TODO
+
+	// step 4: general simplification that introduces structure constants
+
 	// optimization: before a full run, first do a basic run
-	std::vector<CovariantTerm<R>> terms =
+	/*std::vector<CovariantTerm<R>> terms =
 	    full ? simplify_lie(a, symbol, cA, false).terms() : a.terms();
 
 	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
 	{
-		while (true)
-		{
-			if (terms.size() > 10000)
-			{
-				fmt::print("WARNING: simplification produced a LOT of terms. "
-				           "aborting.");
-				return Covariant<R>(std::move(terms));
-			}
-			// step 1: move double-indices (those are commutative)
-			auto &term = terms[term_i];
-			for (auto &atom : term.atoms)
-				if (atom.symbol == symbol)
-					move_double_indices(atom);
-			// step 2: rename inner indices (important for the brute-force step)
-			term.cleanup();
+	    while (true)
+	    {
+	        if (terms.size() > 10000)
+	        {
+	            fmt::print("WARNING: simplification produced a LOT of terms. "
+	                       "aborting.");
+	            return Covariant<R>(std::move(terms));
+	        }
+	        // step 1: move double-indices (those are commutative)
+	        auto &term = terms[term_i];
+	        for (auto &atom : term.atoms)
+	            if (atom.symbol == symbol)
+	                move_double_indices(atom);
+	        // step 2: rename inner indices (important for the brute-force step)
+	        // term.cleanup();
 
-			simplify_lie_term_structure_constants(term, symbol, cA);
+	        simplify_lie_term_structure_constants(term, symbol, cA);
 
-			// step 3: simplification rules that create new (lower order) terms
-			auto new_term = simplify_lie_term_sandwich(term, symbol, cA);
-			if (!new_term)
-				new_term = simplify_lie_term_order(term, symbol, cA);
-			if (!new_term && full)
-				new_term = simplify_lie_term_order_full(term, symbol);
+	        // step 3: simplification rules that create new (lower order) terms
+	        auto new_term = simplify_lie_term_sandwich(term, symbol, cA);
+	        if (!new_term)
+	            new_term = simplify_lie_term_order(term, symbol, cA);
+	        if (!new_term && full)
+	            new_term = simplify_lie_term_order_full(term, symbol);
 
-			// if a new term was created, we need to repeat the whole thing
-			if (new_term)
-			{
-				// NOTE: this potentially makes 'term' a dangling reference!
-				terms.push_back(std::move(new_term.value()));
-			}
-			else
-				break;
-		}
-	}
+	        // if a new term was created, we need to repeat the whole thing
+	        if (new_term)
+	        {
+	            // NOTE: this potentially makes 'term' a dangling reference!
+	            terms.push_back(std::move(new_term.value()));
+	        }
+	        else
+	            break;
+	    }
+	}*/
 
 	return Covariant<R>(std::move(terms));
 }
