@@ -273,7 +273,7 @@ template <typename R, size_t rank> class SparsePolynomial
 		return SparsePolynomial(ring(), std::move(r));
 	}
 
-	/** lead coefficient and exponent */
+	/** lead coefficient and exponent and monomial*/
 	R const &lc() const
 	{
 		assert(!terms_.empty());
@@ -283,6 +283,12 @@ template <typename R, size_t rank> class SparsePolynomial
 	{
 		assert(!terms_.empty());
 		return terms_[0].exponent;
+	}
+	SparsePolynomial lm() const
+	{
+		if (terms_.empty())
+			return SparsePolynomial(ring_);
+		return SparsePolynomial(ring_, {terms_[0]});
 	}
 
 	/** "optimized" inplace operations */

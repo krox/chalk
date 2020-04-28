@@ -27,6 +27,25 @@ bool reduce(SparsePolynomial<R, rank> &f, SparsePolynomial<R, rank> const &g)
 	return change;
 }
 
+/** reduce f using g, leading term only */
+template <typename R, size_t rank>
+bool reduce_partial(SparsePolynomial<R, rank> &f,
+                    SparsePolynomial<R, rank> const &g)
+{
+	if (g.terms().empty() || f.terms().empty())
+		return false;
+	assert(f.ring() == g.ring()); // need consistent term-order
+
+	if (auto d = f.terms()[0] / g.terms()[0]; d)
+	{
+		f -= g * d.value();
+		reduce_partial(f, g);
+		return true;
+	}
+	else
+		return false;
+}
+
 template <typename R, size_t rank>
 SparsePolynomial<R, rank> resolvent(SparsePolynomial<R, rank> const &a,
                                     SparsePolynomial<R, rank> const &b)
@@ -104,6 +123,23 @@ template <typename R, size_t rank> class Ideal
 		}
 	}
 
+	/** partially reduce f using all polynomials in this basis */
+	void reduce_partial(polynomial_t &f) const
+	{
+		while (true)
+		{
+			bool change = false;
+			for (auto &g : basis_)
+			{
+				change |= chalk::reduce_partial(f, g);
+				if (f.terms().empty())
+					return;
+			}
+			if (!change)
+				return;
+		}
+	}
+
 	std::vector<polynomial_t> const &basis() const { return basis_; }
 	PolynomialRing<R, rank> const *ring() const
 	{
@@ -138,26 +174,47 @@ template <typename R, size_t rank> inline void dump(Ideal<R, rank> const &ideal)
 }
 
 template <typename R, size_t rank>
+inline void dump_summary(Ideal<R, rank> const &ideal)
+{
+	fmt::print("polynomial ideal with {} variables and {} equations:\n", rank,
+	           ideal.basis().size());
+	for (auto &poly : ideal.basis())
+		fmt::print("    {} + ... ( {} terms total )\n", poly.lm(),
+		           poly.terms().size());
+}
+
+template <typename R, size_t rank>
 inline void Ideal<R, rank>::groebner(size_t max_polys)
 {
+	int batch_size = 5;
 	// really naive algorithm adding resolvents until saturation
 	while (true)
 	{
-		bool change = false;
-		for (size_t i = 0; i < basis_.size(); ++i)
-			for (size_t j = i + 1;
-			     j < basis_.size() && basis_.size() < max_polys; ++j)
+		int new_polys = 0;
+		int old_count = (int)basis_.size();
+		for (int i = old_count - 1; i >= 0; --i)
+			for (int j = old_count - 1;
+			     j >= 0 && basis_.size() < max_polys && new_polys < batch_size;
+			     --j)
 			{
 				auto r = resolvent(basis_[i], basis_[j]);
-				reduce(r);
+				reduce_partial(r);
 				if (r.terms().empty())
 					continue;
+				r /= r.lc();
 
-				change = true;
+				/*fmt::print("poly({}) = {} + ... ( {} terms total )\n",
+				           basis_.size(), r.lm(), r.terms().size());*/
+
+				new_polys++;
 				basis_.push_back(r);
 			}
-		if (change)
+		if (new_polys)
+		{
+			// dump_summary(*this);
+			// fmt::print("sweep...\n");
 			cleanup();
+		}
 		else
 			break;
 	}
