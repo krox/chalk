@@ -33,36 +33,48 @@ void move_double_indices(absl::InlinedVector<int, 4> &inds)
 	}
 }
 
-/**
- * Total ordering of atoms. As much as possible of this ordering does depend
- * only on the graph structure of contractions, not on the index names.
- */
-bool operator<(CovariantAtom const &a, CovariantAtom const &b)
-{
-	// ascending name
-	if (a.symbol < b.symbol)
-		return true;
-	if (a.symbol > b.symbol)
-		return false;
-
-	// descending number of indices
-	if (a.indices.size() != b.indices.size())
-		return a.indices.size() > b.indices.size();
-
-	// descending number of repeated indices
-	int count_a = count_repeated(a);
-	int count_b = count_repeated(b);
-	if (count_a != count_b)
-		return count_a > count_b;
-
-	// compare the index names
-	// NOTE: this should be consistent with the renaming scheme
-	return a.indices < b.indices;
-}
-
 void sort_atoms(std::vector<CovariantAtom> &atoms)
 {
-	std::stable_sort(atoms.begin(), atoms.end());
+	// index -> first atom id (already locked atoms only)
+	absl::flat_hash_map<int, int> index_prio;
+
+	auto comp = [&index_prio](CovariantAtom const &a, CovariantAtom const &b) {
+		// ascending name
+		if (a.symbol < b.symbol)
+			return true;
+		if (a.symbol > b.symbol)
+			return false;
+
+		// descending number of indices
+		if (a.indices.size() != b.indices.size())
+			return a.indices.size() > b.indices.size();
+
+		// descending number of repeated indices
+		int count_a = count_repeated(a);
+		int count_b = count_repeated(b);
+		if (count_a != count_b)
+			return count_a > count_b;
+
+		// connections to already locked atoms
+		int firstA = 999999, firstB = 999999;
+		for (int k : a.indices)
+			if (index_prio.count(k) && index_prio[k] < firstA)
+				firstA = index_prio[k];
+		for (int k : b.indices)
+			if (index_prio.count(k) && index_prio[k] < firstB)
+				firstB = index_prio[k];
+
+		return firstA < firstB;
+	};
+
+	std::stable_sort(atoms.begin(), atoms.end(), comp);
+	for (int start = 1; start < (int)atoms.size() - 1; ++start)
+	{
+		for (int k : atoms[start - 1].indices)
+			if (index_prio.count(k) == 0)
+				index_prio[k] = start;
+		std::stable_sort(atoms.begin() + start, atoms.end(), comp);
+	}
 }
 
 void rename_indices(std::vector<CovariantAtom> &atoms)
@@ -91,6 +103,7 @@ void rename_indices(std::vector<CovariantAtom> &atoms)
 			continue;
 		}
 		assert(occ.size() == 2);
+
 		index_list.push_back({occ[0], occ[1], global_pos[k], k});
 	}
 	std::sort(index_list.begin(), index_list.end());
@@ -127,46 +140,7 @@ std::vector<int> normalize_indices(std::vector<CovariantAtom> &atoms)
 		else
 			assert(c == 2);
 	std::sort(open.begin(), open.end());
-	/*
-	    // map index -> second atom-id
-	    absl::flat_hash_map<int, int> target;
-	    for (size_t i = 0; i < atoms.size(); ++i)
-	        for (int k : atoms[i].indices)
-	            target[k] = i;
 
-	    // rename all inner indices
-	    int z = open.empty() ? 1 : open.back() + 1;
-	    absl::flat_hash_map<int, int> trans;
-	    for (auto &atom : atoms)
-	        for (size_t i = 0; i < atom.indices.size(); ++i)
-	        {
-	            int &k = atom.indices[i];
-
-	            // ignore open indices
-	            if (count[k] == 1)
-	                continue;
-
-	            // index already seen
-	            if (trans.count(k))
-	            {
-	                k = trans[k];
-	                continue;
-	            }
-
-	            // ohterwise, new index name
-	            trans[k] = z++;
-	            k = trans[k];
-
-	            // map other indices with same target
-	            for (size_t j = i + 1; j < atom.indices.size(); ++j)
-	                if (target[atom.indices[j]] == target[k])
-	                    if (trans.count(atom.indices[j]) == 0)
-	                        trans[atom.indices[j]] = z++;
-	        }
-*/
-	// renaming changes the tie-breaker of atom-order, so sort again
-	// (hopefully this is confluent?)
-	sort_atoms(atoms);
 	return open;
 }
 
@@ -218,27 +192,6 @@ bool simplify_delta(std::vector<CovariantAtom> &atoms)
 		}
 	}
 	return change;
-	/*
-	for (size_t i = 0; i < atoms.size(); ++i)
-	{
-	    auto &a = atoms[i];
-	    if (a.symbol != "delta")
-	        continue;
-
-	    auto ind1 = a.indices[0];
-	    auto ind2 = a.indices[1];
-
-	    if (count[ind1] == 1)
-	        std::swap(ind1, ind2);
-	    if (count[ind2] != 2)
-	        continue;
-
-	    std::swap(a, atoms.back());
-	    atoms.pop_back();
-	    --i;
-
-	    rename_index(ind1, ind2);
-	}*/
 }
 
 /** returns true if a<->b can be proved to be symmetric, excluding symbol */

@@ -23,9 +23,16 @@ struct CovariantAtom
 	{
 		return symbol == other.symbol && indices == other.indices;
 	}
-};
 
-bool operator<(CovariantAtom const &a, CovariantAtom const &b);
+	bool operator<(CovariantAtom const &other) const
+	{
+		if (symbol != other.symbol)
+			return symbol < other.symbol;
+		if (indices.size() != other.indices.size())
+			return indices.size() > other.indices.size();
+		return indices < other.indices;
+	}
+};
 
 /**
  * Sort atoms and rename indices.
@@ -48,13 +55,14 @@ template <typename R> struct CovariantTerm
 {
 	R coefficient;
 	std::vector<CovariantAtom> atoms;
-}; // namespace chalk
 
-template <typename R>
-inline bool operator<(CovariantTerm<R> const &a, CovariantTerm<R> const &b)
-{
-	return a.atoms < b.atoms;
-}
+	bool operator<(CovariantTerm const &other) const
+	{
+		if (atoms.size() != other.atoms.size())
+			return atoms.size() < other.atoms.size();
+		return atoms < other.atoms;
+	}
+};
 
 /**
  * A covariant expression is a sum of covariant terms.
@@ -382,16 +390,18 @@ inline Covariant<R> taylor(Covariant<R> const &S, Covariant<R> const &force,
 	assert(force.open_indices().size() == 1);
 	int k = force.open_indices()[0];
 
+	fmt::print("open index = {}\n", k);
+
 	Covariant<R> result = Covariant<R>(0);
 	for (int d = 0; d <= degree; ++d)
 	{
 		Covariant<R> term = S;
 		R prefactor = R(1);
 		for (int i = 0; i < d; ++i)
-			term = diff(term, i + 100);
+			term = diff(term, i - 100);
 		for (int i = 0; i < d; ++i)
 		{
-			term *= rename_index(force, k, i + 100);
+			term *= rename_index(force, k, i - 100);
 			prefactor /= (i + 1);
 		}
 		result += term * prefactor;
@@ -438,40 +448,6 @@ inline Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
 		}
 	}
 	return Covariant<R>(std::move(result));
-}
-
-/** reorder indices assuming complete symmetry */
-template <typename R>
-Covariant<R> simplify_commutative_indices(Covariant<R> const &a,
-                                          std::string const &symbol)
-{
-	std::vector<CovariantTerm<R>> terms = a.terms();
-	for (auto &term : terms)
-		for (auto &atom : term.atoms)
-			if (atom.symbol == symbol)
-				std::sort(atom.indices.begin(), atom.indices.end());
-	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
-	{
-		auto &term = terms[term_i];
-		for (size_t atom_i = 0; atom_i < term.atoms.size(); ++atom_i)
-		{
-			auto &atom = term.atoms[atom_i];
-			if (atom.symbol != symbol)
-				continue;
-			auto &inds = atom.indices;
-
-			// double-indices commute completey -> move them to the front
-			for (int i = 1; i < (int)inds.size() - 1; ++i)
-				// is double index?
-				if (inds[i] == inds[i + 1])
-					// preceding is not double index ?
-					if (i == 1 || inds[i - 1] != inds[i - 2])
-					{
-						std::swap(inds[i + 1], inds[i - 1]);
-					}
-		}
-	}
-	return Covariant<R>(std::move(terms));
 }
 
 // "private" building-blocks for Lie-simplification
@@ -602,7 +578,7 @@ void simplify_lie_term_structure_constants(CovariantTerm<R> &term,
                                            std::string const &symbol,
                                            R const &cA)
 {
-// f_abc S_ab = 1/2 C_A f_c
+// f_abc S_ab = 1/2 C_A S_c
 again:
 	for (auto &atom_f : term.atoms)
 		for (auto &atom_s : term.atoms)
@@ -686,55 +662,8 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
 	}
 
 	// step 2: rename indices into standard form
-	// for (auto &term : terms)
-	//	normalize_indices(term.atoms);
-
-	// step 3: collect similar terms (because to next steps might be expensive)
-	// TODO
-
-	// step 4: general simplification that introduces structure constants
-
-	// optimization: before a full run, first do a basic run
-	/*std::vector<CovariantTerm<R>> terms =
-	    full ? simplify_lie(a, symbol, cA, false).terms() : a.terms();
-
-	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
-	{
-	    while (true)
-	    {
-	        if (terms.size() > 10000)
-	        {
-	            fmt::print("WARNING: simplification produced a LOT of terms. "
-	                       "aborting.");
-	            return Covariant<R>(std::move(terms));
-	        }
-	        // step 1: move double-indices (those are commutative)
-	        auto &term = terms[term_i];
-	        for (auto &atom : term.atoms)
-	            if (atom.symbol == symbol)
-	                move_double_indices(atom);
-	        // step 2: rename inner indices (important for the brute-force step)
-	        // term.cleanup();
-
-	        simplify_lie_term_structure_constants(term, symbol, cA);
-
-	        // step 3: simplification rules that create new (lower order) terms
-	        auto new_term = simplify_lie_term_sandwich(term, symbol, cA);
-	        if (!new_term)
-	            new_term = simplify_lie_term_order(term, symbol, cA);
-	        if (!new_term && full)
-	            new_term = simplify_lie_term_order_full(term, symbol);
-
-	        // if a new term was created, we need to repeat the whole thing
-	        if (new_term)
-	        {
-	            // NOTE: this potentially makes 'term' a dangling reference!
-	            terms.push_back(std::move(new_term.value()));
-	        }
-	        else
-	            break;
-	    }
-	}*/
+	for (auto &term : terms)
+		normalize_indices(term.atoms);
 
 	return Covariant<R>(std::move(terms));
 }
@@ -782,6 +711,24 @@ template <typename R> void dump_summary(Covariant<R> const &a)
 }
 
 } // namespace chalk
+
+template <> struct fmt::formatter<chalk::CovariantAtom>
+{
+	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+
+	template <typename FormatContext>
+	auto format(const chalk::CovariantAtom &atom, FormatContext &ctx)
+	    -> decltype(ctx.out())
+	{
+		auto it = ctx.out();
+		it = format_to(it, "{}", atom.symbol);
+		if (!atom.indices.empty())
+			it++ = '_';
+		for (int k : atom.indices)
+			it = format_to(it, "{}", k);
+		return it;
+	}
+};
 
 template <typename R> struct fmt::formatter<chalk::Covariant<R>>
 {

@@ -272,6 +272,15 @@ template <typename R, size_t rank> class SparsePolynomial
 				term.coefficient *= val;
 		return SparsePolynomial(ring(), std::move(r));
 	}
+	SparsePolynomial substitute(std::string const &var, R const &val) const
+	{
+		for (size_t i = 0; i < ring_->var_names().size(); ++i)
+			if (ring_->var_names()[i] == var)
+				return substitute(i, val);
+
+		// maybe unknown variables should be silently ignored?
+		throw std::runtime_error(fmt::format("unknown variable '{}'", var));
+	}
 
 	/** lead coefficient and exponent and monomial*/
 	R const &lc() const
