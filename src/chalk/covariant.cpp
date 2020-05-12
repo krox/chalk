@@ -247,7 +247,8 @@ int simplify_antisymmetric(std::vector<CovariantAtom> &atoms,
 
 		for (size_t i = 0; i < inds.size(); ++i)
 			for (size_t j = i + 1; j < inds.size(); ++j)
-				if (is_symmetric(atoms, inds[i], inds[j], symbol))
+				if (inds[i] == inds[j] ||
+				    is_symmetric(atoms, inds[i], inds[j], symbol))
 					return 0;
 	}
 	return sign;

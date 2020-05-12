@@ -578,6 +578,36 @@ void simplify_lie_term_structure_constants(CovariantTerm<R> &term,
                                            std::string const &symbol,
                                            R const &cA)
 {
+// {xab}{ybc}{zca} = 1/2 cA {xyz}
+// {xab}{yac}{zbc} = 1/2 cA {xyz} (this form appears in normalized terms)
+foo:
+	for (size_t i = 0; i < term.atoms.size(); ++i)
+		for (size_t j = i + 1; j < term.atoms.size(); ++j)
+			for (size_t k = j + 1; k < term.atoms.size(); ++k)
+			{
+				if (term.atoms[i].symbol != "f")
+					continue;
+				if (term.atoms[j].symbol != "f")
+					continue;
+				if (term.atoms[k].symbol != "f")
+					continue;
+
+				auto &a = term.atoms[i].indices;
+				auto &b = term.atoms[j].indices;
+				auto &c = term.atoms[k].indices;
+				assert(a.size() == 3 && b.size() == 3 && c.size() == 3);
+				if (a[1] == b[1] && a[2] == c[1] && b[2] == c[2])
+				{
+					a[1] = b[0];
+					a[2] = c[0];
+					term.coefficient *= cA / 2;
+
+					term.atoms.erase(term.atoms.begin() + k);
+					term.atoms.erase(term.atoms.begin() + j);
+					goto foo;
+				}
+			}
+
 // f_abc S_ab = 1/2 C_A S_c
 again:
 	for (auto &atom_f : term.atoms)
