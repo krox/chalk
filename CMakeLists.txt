@@ -19,7 +19,7 @@ file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
 target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector)
 
-foreach(bin "test_primes" "test_rings" "test_covariant" "test_numerics")
+foreach(bin "test_primes" "test_rings" "test_covariant" "test_numerics" "test_algebra")
 	add_executable(${bin} src/tests/${bin}.cpp)
 	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector)
 endforeach(bin)
