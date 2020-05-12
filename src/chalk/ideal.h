@@ -232,6 +232,7 @@ inline void analyze_variety(Ideal<double, rank> const &ideal)
 	using value_map = std::map<int, double>;
 	int solution_count = 0;
 
+	// stack of partial solutions
 	std::vector<std::pair<poly_list, value_map>> stack;
 	stack.push_back({ideal.basis(), {}});
 	while (!stack.empty())
@@ -265,10 +266,25 @@ inline void analyze_variety(Ideal<double, rank> const &ideal)
 		// no univariate found -> print solution (and remaining polys)
 		if (!found_univariate)
 		{
+			// check for contradictions
+			bool contradiction = false;
+			for (auto &f : state.first)
+				if (f.terms().size() == 1)
+					if (f.var_count() == 0)
+						if (std::abs(f.terms()[0].coefficient) > 1.0e-10)
+						{
+							contradiction = true;
+							break;
+						}
+			if (contradiction)
+				continue;
+
+			// print (partial) variable assignment
 			fmt::print("solution {}:\n", ++solution_count);
 			for (auto &[var, val] : state.second)
 				fmt::print("    {} = {}\n", ideal.ring()->var_names()[var],
 				           val);
+			// print remaining conditions
 			for (auto &f : state.first)
 			{
 				if (f.terms().empty())

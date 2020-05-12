@@ -58,6 +58,9 @@ std::vector<std::complex<double>> roots(Polynomial<std::complex<double>> poly)
 
 std::vector<double> roots(Polynomial<double> const &poly)
 {
+	// TODO: more sophisticated cutoffs. hardcoded 1.0e-12 is kinda stupid...
+	// leading coefficient should determine the overall scale
+
 	// analytical formulas for low degrees:
 	if (poly.degree() == -1)
 		throw std::runtime_error("cant factorize zero-polynomial");
@@ -71,6 +74,10 @@ std::vector<double> roots(Polynomial<double> const &poly)
 		if (d < 0)
 			return {};
 		d = std::sqrt(d);
+
+		// roots are very close together -> just return one
+		if (std::abs(d) < 1.0e-12)
+			return {-0.5 * p};
 
 		// solutions are now -p/2 +- d. But it is numerically more precise to
 		// determine only one root this way, and the other by Vieta lemma
@@ -96,6 +103,7 @@ std::vector<double> roots(Polynomial<double> const &poly)
 		if (std::abs(x.imag()) < 1.0e-12)
 			r.push_back(x.real());
 	std::sort(r.begin(), r.end());
+
 	return r;
 }
 } // namespace chalk
