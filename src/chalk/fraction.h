@@ -11,10 +11,12 @@ bool is_negative(int64_t a) { return a < 0; }
 bool is_invertible(int64_t a) { return a == 1 || a == -1; }
 bool is_regular(int64_t a) { return a != 0; }
 int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
+bool need_parens(int64_t) { return false; }
 bool is_negative(int128_t a) { return a < 0; }
 bool is_invertible(int128_t a) { return a == 1 || a == -1; }
 bool is_regular(int128_t a) { return a != 0; }
 int128_t invertible_factor(int128_t a) { return a < 0 ? -1 : 1; }
+bool need_parens(int128_t) { return false; }
 // int64_t gcd(int64_t,int64_t); // defined in numtheory
 // int128_t gcd(int128_t,int128_t); // defined in numtheory
 
@@ -69,6 +71,14 @@ template <typename R> Fraction<R> invertible_factor(Fraction<R> const &a)
 {
 	return Fraction<R>{regular_factor(a.num()), a.denom()};
 }
+template <typename R> bool need_parens(Fraction<R> const &a)
+{
+	if (a.denom() == 1)
+		return need_parens(a.num());
+	else
+		return false;
+}
+
 template <typename R> Fraction<R> operator-(Fraction<R> const &a)
 {
 	return Fraction<R>{-a.num(), a.denom()};
@@ -187,10 +197,24 @@ template <typename R> struct fmt::formatter<chalk::Fraction<R>>
 	template <typename FormatContext>
 	auto format(const chalk::Fraction<R> &x, FormatContext &ctx)
 	{
+		using chalk::need_parens;
+
 		if (x.denom() == 1)
 			return format_to(ctx.out(), "{}", x.num());
+		if (need_parens(x.num()))
+		{
+			if (need_parens(x.denom()))
+				return format_to(ctx.out(), "({})/({})", x.num(), x.denom());
+			else
+				return format_to(ctx.out(), "({})/{}", x.num(), x.denom());
+		}
 		else
-			return format_to(ctx.out(), "{}/{}", x.num(), x.denom());
+		{
+			if (need_parens(x.denom()))
+				return format_to(ctx.out(), "{}/({})", x.num(), x.denom());
+			else
+				return format_to(ctx.out(), "{}/{}", x.num(), x.denom());
+		}
 	}
 };
 

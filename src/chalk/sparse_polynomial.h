@@ -101,6 +101,10 @@ template <typename R, size_t rank> class PolynomialRing
 	SparsePolynomial<R, rank> generator(int k);
 	SparsePolynomial<R, rank> generator(std::string const &varName,
 	                                    int maxOrder = INT_MAX);
+	SparsePolynomial<R, rank> operator()(std::string const &str)
+	{
+		return generator(str);
+	}
 };
 
 /**
@@ -360,6 +364,17 @@ PolynomialRing<R, rank> const *unify(PolynomialRing<R, rank> const *a,
 	if (b == &SparsePolynomial<R, rank>::trivialRing)
 		return a;
 	throw std::runtime_error("incompatible polynomial rings");
+}
+
+template <typename R, size_t rank>
+bool need_parens(SparsePolynomial<R, rank> const &poly)
+{
+	if (poly.terms().size() == 0)
+		return false;
+	if (poly.terms().size() == 1)
+		return need_parens(poly.terms()[0].coefficient);
+	else
+		return true;
 }
 
 /** unary operations */

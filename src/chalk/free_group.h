@@ -27,11 +27,19 @@ class FreeProduct
 	}
 
   public:
+	/* constructor */
 	FreeProduct() = default;
 	explicit FreeProduct(std::vector<int> word) : word_{std::move(word)}
 	{
 		cleanup();
 	}
+	explicit FreeProduct(int a)
+	{
+		if (a != 1)
+			throw std::runtime_error("invalid use of FreeProduct(int)");
+	}
+
+	/** array-like access */
 	std::vector<int> const &word() const { return word_; }
 	auto begin() const { return word_.begin(); }
 	auto end() const { return word_.end(); }
@@ -39,7 +47,10 @@ class FreeProduct
 	size_t size() const { return word_.size(); }
 	bool empty() const { return word_.empty(); }
 
-	static FreeProduct generator(int i) { return FreeProduct({i * 2}); }
+	static FreeProduct generator(int i)
+	{
+		return FreeProduct(std::vector<int>{i * 2});
+	}
 
 	bool operator==(FreeProduct const &other) const
 	{

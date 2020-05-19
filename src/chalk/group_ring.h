@@ -69,11 +69,20 @@ template <typename R, typename G> class Multinomial
 	{
 		cleanup();
 	}
-	explicit Multinomial(R const &a) : terms_{MultinomialTerm<R, G>{a, {}}}
+	explicit Multinomial(R const &a) : terms_{MultinomialTerm<R, G>{a, G(1)}}
 	{
 		cleanup();
 	}
-	explicit Multinomial(int a) : terms_{MultinomialTerm<R, G>{R(a), {}}}
+	explicit Multinomial(G const &b) : terms_{MultinomialTerm<R, G>{R(1), b}}
+	{
+		cleanup();
+	}
+	explicit Multinomial(R const &a, G const &b)
+	    : terms_{MultinomialTerm<R, G>{a, b}}
+	{
+		cleanup();
+	}
+	explicit Multinomial(int a) : terms_{MultinomialTerm<R, G>{R(a), G(1)}}
 	{
 		cleanup();
 	}
@@ -234,6 +243,28 @@ Multinomial<R, G> operator/(Multinomial<R, G> const &a, int b)
 		term.coefficient /= b;
 	return Multinomial<R, G>(std::move(r));
 }
+template <typename R, typename G>
+void operator*=(Multinomial<R, G> &a, Multinomial<R, G> const &b)
+{
+	a = a * b;
+}
+
+/** apply a function to all coefficients */
+template <typename R, typename G, typename F>
+Multinomial<R, G> map_coefficients(Multinomial<R, G> const &a, F &&f)
+{
+	auto terms = a.terms();
+	for (auto &t : terms)
+		t.coefficient = f(t.coefficient);
+	return Multinomial<R, G>(std::move(terms));
+}
+
+/** print in multi-line (hopefully more human-readable for huge sums) */
+template <typename R, typename G> void dump(Multinomial<R, G> const &a)
+{
+	for (auto &term : a.terms())
+		fmt::print("{} :: {}\n", term.index, term.coefficient);
+}
 
 template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
@@ -263,6 +294,9 @@ struct fmt::formatter<chalk::Multinomial<R, G>>
 				it = format_to(it, "{}", mult.terms()[i].index);
 			else if (mult.terms()[i].index == 1)
 				it = format_to(it, "{}", mult.terms()[i].coefficient);
+			else if (need_parens(mult.terms()[i].coefficient))
+				it = format_to(it, "({})*{}", mult.terms()[i].coefficient,
+				               mult.terms()[i].index);
 			else
 				it = format_to(it, "{}*{}", mult.terms()[i].coefficient,
 				               mult.terms()[i].index);
