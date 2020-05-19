@@ -22,8 +22,20 @@ bool operator==(Indexed const &a, Indexed const &b)
 }
 bool operator<(Indexed const &a, Indexed const &b)
 {
-	if (a.atoms().size() != b.atoms().size())
-		return a.atoms().size() < b.atoms().size();
+	// first by number of atoms
+	if (a.size() != b.size())
+		return a.size() < b.size();
+
+	// then lexicographic by symbols
+	for (size_t i = 0; i < a.size(); ++i)
+		if (a[i].symbol != b[i].symbol)
+			return a[i].symbol < b[i].symbol;
+	// then lexicographic by number of indices
+	for (size_t i = 0; i < a.size(); ++i)
+		if (a[i].indices.size() != b[i].indices.size())
+			return a[i].indices.size() > b[i].indices.size();
+
+	// finally, whatever
 	return a.atoms() < b.atoms();
 }
 

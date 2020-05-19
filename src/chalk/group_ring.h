@@ -266,6 +266,14 @@ template <typename R, typename G> void dump(Multinomial<R, G> const &a)
 		fmt::print("{} :: {}\n", term.index, term.coefficient);
 }
 
+/** ditto, but shorter */
+template <typename R, typename G> void dump_summary(Multinomial<R, G> const &a)
+{
+	for (auto &term : a.terms())
+		fmt::print("{} :: {} + ... ( {} terms total )\n", term.index,
+		           term.coefficient.lm(), term.coefficient.terms().size());
+}
+
 template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
 } // namespace chalk
