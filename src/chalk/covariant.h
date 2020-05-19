@@ -312,14 +312,66 @@ simplify_lie_derivatives(CovariantTerm<R> &term, std::string const &symbol,
 			assert(atom.indices.size() == 3);
 			if (is_symmetric(atoms, atom.indices[0], atom.indices[1]))
 				term.coefficient = R(0);
+			else if (is_symmetric(atoms, atom.indices[0], atom.indices[2]))
+				term.coefficient = R(0);
+			else if (is_symmetric(atoms, atom.indices[1], atom.indices[2]))
+				term.coefficient = R(0);
 			else
 				term.coefficient *= sort_antisym(atom.indices);
 		}
 
-	// TODO
-	// f_xab f_yac f_zbc = 1/2 cA f_xyz
+foo:
 	// f_abc S_ab = 1/2 C_A S_c
+	for (size_t ai = 0; ai < atoms.size(); ++ai)
+		for (size_t ai2 = 0; ai2 < atoms.size(); ++ai2)
+			if (atoms[ai].symbol == symbol && atoms[ai2].symbol == "f")
+			{
+				for (int i = 0; i < (int)atoms[ai].indices.size() - 1; ++i)
+				{
+					if (atoms[ai].indices[i] == atoms[ai2].indices[0] &&
+					    atoms[ai].indices[i + 1] == atoms[ai2].indices[1])
+					{
+						term.coefficient *= cA / 2;
+						atoms[ai].indices.erase(atoms[ai].indices.begin() + i +
+						                        1);
+						atoms[ai].indices[i] = atoms[ai2].indices[2];
+						atoms.erase(atoms.begin() + ai2);
+						goto foo;
+					}
+				}
+			}
+	// f_xab f_yac f_zbc = 1/2 cA f_xyz
+	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
+		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
+			for (size_t ai3 = ai2 + 1; ai3 < atoms.size(); ++ai3)
+				if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f" &&
+				    atoms[ai3].symbol == "f")
+					if (atoms[ai1].indices[1] == atoms[ai2].indices[1] &&
+					    atoms[ai1].indices[2] == atoms[ai3].indices[1] &&
+					    atoms[ai2].indices[2] == atoms[ai3].indices[2])
+					{
+						term.coefficient *= cA / 2;
+						atoms[ai1].indices[1] = atoms[ai2].indices[0];
+						atoms[ai1].indices[2] = atoms[ai3].indices[0];
+						atoms.erase(atoms.begin() + ai3);
+						atoms.erase(atoms.begin() + ai2);
+						goto foo;
+					}
+
 	// f_xab f_yab = C_A delta_xy
+	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
+		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
+			if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f")
+				if (atoms[ai1].indices[1] == atoms[ai2].indices[1] &&
+				    atoms[ai1].indices[2] == atoms[ai2].indices[2])
+				{
+					term.coefficient *= cA;
+					atoms[ai1] = IndexedAtom{
+					    "delta",
+					    {atoms[ai1].indices[0], atoms[ai2].indices[0]}};
+					atoms.erase(atoms.begin() + ai2);
+					goto foo;
+				}
 
 	// nothing found -> restore original
 	term.index = Indexed(std::move(atoms));
@@ -335,29 +387,30 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
 {
 	std::vector<CovariantTerm<R>> terms = a.terms();
 
-	for (size_t term_i = 0; term_i < terms.size(); ++term_i)
-	{
-		auto &term = terms[term_i];
-
-		// move all double-indices to the front
+	for (int iter = 0; iter < 3; ++iter)
+		for (size_t term_i = 0; term_i < terms.size(); ++term_i)
 		{
-			auto tmp = term.index.release();
-			for (auto &atom : tmp)
-				if (atom.symbol == symbol)
-					move_double_indices(atom.indices);
-			term.index = Indexed(std::move(tmp));
-		}
+			auto &term = terms[term_i];
 
-		// if something was found -> new term and repeat on this term
-		if (auto new_term = simplify_lie_derivatives(term, symbol, cA);
-		    new_term)
-		{
-			// NOTE: the push_back can make 'term' a dangling reference
-			terms.push_back(new_term.value());
-			--term_i;
-			continue;
+			// move all double-indices to the front
+			{
+				auto tmp = term.index.release();
+				for (auto &atom : tmp)
+					if (atom.symbol == symbol)
+						move_double_indices(atom.indices);
+				term.index = Indexed(std::move(tmp));
+			}
+
+			// if something was found -> new term and repeat on this term
+			if (auto new_term = simplify_lie_derivatives(term, symbol, cA);
+			    new_term)
+			{
+				// NOTE: the push_back can make 'term' a dangling reference
+				terms.push_back(new_term.value());
+				--term_i;
+				continue;
+			}
 		}
-	}
 
 	return Covariant<R>(std::move(terms));
 }
