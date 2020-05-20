@@ -37,14 +37,19 @@ template <typename R> class Fraction
 		auto u = invertible_factor(denom_);
 		num_ /= u;
 		denom_ /= u;
+
+		// makes sure that Fraction<int128_t> does not overflow
+		// assert(INT64_MIN < num_ && num_ < INT64_MAX);
+		// assert(INT64_MIN < denom_ && denom_ < INT64_MAX);
 	}
 
   public:
 	/** constructors */
 	Fraction() : num_(0), denom_(1) {}
 	explicit Fraction(int num) : num_(num), denom_(1) {}
-	explicit Fraction(R const &num) : num_(num), denom_(1) {}
-	explicit Fraction(R const &num, R const &denom) : num_(num), denom_(denom)
+	explicit Fraction(R num) : num_(std::move(num)), denom_(1) {}
+	explicit Fraction(R num, R denom)
+	    : num_(std::move(num)), denom_(std::move(denom))
 	{
 		reduce();
 	}
