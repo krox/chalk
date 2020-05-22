@@ -1,6 +1,7 @@
 #ifndef CHALK_SPARSE_POLYNOMIAL_H
 #define CHALK_SPARSE_POLYNOMIAL_H
 
+#include "chalk/parser.h"
 #include "chalk/polynomial.h"
 #include "fmt/format.h"
 #include "util/span.h"
@@ -8,6 +9,7 @@
 #include <bitset>
 #include <cassert>
 #include <climits>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -35,6 +37,11 @@ template <typename R, size_t rank> struct Monomial
 			else
 				return std::nullopt;
 		return Monomial{coefficient / b.coefficient, ex};
+	}
+
+	bool operator==(Monomial const &b) const
+	{
+		return coefficient == b.coefficient && exponent == b.exponent;
 	}
 };
 
@@ -99,11 +106,18 @@ template <typename R, size_t rank> class PolynomialRing
 
 	/** generator x_k */
 	SparsePolynomial<R, rank> generator(int k);
-	SparsePolynomial<R, rank> generator(std::string const &varName,
+	SparsePolynomial<R, rank> generator(std::string_view varName,
 	                                    int maxOrder = INT_MAX);
 	SparsePolynomial<R, rank> operator()(std::string const &str)
 	{
-		return generator(str);
+		auto f = [&](std::string_view token) -> SparsePolynomial<R, rank> {
+			if (std::isdigit(token[0]))
+				return (*this)(parse_int(token));
+			else
+				return generator(token);
+		};
+
+		return parse<SparsePolynomial<R, rank>>(str, f);
 	}
 };
 
@@ -350,6 +364,18 @@ template <typename R, size_t rank> class SparsePolynomial
 			term.coefficient /= b;
 		cleanup();
 	}
+
+	/** only division by R is supported (TODO: polynomial divison?) */
+	void operator/=(SparsePolynomial<R, rank> const &b)
+	{
+		if (b.terms().size() == 0)
+			throw std::runtime_error("tried to divide polynomial by zero");
+		if (b.terms().size() != 1 ||
+		    b.terms()[0].exponent != std::array<int, rank>{})
+			throw std::runtime_error(
+			    "tried to divide polynomial by non-constant polynomial");
+		(*this) /= b.terms()[0].coefficient;
+	}
 };
 
 /** helper function to determine ring of result of binary operations */
@@ -494,6 +520,19 @@ SparsePolynomial<R, rank> operator*(SparsePolynomial<R, rank> const &a,
 	return SparsePolynomial(unify(a.ring(), b.ring()), std::move(terms));
 }
 
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> pow(SparsePolynomial<R, rank> a, int b)
+{
+	if (b < 0)
+		throw std::runtime_error("cannot raise polynomial to negative power");
+
+	auto r = SparsePolynomial<R, rank>(1);
+	for (; b != 0; b >>= 1, a *= a)
+		if (b & 1)
+			r *= a;
+	return r;
+}
+
 /** comparisons */
 template <typename R, size_t rank>
 bool operator==(SparsePolynomial<R, rank> const &a,
@@ -555,7 +594,7 @@ SparsePolynomial<R, rank> PolynomialRing<R, rank>::generator(int k)
 }
 template <typename R, size_t rank>
 SparsePolynomial<R, rank>
-PolynomialRing<R, rank>::generator(std::string const &varName, int max_order)
+PolynomialRing<R, rank>::generator(std::string_view varName, int max_order)
 {
 	assert(max_order >= 0);
 	for (size_t i = 0; i < namedVars_; ++i)

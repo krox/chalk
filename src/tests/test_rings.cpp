@@ -1,5 +1,5 @@
 #include "chalk/fraction.h"
-#include "chalk/polynomial.h"
+#include "chalk/sparse_polynomial.h"
 #include <cassert>
 #include <fmt/format.h>
 using namespace chalk;
@@ -31,6 +31,11 @@ int main()
 		assert(fmt::format("{}", -z) == "-x^2 + y^2 - 1");
 		assert(fmt::format("{}", z * 2) == "2*x^2 - 2*y^2 + 2");
 		assert(fmt::format("{}", z / 2) == "1/2*x^2 - 1/2*y^2 + 1/2");
+	}
+
+	{
+		auto R = PolynomialRing<Fraction<int64_t>, 4>();
+		assert(R("(x+1)^2") == R("x^2+x*2+5-4"));
 	}
 
 	fmt::print("done\n");
