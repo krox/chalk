@@ -18,14 +18,14 @@ include_directories(fmt/include)
 
 file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
-target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp)
+target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
 
 foreach(bin "test_primes" "test_rings" "test_covariant" "test_numerics" "test_algebra" "test_integer")
 	add_executable(${bin} src/tests/${bin}.cpp)
-	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp)
+	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
 endforeach(bin)
 
 foreach(bin "langevin_scheme")
 	add_executable(${bin} src/apps/${bin}.cpp)
-	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp)
+	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
 endforeach(bin)
