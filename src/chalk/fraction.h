@@ -143,6 +143,23 @@ template <typename R> Fraction<R> operator/(Fraction<R> const &a, int b)
 	assert(is_regular(R(b)));
 	return Fraction<R>{a.num(), a.denom() * b};
 }
+template <typename R> Fraction<R> operator+(int a, Fraction<R> const &b)
+{
+	return b + a;
+}
+template <typename R> Fraction<R> operator-(int a, Fraction<R> const &b)
+{
+	return Fraction<R>{a * b.denom() - b.num(), b.denom()};
+}
+template <typename R> Fraction<R> operator*(int a, Fraction<R> const &b)
+{
+	return b * a;
+}
+template <typename R> Fraction<R> operator/(int a, Fraction<R> const &b)
+{
+	assert(is_regular(b));
+	return Fraction<R>{a * b.denom(), b.num()};
+}
 
 /** binary operators assignments */
 template <typename R> void operator+=(Fraction<R> &a, Fraction<R> const &b)

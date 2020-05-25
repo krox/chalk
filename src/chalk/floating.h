@@ -1,5 +1,5 @@
-#ifndef CHALK_INTEGER_H
-#define CHALK_INTEGER_H
+#ifndef CHALK_FLOATING_H
+#define CHALK_FLOATING_H
 
 /**
  * C++ wrapper for arbitrary precision floating point numbers using GNU MPFR.

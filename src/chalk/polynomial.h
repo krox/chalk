@@ -157,7 +157,7 @@ Polynomial<R> operator-(Polynomial<R> const &a, Polynomial<R> const &b)
 template <typename R>
 Polynomial<R> operator*(Polynomial<R> const &a, Polynomial<R> const &b)
 {
-	auto coeffs = std::vector<R>(a.degree() + b.degree() + 1);
+	auto coeffs = std::vector<R>(std::max(0, a.degree() + b.degree() + 1));
 	for (int i = 0; i <= a.degree(); ++i)
 		for (int j = 0; j <= b.degree(); ++j)
 			if (i + j <= std::min(a.max_order(), b.max_order()))
@@ -203,6 +203,26 @@ Polynomial<R> operator/(Polynomial<R> const &a, R const &b)
 		coeffs[i] = a[i] / b;
 	return Polynomial<R>(std::move(coeffs), a.max_order());
 }
+template <typename R>
+Polynomial<R> operator+(R const &a, Polynomial<R> const &b)
+{
+	return b + a;
+}
+template <typename R>
+Polynomial<R> operator-(R const &a, Polynomial<R> const &b)
+{
+	auto r = -b;
+	r += a;
+	return r;
+}
+template <typename R>
+Polynomial<R> operator*(R const &a, Polynomial<R> const &b)
+{
+	auto coeffs = std::vector<R>(b.degree() + 1);
+	for (int i = 0; i <= b.degree(); ++i)
+		coeffs[i] = a * b[i];
+	return Polynomial<R>(std::move(coeffs), b.max_order());
+}
 
 /** binary operations (Polynomial <-> int) */
 template <typename R> Polynomial<R> operator+(Polynomial<R> const &a, int b)
@@ -236,6 +256,20 @@ template <typename R> Polynomial<R> operator/(Polynomial<R> const &a, int b)
 	for (int i = 0; i <= a.degree(); ++i)
 		coeffs[i] = a[i] / b;
 	return Polynomial<R>(std::move(coeffs), a.max_order());
+}
+template <typename R> Polynomial<R> operator+(int a, Polynomial<R> const &b)
+{
+	return b + a;
+}
+template <typename R> Polynomial<R> operator-(int a, Polynomial<R> const &b)
+{
+	auto r = -b;
+	r += a;
+	return r;
+}
+template <typename R> Polynomial<R> operator*(int a, Polynomial<R> const &b)
+{
+	return b * a;
 }
 
 /** op-assigns for convenience (could be optimized...) */
