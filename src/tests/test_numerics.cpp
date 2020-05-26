@@ -25,27 +25,27 @@ int main()
 		using Poly = Polynomial<Rat>;
 		auto x = Poly::generator();
 
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) == "1");
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) == "x");
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) ==
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 0, 0, x)) ==
+		       "1");
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 1, 0, x)) ==
+		       "x");
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 2, 0, x)) ==
 		       "3/2*x^2 - 1/2");
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) ==
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 3, 0, x)) ==
 		       "5/2*x^3 - 3/2*x");
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) ==
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 4, 0, x)) ==
 		       "35/8*x^4 - 15/4*x^2 + 3/8");
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) ==
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 5, 0, x)) ==
 		       "63/8*x^5 - 35/4*x^3 + 15/8*x");
-		assert(fmt::format("{}", jacobi(Rat(0), Rat(0), 0, 0, x)) ==
+		assert(fmt::format("{}", jacobiPolynomial(Rat(0), Rat(0), 6, 0, x)) ==
 		       "231/16*x^6 - 315/16*x^4 + 105/16*x^2 - 5/16");
 
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 0, 0, x));
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 1, 0, x));
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 2, 0, x));
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 3, 0, x));
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 4, 0, x));
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 5, 0, x));
-		fmt::print("{}\n", jacobi<Poly, Rat>(Rat(0), Rat(0), 6, 0, x));
+		for (int n = 0; n < 6; ++n)
+			fmt::print("{}: {}  |  {}\n", n, legendrePolynomial(n, x).first,
+			           legendrePolynomial(n, x).second);
 	}
+
+	computeLegendreQuadrature(125);
 
 	/*{
 	    // alternating harmonic series = ln(2)

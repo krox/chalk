@@ -33,10 +33,10 @@ class Floating
 
 	/** constructors / destructor / moves */
 	Floating() { mpfr_init2(f_, precision); }
-	explicit Floating(int value)
+	explicit Floating(double value)
 	{
 		mpfr_init2(f_, precision);
-		mpfr_set_si(f_, value, MPFR_RNDN);
+		mpfr_set_d(f_, value, MPFR_RNDN);
 	}
 	explicit Floating(std::string const &value)
 	{
@@ -56,7 +56,7 @@ class Floating
 	}
 	void operator=(Floating const &other) { mpfr_set(f_, other.f_, MPFR_RNDN); }
 	void operator=(Floating &&other) { mpfr_swap(f_, other.f_); }
-	void operator=(int value) { mpfr_set_si(f_, value, MPFR_RNDN); }
+	void operator=(double value) { mpfr_set_d(f_, value, MPFR_RNDN); }
 
 	/** convert to double/string */
 	double to_double() const { return (double)mpfr_get_d(f_, MPFR_RNDN); }

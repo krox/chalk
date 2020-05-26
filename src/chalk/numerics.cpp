@@ -1,5 +1,6 @@
 #include "chalk/numerics.h"
 
+#include "chalk/floating.h"
 #include "fmt/format.h"
 #include <algorithm>
 #include <complex>
@@ -106,4 +107,34 @@ std::vector<double> roots(Polynomial<double> const &poly)
 
 	return r;
 }
+
+LegendreRule computeLegendreQuadrature(int n)
+{
+	assert(n >= 1 && n % 2 == 1);
+	LegendreRule rule;
+	rule.xs.resize(n / 2);
+	rule.ws.resize(n / 2);
+
+	// compute the roots
+	for (int k = 0; k < n / 2; ++k)
+	{
+		// starting guess (very precise, especially for large n)
+		double guess = std::sin(M_PI * 2. * k / (2. * n + 1.));
+		guess *= 1. - (n - 1.) / (8. * n * n * n); // + O(n^-4)
+
+		// a few iterations of Newton method
+		Floating x = Floating(guess);
+		Floating fd;
+		for (int iter = 1; iter < 10; ++iter)
+		{
+			auto [f, fd_] = legendrePolynomial(n, x);
+			fd = std::move(fd_);
+			x -= f / fd;
+		}
+		rule.xs[k] = x.to_double();
+		rule.ws[k] = (2 / ((1 - x * x) * fd * fd)).to_double();
+	}
+	return rule;
+}
+
 } // namespace chalk
