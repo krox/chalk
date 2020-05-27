@@ -7,16 +7,16 @@
 namespace chalk {
 
 /** helper functions to make Fraction<int64/128_t> work */
-bool is_negative(int64_t a) { return a < 0; }
-bool is_invertible(int64_t a) { return a == 1 || a == -1; }
-bool is_regular(int64_t a) { return a != 0; }
-int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
-bool need_parens(int64_t) { return false; }
-bool is_negative(int128_t a) { return a < 0; }
-bool is_invertible(int128_t a) { return a == 1 || a == -1; }
-bool is_regular(int128_t a) { return a != 0; }
-int128_t invertible_factor(int128_t a) { return a < 0 ? -1 : 1; }
-bool need_parens(int128_t) { return false; }
+inline bool is_negative(int64_t a) { return a < 0; }
+inline bool is_invertible(int64_t a) { return a == 1 || a == -1; }
+inline bool is_regular(int64_t a) { return a != 0; }
+inline int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
+inline bool need_parens(int64_t) { return false; }
+inline bool is_negative(int128_t a) { return a < 0; }
+inline bool is_invertible(int128_t a) { return a == 1 || a == -1; }
+inline bool is_regular(int128_t a) { return a != 0; }
+inline int128_t invertible_factor(int128_t a) { return a < 0 ? -1 : 1; }
+inline bool need_parens(int128_t) { return false; }
 // int64_t gcd(int64_t,int64_t); // defined in numtheory
 // int128_t gcd(int128_t,int128_t); // defined in numtheory
 

@@ -110,7 +110,7 @@ class FreeProduct
 	}
 };
 
-FreeProduct inverse(FreeProduct const &a)
+inline FreeProduct inverse(FreeProduct const &a)
 {
 	std::vector<int> r;
 	r.resize(a.size());

@@ -1,42 +1,40 @@
 #include "chalk/fraction.h"
+#include "chalk/free_group.h"
 #include "chalk/sparse_polynomial.h"
-#include <cassert>
 #include <fmt/format.h>
+#include <gtest/gtest.h>
 using namespace chalk;
 
-int main()
+TEST(Polynomial, Univariate)
 {
-	{
-		using R = Fraction<int64_t>;
-		auto x = Polynomial<R>::generator();
-		assert(fmt::format("{}", (x + 1) * (x - 1)) == "x^2 - 1");
-		assert(fmt::format("{}", (x + 1) * (x + 1)) == "x^2 + 2*x + 1");
-	}
-	{
-		using R = Fraction<int64_t>;
-		assert(fmt::format("{}", R(6, 2)) == "3");
-		assert(fmt::format("{}", inverse(R(6, 2))) == "1/3");
-		assert(fmt::format("{}", R(12, -9)) == "-4/3");
-		assert(fmt::format("{}", inverse(R(12, -9))) == "-3/4");
-		assert(R(5, 6) + R(1, 6) == R(-7, -7));
-		assert(-R(3, 8) - R(1, 16) == R(7, -16));
-	}
+	using R = Fraction<int64_t>;
+	auto x = Polynomial<R>::generator();
+	assert(fmt::format("{}", (x + 1) * (x - 1)) == "x^2 - 1");
+	assert(fmt::format("{}", (x + 1) * (x + 1)) == "x^2 + 2*x + 1");
+}
 
-	{
-		auto R = PolynomialRing<Fraction<int64_t>, 2>({"x", "y"});
-		auto x = R.generator(0);
-		auto y = R.generator(1);
-		auto z = (x + y) * (x - y) + R(1);
-		assert(fmt::format("{}", z) == "x^2 - y^2 + 1");
-		assert(fmt::format("{}", -z) == "-x^2 + y^2 - 1");
-		assert(fmt::format("{}", z * 2) == "2*x^2 - 2*y^2 + 2");
-		assert(fmt::format("{}", z / 2) == "1/2*x^2 - 1/2*y^2 + 1/2");
-	}
+TEST(Polynomial, Multivariate)
+{
+	auto R = PolynomialRing<Fraction<int64_t>, 2>({"x", "y"});
+	auto x = R.generator(0);
+	auto y = R.generator(1);
+	auto z = (x + y) * (x - y) + R(1);
+	assert(fmt::format("{}", z) == "x^2 - y^2 + 1");
+	assert(fmt::format("{}", -z) == "-x^2 + y^2 - 1");
+	assert(fmt::format("{}", z * 2) == "2*x^2 - 2*y^2 + 2");
+	assert(fmt::format("{}", z / 2) == "1/2*x^2 - 1/2*y^2 + 1/2");
 
-	{
-		auto R = PolynomialRing<Fraction<int64_t>, 4>();
-		assert(R("(x+1)^2") == R("x^2+x*2+5-4"));
-	}
+	auto R2 = PolynomialRing<Fraction<int64_t>, 4>();
+	assert(R2("(x+1)^2") == R2("x^2+x*2+5-4"));
+}
 
-	fmt::print("done\n");
+TEST(FreeGroup, BasicGroupOperations)
+{
+	auto a = chalk::FreeProduct::generator(0);
+	auto b = chalk::FreeProduct::generator(1);
+	auto c = chalk::FreeProduct::generator(2);
+	auto d = chalk::FreeProduct::generator(3);
+	EXPECT_EQ(fmt::format("{}", a * b * c), "abc");
+	EXPECT_EQ(fmt::format("{}", inverse(a * b * c)), "CBA");
+	EXPECT_EQ(fmt::format("{}", a * b * c / (d * b * c)), "aD");
 }
