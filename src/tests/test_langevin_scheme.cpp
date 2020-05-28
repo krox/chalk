@@ -4,8 +4,10 @@
 #include "chalk/sparse_polynomial.h"
 #include <cassert>
 #include <fmt/format.h>
+#include <gtest/gtest.h>
 using namespace chalk;
 
+namespace {
 using Rational = Fraction<int128_t>;
 using R = SparsePolynomial<Rational, 7>;
 using Cov = Covariant<R>;
@@ -37,7 +39,7 @@ auto rationalToDouble(Rational const &x)
 	return (double)x.num() / x.denom();
 };
 
-int main()
+TEST(Langevin, Torrero)
 {
 	int max_order = 2; // orders of epsilon we want everything in
 
@@ -58,18 +60,18 @@ int main()
 	auto eta = Cov(Indexed("eta", 1));
 	auto S0 = Cov(Indexed("S", 1));
 
-	fmt::print("building force term...\n");
+	// fmt::print("building force term...\n");
 	auto f1 = S0 * eps * k1 + eta * seps * k2;
 	auto S1 = taylor(S0, -f1, 2 * max_order);
-	fmt::print("f1 = {}\n", f1);
+	// fmt::print("f1 = {}\n", f1);
 
 	auto f2 = (S0 * k3 + S1 * k4) * eps + eta * seps + S1 * k5 * cA * eps * eps;
 	// auto S2 = taylor(S0, -f2, 2 * max_order);
-	fmt::print("f2 = {}\n", f2);
+	// fmt::print("f2 = {}\n", f2);
 
 	auto f = f2;
 
-	fmt::print("building conditions...\n");
+	// fmt::print("building conditions...\n");
 	std::vector<R> cond_list;
 	for (int order = 1; order <= max_order; ++order)
 	{
@@ -104,33 +106,63 @@ int main()
 			if (tmp.terms().empty())
 				continue;
 
-			fmt::print("\n{} conditions at eps^{} cA^{}:\n", tmp.terms().size(),
-			           order, k);
+			/*fmt::print("\n{} conditions at eps^{} cA^{}:\n",
+			   tmp.terms().size(), order, k);*/
 			// dump_summary(tmp);
-			dump(tmp);
+			// dump(tmp);
 			for (auto term : tmp.terms())
 				cond_list.push_back(term.coefficient);
 		}
 	}
 
-	auto ideal = Ideal(cond_list);
-	fmt::print("\n(general form)\n");
-	ideal.groebner();
-	dump(ideal);
-	analyze_variety(ideal.change_ring(&double_ring, rationalToDouble));
+	std::map<std::string, std::pair<double, double>> constraints = {
+	    {"k1", {0.0, 1.0}}};
 
-	fmt::print("\n(bf / trapezoid)\n");
-	cond_list.push_back(k2 - 1);
-	auto ideal2 = Ideal(cond_list);
-	cond_list.pop_back();
-	ideal2.groebner();
-	dump(ideal2);
-	analyze_variety(ideal2.change_ring(&double_ring, rationalToDouble));
+	{
+		auto ideal = Ideal(cond_list);
+		// fmt::print("\n(general form)\n");
+		ideal.groebner();
+		// dump(ideal);
+		auto result =
+		    analyze_variety(ideal.change_ring(&double_ring, rationalToDouble),
+		                    constraints, false);
+		ASSERT_EQ(result.size(), 0); // no unique solution (variety dimension=1)
+	}
 
-	fmt::print("\n(torrero / minimal step)\n");
-	cond_list.push_back(k3);
-	auto ideal3 = Ideal(cond_list);
-	ideal3.groebner();
-	dump(ideal3);
-	analyze_variety(ideal3.change_ring(&double_ring, rationalToDouble));
+	{
+		// fmt::print("\n(bf / trapezoid)\n");
+		cond_list.push_back(k2 - 1);
+		auto ideal2 = Ideal(cond_list);
+		cond_list.pop_back();
+		ideal2.groebner();
+		// dump(ideal2);
+		auto result =
+		    analyze_variety(ideal2.change_ring(&double_ring, rationalToDouble),
+		                    constraints, false);
+		ASSERT_EQ(result.size(), 1);
+		EXPECT_NEAR(result[0].at("k1"), 1.0, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k2"), 1.0, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k3"), 0.5, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k4"), 0.5, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k5"), 0.16666666666666666, 1.0e-10);
+	}
+
+	{
+		// fmt::print("\n(torrero / minimal step)\n");
+		cond_list.push_back(k3);
+		auto ideal3 = Ideal(cond_list);
+		ideal3.groebner();
+		// dump(ideal3);
+		auto result =
+		    analyze_variety(ideal3.change_ring(&double_ring, rationalToDouble),
+		                    constraints, false);
+		ASSERT_EQ(result.size(), 1);
+		EXPECT_NEAR(result[0].at("k1"), 0.08578643762690494, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k2"), 0.2928932188134524, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k3"), 0.0, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k4"), 1.0, 1.0e-10);
+		EXPECT_NEAR(result[0].at("k5"), 0.0631132760733929, 1.0e-10);
+	}
 }
+
+} // namespace

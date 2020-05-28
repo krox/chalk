@@ -226,11 +226,16 @@ inline void Ideal<R, rank>::groebner(size_t max_polys)
  * produce something useful.
  */
 template <size_t rank>
-inline void analyze_variety(Ideal<double, rank> const &ideal)
+inline std::vector<std::map<std::string, double>> analyze_variety(
+    Ideal<double, rank> const &ideal,
+    std::map<std::string, std::pair<double, double>> const &constraints = {},
+    bool verbose = true)
 {
 	using poly_list = std::vector<SparsePolynomial<double, rank>>;
 	using value_map = std::map<int, double>;
+	auto &var_names = ideal.ring()->var_names();
 	int solution_count = 0;
+	std::vector<std::map<std::string, double>> result;
 
 	// stack of partial solutions
 	std::vector<std::pair<poly_list, value_map>> stack;
@@ -248,11 +253,17 @@ inline void analyze_variety(Ideal<double, rank> const &ideal)
 			if (f.var_count() == 1)
 			{
 				auto [pivot, poly] = f.to_univariate();
+				auto &var_name = var_names[pivot];
 				/*fmt::print("found univariate (var={}): {}\n",
 				           ideal.ring()->var_names()[pivot], poly);*/
 				auto sols = roots(poly);
 				for (double sol : sols)
 				{
+					if (constraints.count(var_name))
+						if (sol < constraints.at(var_name).first ||
+						    sol > constraints.at(var_name).second)
+							continue;
+
 					stack.push_back(state);
 					stack.back().second[pivot] = sol;
 					for (auto &g : stack.back().first)
@@ -280,10 +291,13 @@ inline void analyze_variety(Ideal<double, rank> const &ideal)
 				continue;
 
 			// print (partial) variable assignment
-			fmt::print("solution {}:\n", ++solution_count);
-			for (auto &[var, val] : state.second)
-				fmt::print("    {} = {}\n", ideal.ring()->var_names()[var],
-				           val);
+			if (verbose)
+			{
+				fmt::print("solution {}:\n", ++solution_count);
+				for (auto &[var, val] : state.second)
+					fmt::print("    {} = {}\n", var_names[var], val);
+			}
+			bool has_conditions = false;
 			// print remaining conditions
 			for (auto &f : state.first)
 			{
@@ -292,12 +306,22 @@ inline void analyze_variety(Ideal<double, rank> const &ideal)
 				if (f.var_count() == 0)
 					if (std::abs(f.terms()[0].coefficient) < 1.0e-14)
 						continue;
-				fmt::print("    0 = {}\n", f);
+				has_conditions = true;
+				if (verbose)
+					fmt::print("    0 = {}\n", f);
+			}
+
+			if (!has_conditions)
+			{
+				result.push_back({});
+				for (auto &[var, val] : state.second)
+					result.back()[ideal.ring()->var_names()[var]] = val;
 			}
 		}
 	}
-	if (solution_count == 0)
+	if (solution_count == 0 && verbose)
 		fmt::print("no solutions found\n");
+	return result;
 }
 
 } // namespace chalk
