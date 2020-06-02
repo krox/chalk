@@ -9,7 +9,7 @@ using namespace chalk;
 
 namespace {
 using Rational = Fraction<int128_t>;
-using R = SparsePolynomial<Rational, 7>;
+using R = SparsePolynomial<Rational, 8>;
 using Cov = Covariant<R>;
 
 /** extract the coefficient of eps^k */
@@ -44,7 +44,7 @@ TEST(Langevin, Torrero)
 	int max_order = 2; // orders of epsilon we want everything in
 
 	/** polynomial ring of coefficients */
-	auto ring = PolynomialRing<Rational, 7>();
+	auto ring = PolynomialRing<Rational, 8>();
 
 	auto seps = ring.generator("seps", max_order * 2);
 	auto cA = ring.generator("cA");
@@ -54,7 +54,8 @@ TEST(Langevin, Torrero)
 	auto k3 = ring.generator("k3");
 	auto k4 = ring.generator("k4");
 	auto k5 = ring.generator("k5", INT_MAX, 20);
-	auto double_ring = PolynomialRing<double, 7>(ring.var_names());
+	auto k7 = ring.generator("k7", INT_MAX, 20);
+	auto double_ring = PolynomialRing<double, 8>(ring.var_names());
 
 	/** the forces */
 	auto eta = Cov(Indexed("eta", 1));
@@ -65,7 +66,8 @@ TEST(Langevin, Torrero)
 	auto S1 = taylor(S0, -f1, 2 * max_order);
 	// fmt::print("f1 = {}\n", f1);
 
-	auto f2 = (S0 * k3 + S1 * k4) * eps + eta * seps + S1 * k5 * cA * eps * eps;
+	auto f2 = (S0 * k3 + S1 * k4) * eps + eta * seps +
+	          eta * seps * eps * k7 * cA + S1 * k5 * cA * eps * eps;
 	// auto S2 = taylor(S0, -f2, 2 * max_order);
 	// fmt::print("f2 = {}\n", f2);
 
@@ -126,13 +128,15 @@ TEST(Langevin, Torrero)
 		auto result =
 		    analyze_variety(ideal.change_ring(&double_ring, rationalToDouble),
 		                    constraints, false);
-		ASSERT_EQ(result.size(), 0); // no unique solution (variety dimension=1)
+		ASSERT_EQ(result.size(), 0); // no unique solution (variety dimension=2)
 	}
 
 	{
 		// fmt::print("\n(bf / trapezoid)\n");
 		cond_list.push_back(k2 - 1);
+		cond_list.push_back(k7);
 		auto ideal2 = Ideal(cond_list);
+		cond_list.pop_back();
 		cond_list.pop_back();
 		ideal2.groebner();
 		// dump(ideal2);
@@ -150,6 +154,7 @@ TEST(Langevin, Torrero)
 	{
 		// fmt::print("\n(torrero / minimal step)\n");
 		cond_list.push_back(k3);
+		cond_list.push_back(k7);
 		auto ideal3 = Ideal(cond_list);
 		ideal3.groebner();
 		// dump(ideal3);
