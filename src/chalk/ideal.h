@@ -95,7 +95,8 @@ template <typename R, size_t rank> class Ideal
 
 		// sort by leading term
 		std::sort(basis_.begin(), basis_.end(), [](auto &a, auto &b) {
-			return order_degrevlex(a.terms()[0], b.terms()[0]);
+			return order_degrevlex(a.terms()[0], b.terms()[0],
+			                       a.ring()->weights());
 		});
 	}
 

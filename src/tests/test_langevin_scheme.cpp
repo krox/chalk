@@ -53,7 +53,7 @@ TEST(Langevin, Torrero)
 	auto k2 = ring.generator("k2");
 	auto k3 = ring.generator("k3");
 	auto k4 = ring.generator("k4");
-	auto k5 = ring.generator("k5");
+	auto k5 = ring.generator("k5", INT_MAX, 20);
 	auto double_ring = PolynomialRing<double, 7>(ring.var_names());
 
 	/** the forces */

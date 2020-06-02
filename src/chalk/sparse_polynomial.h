@@ -46,13 +46,15 @@ template <typename R, size_t rank> struct Monomial
 };
 
 template <typename R, size_t rank>
-bool order_degrevlex(Monomial<R, rank> const &a, Monomial<R, rank> const &b)
+bool order_degrevlex(Monomial<R, rank> const &a, Monomial<R, rank> const &b,
+                     std::array<int, rank> const &ws)
 {
 	int totA = 0, totB = 0;
-	for (auto e : a.exponent)
-		totA += e;
-	for (auto e : b.exponent)
-		totB += e;
+	for (size_t i = 0; i < rank; ++i)
+	{
+		totA += a.exponent[i] * ws[i];
+		totB += b.exponent[i] * ws[i];
+	}
 	if (totA != totB)
 		return totA > totB;
 
@@ -71,6 +73,7 @@ template <typename R, size_t rank> class PolynomialRing
 {
 	std::array<std::string, rank> var_names_;
 	std::array<int, rank> max_order_;
+	std::array<int, rank> weights_;
 	size_t namedVars_ = 0;
 
   public:
@@ -81,6 +84,7 @@ template <typename R, size_t rank> class PolynomialRing
 		{
 			var_names_[i] = fmt::format("x_{}", i);
 			max_order_[i] = INT_MAX;
+			weights_[i] = 1;
 		}
 	}
 	explicit constexpr PolynomialRing(std::array<std::string, rank> var_names)
@@ -88,7 +92,10 @@ template <typename R, size_t rank> class PolynomialRing
 	{
 		namedVars_ = rank;
 		for (size_t i = 0; i < rank; ++i)
+		{
 			max_order_[i] = INT_MAX;
+			weights_[i] = 1;
+		}
 	}
 
 	// pointers to the ring are stored inside the polynomial, so moving the
@@ -99,6 +106,7 @@ template <typename R, size_t rank> class PolynomialRing
 	/** names of the variables */
 	auto const &var_names() const { return var_names_; }
 	auto const &max_order() const { return max_order_; }
+	auto const &weights() const { return weights_; }
 
 	/** constant polynomial */
 	SparsePolynomial<R, rank> operator()(R const &value) const;
@@ -107,7 +115,7 @@ template <typename R, size_t rank> class PolynomialRing
 	/** generator x_k */
 	SparsePolynomial<R, rank> generator(int k);
 	SparsePolynomial<R, rank> generator(std::string_view varName,
-	                                    int maxOrder = INT_MAX);
+	                                    int maxOrder = INT_MAX, int weight = 1);
 	SparsePolynomial<R, rank> operator()(std::string const &str)
 	{
 		auto f = [&](std::string_view token) -> SparsePolynomial<R, rank> {
@@ -137,7 +145,10 @@ template <typename R, size_t rank> class SparsePolynomial
 	/** sort terms and collect common terms */
 	void cleanup()
 	{
-		std::sort(terms_.begin(), terms_.end(), order_degrevlex<R, rank>);
+		std::sort(terms_.begin(), terms_.end(),
+		          [&ws = ring_->weights()](auto &a, auto &b) {
+			          return order_degrevlex<R, rank>(a, b, ws);
+		          });
 		size_t j = 0;
 		for (size_t i = 0; i < terms_.size(); ++i)
 		{
@@ -566,8 +577,8 @@ void operator*=(SparsePolynomial<R, rank> &a,
 
 /** constant polynomial */
 template <typename R, size_t rank>
-SparsePolynomial<R, rank> PolynomialRing<R, rank>::
-operator()(R const &value) const
+SparsePolynomial<R, rank>
+PolynomialRing<R, rank>::operator()(R const &value) const
 {
 	std::vector<Monomial<R, rank>> terms;
 	terms.emplace_back(value, {});
@@ -594,9 +605,11 @@ SparsePolynomial<R, rank> PolynomialRing<R, rank>::generator(int k)
 }
 template <typename R, size_t rank>
 SparsePolynomial<R, rank>
-PolynomialRing<R, rank>::generator(std::string_view varName, int max_order)
+PolynomialRing<R, rank>::generator(std::string_view varName, int max_order,
+                                   int weight)
 {
 	assert(max_order >= 0);
+	assert(weight >= 1);
 	for (size_t i = 0; i < namedVars_; ++i)
 		if (var_names_[i] == varName)
 		{
@@ -607,6 +620,7 @@ PolynomialRing<R, rank>::generator(std::string_view varName, int max_order)
 		throw std::runtime_error("too many generators in polynomial ring");
 	var_names_[namedVars_] = varName;
 	max_order_[namedVars_] = max_order;
+	weights_[namedVars_] = weight;
 	return generator(namedVars_++);
 }
 
