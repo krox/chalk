@@ -7,6 +7,7 @@
  * expression-templates.
  */
 
+#include "fmt/format.h"
 #include <cassert>
 #include <gmp.h>
 #include <string>
@@ -24,13 +25,14 @@ namespace chalk {
  */
 class Integer
 {
+  public:
 	// TODO: i think a small-size optimization could be very worthwhile here
 	//       (i.e. use int64_t or int128_t as long as possible). After all,
 	//       that was one of the reasons I wrote this wrapper instead of just
 	//       using the 'mpz_class' type of GMP.
-	mpz_t z_;
 
-  public:
+	mpz_t z_; // semi-private: use with care!
+
 	/** constructors / destructor / moves */
 	Integer() { mpz_init(z_); }
 	explicit Integer(int value) { mpz_init_set_si(z_, value); }
@@ -50,6 +52,7 @@ class Integer
 	void operator=(int value) { mpz_set_si(z_, value); }
 
 	/** convert to double/string */
+	bool fits_int() const { return mpz_fits_sint_p(z_); }
 	int to_int() const
 	{
 		assert(mpz_fits_sint_p(z_));
@@ -178,6 +181,11 @@ class Integer
 		}
 	}
 	void operator*=(int b) { mpz_mul_si(z_, z_, b); }
+	void operator/=(int b)
+	{
+		assert(b > 0);
+		mpz_cdiv_q_ui(z_, z_, b);
+	}
 	void operator%=(int b)
 	{
 		assert(b > 0);
@@ -201,6 +209,22 @@ inline Integer gcd(Integer const &a, Integer const &b)
 {
 	Integer r;
 	mpz_gcd(r.z_, a.z_, b.z_);
+	return r;
+}
+
+inline bool isPrime(Integer const &a)
+{
+	// 2 = definitely prime
+	// 1 = probably prime ( error rate ~ (1/4)^reps )
+	// 0 = definitely composite
+	int reps = 32;
+	return mpz_probab_prime_p(a.z_, reps) != 0;
+}
+
+inline Integer nextPrime(Integer const &a)
+{
+	Integer r;
+	mpz_nextprime(r.z_, a.z_);
 	return r;
 }
 

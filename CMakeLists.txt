@@ -24,7 +24,7 @@ add_library(chalk STATIC ${files_cpp})
 target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
 
 # executables
-foreach(bin "langevin_scheme")
+foreach(bin "langevin_scheme" "factor")
 	add_executable(${bin} src/apps/${bin}.cpp)
 	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
 endforeach(bin)
