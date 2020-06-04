@@ -72,7 +72,7 @@ int parse_int(std::string_view s)
 	int r = 0;
 	for (size_t i = 0; i < s.size(); ++i)
 	{
-		if (!('0' < s[i] && s[i] <= '9'))
+		if (!('0' <= s[i] && s[i] <= '9'))
 			throw std::runtime_error(
 			    fmt::format("unexpected character '{}' in integer", s[i]));
 		r *= 10;
