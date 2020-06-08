@@ -332,6 +332,7 @@ template <typename R, size_t rank> class SparsePolynomial
 	/** "optimized" inplace operations */
 	void operator+=(SparsePolynomial<R, rank> const &b)
 	{
+		assert(this != &b);
 		terms_.reserve(terms_.size() + b.terms().size());
 		for (auto &term : b.terms())
 			terms_.push_back(term);
@@ -339,12 +340,13 @@ template <typename R, size_t rank> class SparsePolynomial
 	}
 	void operator-=(SparsePolynomial<R, rank> const &b)
 	{
+		assert(this != &b);
 		terms_.reserve(terms_.size() + b.terms().size());
 		for (auto &term : b.terms())
 			terms_.push_back({-term.coefficient, term.exponent});
 		cleanup();
 	}
-	void operator*=(Monomial<R, rank> const &b)
+	void operator*=(Monomial<R, rank> const b)
 	{
 		for (auto &term : terms_)
 			term *= b;
@@ -379,6 +381,7 @@ template <typename R, size_t rank> class SparsePolynomial
 	/** only division by R is supported (TODO: polynomial divison?) */
 	void operator/=(SparsePolynomial<R, rank> const &b)
 	{
+		assert(this != &b);
 		if (b.terms().size() == 0)
 			throw std::runtime_error("tried to divide polynomial by zero");
 		if (b.terms().size() != 1 ||

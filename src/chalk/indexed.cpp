@@ -204,6 +204,7 @@ void Indexed::cleanup()
 
 Indexed operator*(Indexed const &a, Indexed const &b)
 {
+	assert(&a != &b);
 	std::vector<IndexedAtom> atoms;
 	atoms.reserve(a.atoms().size() + b.atoms().size());
 	atoms = a.atoms();

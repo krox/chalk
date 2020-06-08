@@ -96,6 +96,7 @@ template <typename R, typename G> class Multinomial
 
 	void operator+=(Multinomial const &b)
 	{
+		assert(this != &b);
 		terms_.reserve(terms_.size() + b.terms_.size());
 		for (auto &term : b.terms())
 			terms_.push_back(term);
@@ -103,19 +104,20 @@ template <typename R, typename G> class Multinomial
 	}
 	void operator-=(Multinomial const &b)
 	{
+		assert(this != &b);
 		terms_.reserve(terms_.size() + b.terms_.size());
 		for (auto &term : b.terms())
 			terms_.push_back({-term.coefficient, term.index});
 		cleanup();
 	}
 
-	void operator*=(R const &b)
+	void operator*=(R const b)
 	{
 		for (auto &term : terms_)
 			term.coefficient *= b;
 		cleanup();
 	}
-	void operator/=(R const &b)
+	void operator/=(R const b)
 	{
 		for (auto &term : terms_)
 			term.coefficient /= b;

@@ -72,13 +72,13 @@ template <typename R> class Polynomial
 		return y;
 	}
 
-	void operator*=(R const &b)
+	void operator*=(R const b)
 	{
 		for (auto &a : coefficients_)
 			a *= b;
 		cleanup();
 	}
-	void operator/=(R const &b)
+	void operator/=(R const b)
 	{
 		for (auto &a : coefficients_)
 			a /= b;
