@@ -25,6 +25,7 @@ std::vector<std::string_view> lex(std::string_view source);
 
 /** apparently, std has no clean version of this */
 int parse_int(std::string_view s);
+int64_t parse_int64(std::string_view s);
 
 template <typename T, typename F> T parse(std::string_view source, F &&f)
 {

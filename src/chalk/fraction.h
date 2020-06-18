@@ -1,6 +1,7 @@
 #ifndef CHALK_FRACTION_H
 #define CHALK_FRACTION_H
 
+#include "chalk/integer.h"
 #include "chalk/numtheory.h"
 #include "fmt/format.h"
 
@@ -209,6 +210,11 @@ template <typename R> bool operator!=(Fraction<R> const &a, int b)
 {
 	return !(a.denom() == 1 && a.num() == b);
 }
+
+/** main usecase of fractions are of course rational numbers */
+using Rational = Fraction<Integer>;
+using Rational64 = Fraction<int64_t>;
+using Rational128 = Fraction<int128_t>;
 
 } // namespace chalk
 
