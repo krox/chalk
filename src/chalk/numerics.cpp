@@ -123,8 +123,8 @@ LegendreRule computeLegendreQuadrature(int n)
 		guess *= 1. - (n - 1.) / (8. * n * n * n); // + O(n^-4)
 
 		// a few iterations of Newton method
-		Floating x = Floating(guess);
-		Floating fd;
+		FloatingOctuple x = FloatingOctuple(guess);
+		FloatingOctuple fd;
 		for (int iter = 1; iter < 10; ++iter)
 		{
 			auto [f, fd_] = legendrePolynomial(n, x);
