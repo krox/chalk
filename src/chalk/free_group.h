@@ -140,7 +140,7 @@ template <> struct fmt::formatter<chalk::FreeProduct>
 			if (a < 0 || a >= 52)
 				throw std::runtime_error("format(FreeProduct) only supported "
 				                         "for up to 26 generators");
-			it++ = "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ"[a];
+			*it++ = "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ"[a];
 		}
 		return it;
 	}

@@ -3,7 +3,7 @@ project (chalk)
 
 include(GoogleTest)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -g -Wno-type-limits")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -fsanitize=address -fno-omit-frame-pointer -static-libasan -g -fPIE -pie")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

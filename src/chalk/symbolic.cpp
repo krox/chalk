@@ -154,14 +154,14 @@ class FunctionExpression : public BaseExpression
 };
 
 // some shortcuts to make dynamic casts more readable
-std::shared_ptr<const VariableExpression> as_variable(ExpressionPtr const &a)
+/*std::shared_ptr<const VariableExpression> as_variable(ExpressionPtr const &a)
 {
-	return std::dynamic_pointer_cast<const VariableExpression>(a);
+    return std::dynamic_pointer_cast<const VariableExpression>(a);
 }
 std::shared_ptr<const ConstantExpression> as_constant(ExpressionPtr const &a)
 {
-	return std::dynamic_pointer_cast<const ConstantExpression>(a);
-}
+    return std::dynamic_pointer_cast<const ConstantExpression>(a);
+}*/
 std::shared_ptr<const SumExpression> as_sum(ExpressionPtr const &a)
 {
 	return std::dynamic_pointer_cast<const SumExpression>(a);
@@ -170,14 +170,14 @@ std::shared_ptr<const ProductExpression> as_product(ExpressionPtr const &a)
 {
 	return std::dynamic_pointer_cast<const ProductExpression>(a);
 }
-std::shared_ptr<const PowerExpression> as_power(ExpressionPtr const &a)
+/*std::shared_ptr<const PowerExpression> as_power(ExpressionPtr const &a)
 {
-	return std::dynamic_pointer_cast<const PowerExpression>(a);
+    return std::dynamic_pointer_cast<const PowerExpression>(a);
 }
 std::shared_ptr<const FunctionExpression> as_function(ExpressionPtr const &a)
 {
-	return std::dynamic_pointer_cast<const FunctionExpression>(a);
-}
+    return std::dynamic_pointer_cast<const FunctionExpression>(a);
+}*/
 
 } // namespace
 
