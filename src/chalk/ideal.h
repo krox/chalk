@@ -5,6 +5,7 @@
 
 #include "chalk/numerics.h"
 #include "chalk/sparse_polynomial.h"
+#include <map>
 
 namespace chalk {
 

@@ -226,7 +226,7 @@ Multinomial<R, G> operator*(R const &a, Multinomial<R, G> const &b)
 {
 	auto r = b.terms();
 	for (auto &term : r)
-		term.coefficient *= a * term.coefficient;
+		term.coefficient = a * term.coefficient;
 	return Multinomial<R, G>(std::move(r));
 }
 template <typename R, typename G>
