@@ -3,7 +3,7 @@ project (chalk)
 
 include(GoogleTest)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -g -Wno-unused-function")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -fsanitize=address -fno-omit-frame-pointer -static-libasan -g -fPIE -pie")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,7 @@ add_library(chalk STATIC ${files_cpp})
 target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
 
 # executables
-foreach(bin "langevin_scheme" "factor" "primes" "calculator")
+foreach(bin "factor" "primes" "calculator" "exponential_product")
 	add_executable(${bin} src/apps/${bin}.cpp)
 	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr readline)
 endforeach(bin)
