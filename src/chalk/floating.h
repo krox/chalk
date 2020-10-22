@@ -16,20 +16,17 @@
 namespace chalk {
 
 /**
- * As far as possible a drop-in replacement for 'double'. New values are
- * computed with precision determined by the global Floating::precision.
- * All computations use "round to nearest" (MPFR_RNDN).
+ * As far as possible a drop-in replacement for 'double'. M is the number of
+ * mantissa bits, all computations use "round to nearest" (MPFR_RNDN).
  */
-class Floating
+template <mpfr_prec_t M> class Floating
 {
   public:
 	// internal handle is public, but use with care
 	// (in particular, mpfr_init/clear is called by constructor/destructor)
 	mpfr_t f_;
 
-	// precision (in mantissa bit) to compute everything in
-	// (should be set at the beginning of any calculation)
-	inline static mpfr_prec_t precision = 237; // ieee-754 "octuple precision"
+	static constexpr mpfr_prec_t precision = M;
 
 	/** constructors / destructor / moves */
 	Floating() { mpfr_init2(f_, precision); }
@@ -98,160 +95,183 @@ class Floating
 	}
 };
 
+/**
+ * Typedefs that match the IEEE-754 types very closely. Though actually
+ * float/double/__float128_t are probably much faster than
+ * FloatingSingle/Double/Quadruple. MPFR only shines at higher precisions.
+ */
+using FloatingHalf = Floating<11>;
+using FloatingSingle = Floating<24>;
+using FloatingDouble = Floating<53>;
+using FloatingQuadruple = Floating<113>;
+using FloatingOctuple = Floating<237>;
+
 /** unary arithmetic */
-inline Floating operator+(Floating const &a) { return a; }
-inline Floating operator-(Floating const &a)
+template <mpfr_prec_t M> Floating<M> operator+(Floating<M> const &a)
 {
-	Floating r;
+	return a;
+}
+template <mpfr_prec_t M> Floating<M> operator-(Floating<M> const &a)
+{
+	Floating<M> r;
 	mpfr_neg(r.f_, a.f_, MPFR_RNDN);
 	return r;
 }
 
 /** binary arithmetic (Floating <-> Floating) */
-inline Floating operator+(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+Floating<M> operator+(Floating<M> const &a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_add(r.f_, a.f_, b.f_, MPFR_RNDN);
 	return r;
 }
-inline Floating operator-(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+Floating<M> operator-(Floating<M> const &a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_sub(r.f_, a.f_, b.f_, MPFR_RNDN);
 	return r;
 }
-inline Floating operator*(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+Floating<M> operator*(Floating<M> const &a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_mul(r.f_, a.f_, b.f_, MPFR_RNDN);
 	return r;
 }
-inline Floating operator/(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+Floating<M> operator/(Floating<M> const &a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_div(r.f_, a.f_, b.f_, MPFR_RNDN);
 	return r;
 }
 
 /** assign arithmetic (Floating <-> Floating) */
-inline void operator+=(Floating &a, Floating const &b)
+template <mpfr_prec_t M> void operator+=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_add(a.f_, a.f_, b.f_, MPFR_RNDN);
 }
-inline void operator-=(Floating &a, Floating const &b)
+template <mpfr_prec_t M> void operator-=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_sub(a.f_, a.f_, b.f_, MPFR_RNDN);
 }
-inline void operator*=(Floating &a, Floating const &b)
+template <mpfr_prec_t M> void operator*=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_mul(a.f_, a.f_, b.f_, MPFR_RNDN);
 }
-inline void operator/=(Floating &a, Floating const &b)
+template <mpfr_prec_t M> void operator/=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_div(a.f_, a.f_, b.f_, MPFR_RNDN);
 }
 
 /** binary arithmetic (Floating <-> double) */
-inline Floating operator+(Floating const &a, double b)
+template <mpfr_prec_t M> Floating<M> operator+(Floating<M> const &a, double b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_add_d(r.f_, a.f_, b, MPFR_RNDN);
 	return r;
 }
-inline Floating operator-(Floating const &a, double b)
+template <mpfr_prec_t M> Floating<M> operator-(Floating<M> const &a, double b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_sub_d(r.f_, a.f_, b, MPFR_RNDN);
 	return r;
 }
-inline Floating operator*(Floating const &a, double b)
+template <mpfr_prec_t M> Floating<M> operator*(Floating<M> const &a, double b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_mul_d(r.f_, a.f_, b, MPFR_RNDN);
 	return r;
 }
-inline Floating operator/(Floating const &a, double b)
+template <mpfr_prec_t M> Floating<M> operator/(Floating<M> const &a, double b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_div_d(r.f_, a.f_, b, MPFR_RNDN);
 	return r;
 }
-inline Floating operator+(double a, Floating const &b)
+template <mpfr_prec_t M> Floating<M> operator+(double a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_add_d(r.f_, b.f_, a, MPFR_RNDN);
 	return r;
 }
-inline Floating operator-(double a, Floating const &b)
+template <mpfr_prec_t M> Floating<M> operator-(double a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_d_sub(r.f_, a, b.f_, MPFR_RNDN);
 	return r;
 }
-inline Floating operator*(double a, Floating const &b)
+template <mpfr_prec_t M> Floating<M> operator*(double a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_mul_d(r.f_, b.f_, a, MPFR_RNDN);
 	return r;
 }
-inline Floating operator/(double a, Floating const &b)
+template <mpfr_prec_t M> Floating<M> operator/(double a, Floating<M> const &b)
 {
-	Floating r;
+	Floating<M> r;
 	mpfr_d_div(r.f_, a, b.f_, MPFR_RNDN);
 	return r;
 }
 
 /** assign arithmetic (Floating <-> double) */
-inline void operator+=(Floating &a, double b)
+template <mpfr_prec_t M> void operator+=(Floating<M> &a, double b)
 {
 	mpfr_add_d(a.f_, a.f_, b, MPFR_RNDN);
 }
-inline void operator-=(Floating &a, double b)
+template <mpfr_prec_t M> void operator-=(Floating<M> &a, double b)
 {
 	mpfr_sub_d(a.f_, a.f_, b, MPFR_RNDN);
 }
-inline void operator*=(Floating &a, double b)
+template <mpfr_prec_t M> void operator*=(Floating<M> &a, double b)
 {
 	mpfr_mul_d(a.f_, a.f_, b, MPFR_RNDN);
 }
-inline void operator/=(Floating &a, double b)
+template <mpfr_prec_t M> void operator/=(Floating<M> &a, double b)
 {
 	mpfr_div_d(a.f_, a.f_, b, MPFR_RNDN);
 }
 
 /** comparison Floating <-> Floating (false if unordered, just as IEEE)*/
-inline bool operator>(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+bool operator>(Floating<M> const &a, Floating<M> const &b)
 {
 	return mpfr_greater_p(a.f_, b.f_);
 }
-inline bool operator>=(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+bool operator>=(Floating<M> const &a, Floating<M> const &b)
 {
 	return mpfr_greaterequal_p(a.f_, b.f_);
 }
-inline bool operator<(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+bool operator<(Floating<M> const &a, Floating<M> const &b)
 {
 	return mpfr_less_p(a.f_, b.f_);
 }
-inline bool operator<=(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+bool operator<=(Floating<M> const &a, Floating<M> const &b)
 {
 	return mpfr_lessequal_p(a.f_, b.f_);
 }
-inline bool operator==(Floating const &a, Floating const &b)
+template <mpfr_prec_t M>
+bool operator==(Floating<M> const &a, Floating<M> const &b)
 {
 	return mpfr_equal_p(a.f_, b.f_);
 }
 
 /** comparison Floating <-> double  */
-inline bool operator<(Floating const &a, double b)
+template <mpfr_prec_t M> bool operator<(Floating<M> const &a, double b)
 {
 	return mpfr_cmp_d(a.f_, b) < 0; // 0 if either is NaN
 }
 
 /** mathematical functions of one parameter */
 #define CHALK_DEFINE_FLOATING_FUNCTION(name)                                   \
-	inline Floating name(Floating const &a)                                    \
+	template <mpfr_prec_t M> Floating<M> name(Floating<M> const &a)            \
 	{                                                                          \
-		Floating r;                                                            \
+		Floating<M> r;                                                         \
 		mpfr_##name(r.f_, a.f_, MPFR_RNDN);                                    \
 		return r;                                                              \
 	}
@@ -297,12 +317,12 @@ CHALK_DEFINE_FLOATING_FUNCTION(erfc)
 
 } // namespace chalk
 
-template <> struct fmt::formatter<chalk::Floating>
+template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Floating &x, FormatContext &ctx)
+	auto format(const chalk::Floating<M> &x, FormatContext &ctx)
 	{
 		return format_to(ctx.out(), "{}", x.to_string());
 	}

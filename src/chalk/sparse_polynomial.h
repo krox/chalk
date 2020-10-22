@@ -712,7 +712,7 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 				if (exp[k] == 0)
 					continue;
 				if (!first || !isOne)
-					it++ = '*';
+					*it++ = '*';
 				first = false;
 				if (exp[k] == 1)
 					it = format_to(it, "{}", poly.ring()->var_names()[k]);
