@@ -184,94 +184,28 @@ inline bool is_symmetric(std::vector<IndexedAtom> const &atoms, int a, int b)
 	return atoms2 == atoms;
 };
 
-template <typename R>
-std::pair<R, absl::InlinedVector<int, 4>>
-simplify_lie_derivatives(absl::InlinedVector<int, 4> &inds, R const &cA)
-{
-	// aba -> baa + cA/2 b
-	for (int i = 0; i < (int)inds.size() - 2; ++i)
-		if (inds[i] == inds[i + 2])
-		{
-			std::swap(inds[i], inds[i + 1]);
-
-			auto new_inds = inds;
-			new_inds.erase(new_inds.begin() + i + 2);
-			new_inds.erase(new_inds.begin() + i + 1);
-			return {cA / 2, new_inds};
-		}
-
-	// abcab -> aabcb + cA bcb
-	for (int i = 0; i < (int)inds.size() - 4; ++i)
-		if (inds[i] == inds[i + 3] && inds[i + 1] == inds[i + 4])
-		{
-			inds[i + 3] = inds[i + 2];
-			inds[i + 2] = inds[i + 4];
-			inds[i + 1] = inds[i];
-			assert(inds[i] == inds[i + 1] && inds[i + 2] == inds[i + 4]);
-
-			auto &new_inds = inds;
-			new_inds.erase(new_inds.begin() + i + 1);
-			new_inds.erase(new_inds.begin() + i);
-			return {cA, new_inds};
-		}
-
-	// nothing found
-	return {R(0), {}};
-}
-
 /**
  * modifies term inplace, returns new extra term if one was generated
  * (needs to be repeated in that case)
  */
 template <typename R>
 std::optional<CovariantTerm<R>>
-simplify_lie_derivatives(CovariantTerm<R> &term, std::string const &symbol,
-                         R const &cA)
+sort_indices_brute_force(CovariantTerm<R> &term, std::string const &symbol)
 {
 	auto atoms = term.index.release();
 
-	for (size_t atom_i = 0; atom_i < atoms.size(); ++atom_i)
-	{
-		if (atoms[atom_i].symbol != symbol)
-			continue;
-
-		if (auto [factor, new_inds] =
-		        simplify_lie_derivatives(atoms[atom_i].indices, cA);
-		    !(factor == 0))
-		{
-			std::vector<IndexedAtom> new_atoms = atoms;
-			new_atoms[atom_i].indices = std::move(new_inds);
-			term.index = Indexed(std::move(atoms));
-			return CovariantTerm<R>{term.coefficient * factor,
-			                        Indexed(std::move(new_atoms))};
-		}
-	}
-
-	// S(..ab..)S(..ba..) = S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
-	for (size_t ai = 0; ai < atoms.size(); ++ai)
-		for (size_t ai2 = ai + 1; ai2 < atoms.size(); ++ai2)
-		{
-			if (atoms[ai].symbol != symbol || atoms[ai2].symbol != symbol)
-				continue;
-
-			auto &inds = atoms[ai].indices;
-			auto &inds2 = atoms[ai2].indices;
-
-			for (int i = 0; i < (int)inds.size() - 1; ++i)
-				for (int i2 = 0; i2 < (int)inds2.size() - 1; ++i2)
-					if (inds[i] == inds2[i2 + 1] && inds[i + 1] == inds2[i2])
-					{
-						std::swap(inds2.at(i2), inds2.at(i2 + 1));
-						std::vector<IndexedAtom> new_atoms = atoms;
-						new_atoms[ai].indices.erase(
-						    new_atoms[ai].indices.begin() + i);
-						new_atoms[ai2].indices.erase(
-						    new_atoms[ai2].indices.begin() + i2);
-						term.index = Indexed(std::move(atoms));
-						return CovariantTerm<R>{term.coefficient * (-cA / 2),
-						                        Indexed(std::move(new_atoms))};
-					}
-		}
+	/** obsolete rules:
+	 * 'sandwich rules':
+	     - S(aba) -> S(baa) + cA/2 S(b)
+	     - S(abcab) -> S(aabcb) + cA S(bcb)
+	 * direct ordering rules:
+	     - S(..ab..)S(..ba..) -> S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
+	 These are now handled by explicitly ordering indices of S (introducing
+	 structure constants f), and than contracting f with f and f with S
+	 which produces some cA's.
+	 (The explicit index-ordering only makes sense because the index-naming
+	 quite strongly follows pure graph-structure.)
+	 */
 
 	// sort indices by adding explicit structure constants
 	for (size_t ai = 0; ai < atoms.size(); ++ai)
@@ -305,22 +239,90 @@ simplify_lie_derivatives(CovariantTerm<R> &term, std::string const &symbol,
 		}
 	}
 
-	// sort indices of structure constants using anti-symmetry
+	// nothing found -> restore original
+	term.index = Indexed(std::move(atoms));
+	return std::nullopt;
+}
+
+} // namespace
+
+/**
+ * Simplifications that dont create new terms:
+ *  - move double-indices to the front
+ *  - sort indices of antisymmetric f
+ *  - contract combinations of f using cA
+ */
+template <typename R>
+void simplify_lie_term_basic(CovariantTerm<R> &term, std::string const &symbol,
+                             R const &cA)
+{
+	auto atoms = term.index.release();
 	for (auto &atom : atoms)
+	{
+		if (atom.symbol == symbol)
+			move_double_indices(atom.indices);
 		if (atom.symbol == "f")
 		{
+			// sort indices by anti-symmetry and look for sym/anti-sym -> 0
 			assert(atom.indices.size() == 3);
+			term.coefficient *= sort_antisym(atom.indices);
+
 			if (is_symmetric(atoms, atom.indices[0], atom.indices[1]))
 				term.coefficient = R(0);
 			else if (is_symmetric(atoms, atom.indices[0], atom.indices[2]))
 				term.coefficient = R(0);
 			else if (is_symmetric(atoms, atom.indices[1], atom.indices[2]))
 				term.coefficient = R(0);
-			else
-				term.coefficient *= sort_antisym(atom.indices);
 		}
+	}
 
-foo:
+again:
+
+	for (size_t i = 0; i < atoms.size(); ++i)
+		for (size_t j = 0; j < atoms.size(); ++j)
+			if (i != j && atoms[i].symbol == "f" && atoms[j].symbol == "f")
+			{
+				// f_xab f_yab -> C_A delta_xy
+				if (atoms[i].indices[1] == atoms[j].indices[1] &&
+				    atoms[i].indices[2] == atoms[j].indices[2])
+				{
+					term.coefficient *= cA;
+					atoms[i] = IndexedAtom{
+					    "delta", {atoms[i].indices[0], atoms[j].indices[0]}};
+					atoms.erase(atoms.begin() + j);
+					goto again;
+				}
+
+				// f_abx f_yab -> C_A delta_xy
+				if (atoms[i].indices[0] == atoms[j].indices[1] &&
+				    atoms[i].indices[1] == atoms[j].indices[2])
+				{
+					term.coefficient *= cA;
+					atoms[i] = IndexedAtom{
+					    "delta", {atoms[i].indices[2], atoms[j].indices[0]}};
+					atoms.erase(atoms.begin() + j);
+					goto again;
+				}
+			}
+
+	// f_xab f_yac f_zbc = 1/2 cA f_xyz
+	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
+		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
+			for (size_t ai3 = ai2 + 1; ai3 < atoms.size(); ++ai3)
+				if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f" &&
+				    atoms[ai3].symbol == "f")
+					if (atoms[ai1].indices[1] == atoms[ai2].indices[1] &&
+					    atoms[ai1].indices[2] == atoms[ai3].indices[1] &&
+					    atoms[ai2].indices[2] == atoms[ai3].indices[2])
+					{
+						term.coefficient *= cA / 2;
+						atoms[ai1].indices[1] = atoms[ai2].indices[0];
+						atoms[ai1].indices[2] = atoms[ai3].indices[0];
+						atoms.erase(atoms.begin() + ai3);
+						atoms.erase(atoms.begin() + ai2);
+						goto again;
+					}
+
 	// f_abc S_ab = 1/2 C_A S_c
 	for (size_t ai = 0; ai < atoms.size(); ++ai)
 		for (size_t ai2 = 0; ai2 < atoms.size(); ++ai2)
@@ -336,7 +338,7 @@ foo:
 						                        1);
 						atoms[ai].indices[i] = atoms[ai2].indices[2];
 						atoms.erase(atoms.begin() + ai2);
-						goto foo;
+						goto again;
 					}
 				}
 			}
@@ -355,87 +357,38 @@ foo:
 						                        1);
 						atoms[ai].indices[i] = atoms[ai2].indices[0];
 						atoms.erase(atoms.begin() + ai2);
-						goto foo;
+						goto again;
 					}
 				}
 			}
-	// f_xab f_yac f_zbc = 1/2 cA f_xyz
-	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
-		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
-			for (size_t ai3 = ai2 + 1; ai3 < atoms.size(); ++ai3)
-				if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f" &&
-				    atoms[ai3].symbol == "f")
-					if (atoms[ai1].indices[1] == atoms[ai2].indices[1] &&
-					    atoms[ai1].indices[2] == atoms[ai3].indices[1] &&
-					    atoms[ai2].indices[2] == atoms[ai3].indices[2])
-					{
-						term.coefficient *= cA / 2;
-						atoms[ai1].indices[1] = atoms[ai2].indices[0];
-						atoms[ai1].indices[2] = atoms[ai3].indices[0];
-						atoms.erase(atoms.begin() + ai3);
-						atoms.erase(atoms.begin() + ai2);
-						goto foo;
-					}
-
-	// f_xab f_yab = C_A delta_xy
-	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
-		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
-			if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f")
-				if (atoms[ai1].indices[1] == atoms[ai2].indices[1] &&
-				    atoms[ai1].indices[2] == atoms[ai2].indices[2])
-				{
-					term.coefficient *= cA;
-					atoms[ai1] = IndexedAtom{
-					    "delta",
-					    {atoms[ai1].indices[0], atoms[ai2].indices[0]}};
-					atoms.erase(atoms.begin() + ai2);
-					goto foo;
-				}
-	// f_xab f_aby = C_A delta_xy
-	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
-		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
-			if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f")
-				if (atoms[ai1].indices[1] == atoms[ai2].indices[0] &&
-				    atoms[ai1].indices[2] == atoms[ai2].indices[1])
-				{
-					term.coefficient *= cA;
-					atoms[ai1] = IndexedAtom{
-					    "delta",
-					    {atoms[ai1].indices[0], atoms[ai2].indices[2]}};
-					atoms.erase(atoms.begin() + ai2);
-					goto foo;
-				}
-
-	// nothing found -> restore original
 	term.index = Indexed(std::move(atoms));
-	return std::nullopt;
 }
-
-} // namespace
 
 /** reorder lie-derivative indices using relations with the casimir operator */
 template <typename R>
 Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
                           R const &cA)
 {
+	(void)symbol;
+	(void)cA;
 	std::vector<CovariantTerm<R>> terms = a.terms();
 
 	for (int iter = 0; iter < 5; ++iter)
-		for (size_t term_i = 0; term_i < terms.size(); ++term_i)
+	{
+		// Step 1) Basic simplifications that dont create new terms
+
+		for (auto &term : terms)
+		{
+			simplify_lie_term_basic(term, symbol, cA);
+		}
+
+		// more serious simplifications that make one term into multiple
+		for (int term_i = 0; term_i < (int)terms.size(); ++term_i)
 		{
 			auto &term = terms[term_i];
 
-			// move all double-indices to the front
-			{
-				auto tmp = term.index.release();
-				for (auto &atom : tmp)
-					if (atom.symbol == symbol)
-						move_double_indices(atom.indices);
-				term.index = Indexed(std::move(tmp));
-			}
-
 			// if something was found -> new term and repeat on this term
-			if (auto new_term = simplify_lie_derivatives(term, symbol, cA);
+			if (auto new_term = sort_indices_brute_force(term, symbol);
 			    new_term)
 			{
 				// NOTE: the push_back can make 'term' a dangling reference
@@ -444,9 +397,10 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
 				continue;
 			}
 		}
+	}
 
 	return Covariant<R>(std::move(terms));
-}
+} // namespace chalk
 
 } // namespace chalk
 
