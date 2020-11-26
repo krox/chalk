@@ -8,11 +8,13 @@
 namespace chalk {
 
 /** helper functions to make Fraction<int64/128_t> work */
+inline bool is_zero(int64_t a) { return a == 0; }
 inline bool is_negative(int64_t a) { return a < 0; }
 inline bool is_invertible(int64_t a) { return a == 1 || a == -1; }
 inline bool is_regular(int64_t a) { return a != 0; }
 inline int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
 inline bool need_parens(int64_t) { return false; }
+inline bool is_zero(int128_t a) { return a == 0; }
 inline bool is_negative(int128_t a) { return a < 0; }
 inline bool is_invertible(int128_t a) { return a == 1 || a == -1; }
 inline bool is_regular(int128_t a) { return a != 0; }
@@ -61,6 +63,10 @@ template <typename R> class Fraction
 };
 
 /** unary operators */
+template <typename R> bool is_zero(Fraction<R> const &a)
+{
+	return is_zero(a.num());
+}
 template <typename R> bool is_negative(Fraction<R> const &a)
 {
 	return is_negative(a.num());

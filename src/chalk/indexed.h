@@ -24,7 +24,7 @@ struct IndexedAtom
 	absl::InlinedVector<int, 4> indices;
 
 	// temporary helper during sort_atoms()
-	int prio_ = {};
+	int64_t prio_ = {};
 };
 
 /** arbitrary order ( not the one used in Indexed::cleanup() ) */
@@ -128,7 +128,7 @@ template <> struct fmt::formatter<chalk::IndexedAtom>
 		auto it = ctx.out();
 		it = format_to(it, "{}", atom.symbol);
 		if (!atom.indices.empty())
-			it++ = '_';
+			*it++ = '_';
 		for (int k : atom.indices)
 			it = format_to(it, "{}", k);
 		return it;
@@ -153,7 +153,7 @@ template <> struct fmt::formatter<chalk::Indexed>
 		for (size_t i = 0; i < indexed.atoms().size(); ++i)
 		{
 			if (i != 0)
-				it++ = ' ';
+				*it++ = ' ';
 			it = format_to(it, "{}", indexed.atoms()[i]);
 		}
 		return it;

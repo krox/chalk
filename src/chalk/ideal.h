@@ -5,6 +5,7 @@
 
 #include "chalk/numerics.h"
 #include "chalk/sparse_polynomial.h"
+#include "fmt/ranges.h"
 #include <map>
 
 namespace chalk {
@@ -108,6 +109,26 @@ template <typename R, size_t rank> class Ideal
 		cleanup();
 	}
 
+	/** enumerate variables that actually occur in the polynomials */
+	std::vector<std::string> active_variables() const
+	{
+		if (basis_.empty())
+			return {};
+
+		std::array<bool, rank> occ;
+		occ.fill(false);
+		for (polynomial_t const &f : basis_)
+			for (auto &mon : f.terms())
+				for (size_t i = 0; i < rank; ++i)
+					if (mon.exponent[i] != 0)
+						occ[i] = true;
+		std::vector<std::string> r;
+		for (size_t i = 0; i < rank; ++i)
+			if (occ[i])
+				r.push_back(basis_[0].ring()->var_names()[i]);
+		return r;
+	}
+
 	/** reduce f using all polynomials in this basis */
 	void reduce(polynomial_t &f) const
 	{
@@ -169,20 +190,28 @@ template <typename R, size_t rank> class Ideal
 
 template <typename R, size_t rank> inline void dump(Ideal<R, rank> const &ideal)
 {
-	fmt::print("polynomial ideal with {} variables and {} equations:\n", rank,
-	           ideal.basis().size());
-	for (auto &poly : ideal.basis())
-		fmt::print("    {}\n", poly);
+	auto active_vars = ideal.active_variables();
+	fmt::print("polynomial ideal with {} equations for {} variables ({})\n",
+	           ideal.basis().size(), active_vars.size(), active_vars);
+	for (size_t i = 0; i < ideal.basis().size(); ++i)
+		fmt::print("    f{} = {}\n", i, ideal.basis()[i]);
 }
 
 template <typename R, size_t rank>
 inline void dump_summary(Ideal<R, rank> const &ideal)
 {
-	fmt::print("polynomial ideal with {} variables and {} equations:\n", rank,
-	           ideal.basis().size());
+	auto active_vars = ideal.active_variables();
+	fmt::print("polynomial ideal with {} equations for {} variables ({})\n",
+	           ideal.basis().size(), active_vars.size(), active_vars);
 	for (auto &poly : ideal.basis())
-		fmt::print("    {} + ... ( {} terms total )\n", poly.lm(),
-		           poly.terms().size());
+	{
+		if (poly.terms().size() <= 10)
+			fmt::print("    {} ( {} terms total )\n", poly,
+			           poly.terms().size());
+		else
+			fmt::print("    {} + ... + {}   ( {} terms total )\n", poly.lm(),
+			           poly.trailing_terms(2), poly.terms().size());
+	}
 }
 
 template <typename R, size_t rank>
@@ -196,7 +225,7 @@ inline void Ideal<R, rank>::groebner(size_t max_polys)
 		int old_count = (int)basis_.size();
 		for (int i = old_count - 1; i >= 0; --i)
 			for (int j = old_count - 1;
-			     j >= 0 && basis_.size() < max_polys && new_polys < batch_size;
+			     j > i && basis_.size() < max_polys && new_polys < batch_size;
 			     --j)
 			{
 				auto r = resolvent(basis_[i], basis_[j]);
@@ -221,6 +250,40 @@ inline void Ideal<R, rank>::groebner(size_t max_polys)
 			break;
 	}
 }
+
+/* some future project to have some more clever analysis than just gröbner
+template <typename R, size_t rank>
+inline Ideal<R, rank> analyze_ideal(Ideal<R, rank> const &ideal)
+{
+    // build table of which variable occurs in which polynomial
+    auto occs = std::vector<std::bitset<rank>>(ideal.basis().size());
+    for (size_t i = 0; i < ideal.basis().size(); ++i)
+        occs[i] = ideal.basis()[i].var_occs();
+
+    // step 1: look for variables which only occur in a single polynomial
+    for (size_t k = 0; k < rank; ++k)
+    {
+        size_t pivot = (size_t)-1;
+        for (size_t i = 0; i < occs.size(); ++i)
+        {
+            if (occs[i][k])
+            {
+                if (pivot == (size_t)-1)
+                    pivot = i;
+                else
+                    goto outer;
+            }
+        }
+        if (pivot != (size_t)-1)
+        {
+            fmt::print("variable {} only occurs in poly {}\n",
+                       ideal.ring()->var_names()[k], pivot);
+        }
+    outer:;
+    }
+
+    return {};
+}*/
 
 /**
  * Numerically solve as many basis polynomials as possible.

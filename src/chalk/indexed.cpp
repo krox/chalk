@@ -131,7 +131,7 @@ void sort_atoms(std::vector<IndexedAtom> &atoms)
 		return a.prio_ > b.prio_;
 	};
 
-	assert(atoms.size() <= 30);
+	assert(atoms.size() <= 62);
 	for (auto &atom : atoms)
 		atom.prio_ = 0;
 
@@ -142,7 +142,7 @@ void sort_atoms(std::vector<IndexedAtom> &atoms)
 			for (size_t i = start + 1; i < atoms.size(); ++i)
 				for (int l : atoms[i].indices)
 					if (k == l)
-						atoms[i].prio_ |= 1 << (30 - start);
+						atoms[i].prio_ |= ((int64_t)1) << (62 - start);
 	}
 }
 

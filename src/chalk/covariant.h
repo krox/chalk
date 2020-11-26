@@ -60,7 +60,7 @@ template <typename R> inline Covariant<R> diff(Covariant<R> const &a)
 				continue;
 			terms.push_back(t);
 			std::vector<IndexedAtom> tmp = terms.back().index.release();
-			tmp[i].indices.push_back(1000);
+			tmp[i].indices.push_back(10000);
 			terms.back().index = Indexed(std::move(tmp));
 		}
 	return Covariant<R>(std::move(terms));
@@ -340,6 +340,25 @@ foo:
 					}
 				}
 			}
+	// f_cab S_ab = 1/2 C_A S_c
+	for (size_t ai = 0; ai < atoms.size(); ++ai)
+		for (size_t ai2 = 0; ai2 < atoms.size(); ++ai2)
+			if (atoms[ai].symbol == symbol && atoms[ai2].symbol == "f")
+			{
+				for (int i = 0; i < (int)atoms[ai].indices.size() - 1; ++i)
+				{
+					if (atoms[ai].indices[i] == atoms[ai2].indices[1] &&
+					    atoms[ai].indices[i + 1] == atoms[ai2].indices[2])
+					{
+						term.coefficient *= cA / 2;
+						atoms[ai].indices.erase(atoms[ai].indices.begin() + i +
+						                        1);
+						atoms[ai].indices[i] = atoms[ai2].indices[0];
+						atoms.erase(atoms.begin() + ai2);
+						goto foo;
+					}
+				}
+			}
 	// f_xab f_yac f_zbc = 1/2 cA f_xyz
 	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
 		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
@@ -372,6 +391,20 @@ foo:
 					atoms.erase(atoms.begin() + ai2);
 					goto foo;
 				}
+	// f_xab f_aby = C_A delta_xy
+	for (size_t ai1 = 0; ai1 < atoms.size(); ++ai1)
+		for (size_t ai2 = ai1 + 1; ai2 < atoms.size(); ++ai2)
+			if (atoms[ai1].symbol == "f" && atoms[ai2].symbol == "f")
+				if (atoms[ai1].indices[1] == atoms[ai2].indices[0] &&
+				    atoms[ai1].indices[2] == atoms[ai2].indices[1])
+				{
+					term.coefficient *= cA;
+					atoms[ai1] = IndexedAtom{
+					    "delta",
+					    {atoms[ai1].indices[0], atoms[ai2].indices[2]}};
+					atoms.erase(atoms.begin() + ai2);
+					goto foo;
+				}
 
 	// nothing found -> restore original
 	term.index = Indexed(std::move(atoms));
@@ -387,7 +420,7 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
 {
 	std::vector<CovariantTerm<R>> terms = a.terms();
 
-	for (int iter = 0; iter < 3; ++iter)
+	for (int iter = 0; iter < 5; ++iter)
 		for (size_t term_i = 0; term_i < terms.size(); ++term_i)
 		{
 			auto &term = terms[term_i];

@@ -211,16 +211,19 @@ template <typename R, size_t rank> class SparsePolynomial
 	PolynomialRing<R, rank> const *ring() const { return ring_; }
 	std::vector<Monomial<R, rank>> const &terms() const { return terms_; }
 
-	/** number of variables occuring in this polynomials */
-	size_t var_count() const
+	/** bitset = true for the variables that occur in this polynomial */
+	std::bitset<rank> var_occs() const
 	{
 		std::bitset<rank> seen = {};
 		for (auto &term : terms_)
 			for (size_t i = 0; i < rank; ++i)
 				if (term.exponent[i] != 0)
 					seen[i] = true;
-		return seen.count();
+		return seen;
 	}
+
+	/** number of variables occuring in this polynomials */
+	size_t var_count() const { return var_occs().count(); }
 
 	/**
 	 * map to a new polynomial ring.
@@ -327,6 +330,14 @@ template <typename R, size_t rank> class SparsePolynomial
 		if (terms_.empty())
 			return SparsePolynomial(ring_);
 		return SparsePolynomial(ring_, {terms_[0]});
+	}
+	SparsePolynomial trailing_terms(size_t count) const
+	{
+		std::vector<Monomial<R, rank>> r;
+		for (size_t i = terms_.size() >= count ? terms_.size() - count : 0;
+		     i < terms_.size(); ++i)
+			r.push_back(terms_[i]);
+		return SparsePolynomial(ring_, r);
 	}
 
 	/** "optimized" inplace operations */
@@ -580,8 +591,8 @@ void operator*=(SparsePolynomial<R, rank> &a,
 
 /** constant polynomial */
 template <typename R, size_t rank>
-SparsePolynomial<R, rank>
-PolynomialRing<R, rank>::operator()(R const &value) const
+SparsePolynomial<R, rank> PolynomialRing<R, rank>::
+operator()(R const &value) const
 {
 	std::vector<Monomial<R, rank>> terms;
 	terms.emplace_back(value, {});

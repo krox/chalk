@@ -97,6 +97,25 @@ template <typename R> class Polynomial
 		cleanup();
 	}
 
+	void operator+=(Polynomial const &b)
+	{
+		if (coefficients_.size() < b.coefficients_.size())
+			coefficients_.resize(b.coefficients_.size(), R(0));
+		for (size_t i = 0; i < b.coefficients_.size(); ++i)
+			coefficients_[i] += b.coefficients_[i];
+		max_order_ = std::min(max_order_, b.max_order_);
+		cleanup();
+	}
+	void operator-=(Polynomial const &b)
+	{
+		if (coefficients_.size() < b.coefficients_.size())
+			coefficients_.resize(b.coefficients_.size(), R(0));
+		for (size_t i = 0; i < b.coefficients_.size(); ++i)
+			coefficients_[i] -= b.coefficients_[i];
+		max_order_ = std::min(max_order_, b.max_order_);
+		cleanup();
+	}
+
 	friend Polynomial<R> truncate<R>(Polynomial<R> const &, int);
 };
 
@@ -157,7 +176,8 @@ Polynomial<R> operator-(Polynomial<R> const &a, Polynomial<R> const &b)
 template <typename R>
 Polynomial<R> operator*(Polynomial<R> const &a, Polynomial<R> const &b)
 {
-	auto coeffs = std::vector<R>(std::max(0, a.degree() + b.degree() + 1));
+	auto coeffs =
+	    std::vector<R>(std::max(0, a.degree() + b.degree() + 1), R(0));
 	for (int i = 0; i <= a.degree(); ++i)
 		for (int j = 0; j <= b.degree(); ++j)
 			if (i + j <= std::min(a.max_order(), b.max_order()))
@@ -272,15 +292,7 @@ template <typename R> Polynomial<R> operator*(int a, Polynomial<R> const &b)
 	return b * a;
 }
 
-/** op-assigns for convenience (could be optimized...) */
-template <typename R> void operator+=(Polynomial<R> &a, Polynomial<R> const &b)
-{
-	a = a + b;
-}
-template <typename R> void operator-=(Polynomial<R> &a, Polynomial<R> const &b)
-{
-	a = a - b;
-}
+/** op-assigns for convenience (+=, -= are defined in class) */
 template <typename R> void operator*=(Polynomial<R> &a, Polynomial<R> const &b)
 {
 	a = a * b;
