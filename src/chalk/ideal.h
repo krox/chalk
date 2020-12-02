@@ -6,6 +6,7 @@
 #include "chalk/numerics.h"
 #include "chalk/sparse_polynomial.h"
 #include "fmt/ranges.h"
+#include <fmt/os.h>
 #include <map>
 
 namespace chalk {
@@ -212,6 +213,42 @@ inline void dump_summary(Ideal<R, rank> const &ideal)
 			fmt::print("    {} + ... + {}   ( {} terms total )\n", poly.lm(),
 			           poly.trailing_terms(2), poly.terms().size());
 	}
+}
+
+/**
+ * Write the ideal with the current basis polynomials into a textfile that
+ * can be read by Singular.
+ */
+template <typename R, size_t rank>
+inline void dump_singular(Ideal<R, rank> const &ideal,
+                          std::string const &filename)
+{
+	// 1) define the ring of polynomials (using only the used variables)
+	auto file = fmt::output_file(filename);
+	// "QQ" is the field of coefficients, here its rational numbers.
+	// Alternatively, some finite field could be used to speed up computations.
+	file.print("ring r = QQ,(");
+	auto vars = ideal.active_variables();
+	for (size_t i = 0; i < vars.size(); ++i)
+		file.print(i == 0 ? "{}" : ",{}", vars[i]);
+	// "dp" is the monomial ordering , here its "degree reverse lexicographical"
+	// which is the suggested default (usually much better than just
+	// lexicographic). The more advanced orderings (using weights and stuff)
+	// require more knowlege about the variables.
+	file.print("),dp;\n");
+
+	// 2) define the basis polynomials
+	for (size_t i = 0; i < ideal.basis().size(); ++i)
+		file.print("poly f{} = {};\n", i, ideal.basis()[i]);
+
+	// 3) define the ideal
+	file.print("ideal I = ");
+	for (size_t i = 0; i < ideal.basis().size(); ++i)
+		file.print(i == 0 ? "f{}" : ",f{}", i);
+	file.print(";\n");
+
+	// 4) compute groebner basis
+	// fmt::print("groebner(I);\n");
 }
 
 template <typename R, size_t rank>

@@ -193,6 +193,7 @@ int main()
 	auto ideal = Ideal(cond_list);
 	fmt::print("\ngeneral form (before gröbner)\n");
 	dump(ideal);
+	dump_singular(ideal, "ideal.singular");
 	fmt::print("\ngeneral form (after gröbner)\n");
 	ideal.groebner();
 	dump(ideal);
