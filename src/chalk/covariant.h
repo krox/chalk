@@ -400,7 +400,27 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
 	}
 
 	return Covariant<R>(std::move(terms));
-} // namespace chalk
+}
+
+template <typename R>
+Covariant<R> simplify_lie_commutative(Covariant<R> const &a,
+                                      std::string const &symbol)
+{
+	std::vector<CovariantTerm<R>> terms = a.terms();
+	for (auto &term : terms)
+	{
+		auto atoms = term.index.release();
+		for (auto &atom : atoms)
+		{
+			if (atom.symbol == symbol)
+				std::sort(atom.indices.begin(), atom.indices.end());
+			if (atom.symbol == "f")
+				term.coefficient = R(0);
+		}
+		term.index = Indexed(std::move(atoms));
+	}
+	return Covariant<R>(std::move(terms));
+}
 
 } // namespace chalk
 

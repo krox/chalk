@@ -130,55 +130,64 @@ int main()
 	auto eta = Cov(Indexed("eta", 1));
 	auto S0 = Cov(Indexed("S", 1));
 
+	fmt::print("---------- Terms of the scheme ----------\n");
 	// first step
 	auto f1 = Cov(0);
 	add_term(f1, "k1", S0, 2, 4);
-	add_term(f1, "k2", comm(eta, eta, S0), 4, 4);
+	add_term(f1, "k2", comm(eta, eta, S0), 4,
+	         4); // killed when removing k12 (Torrero term)
 	// odd terms
 	add_term(f1, "k3", eta, 1, 4);
-	add_term(f1, "k4", comm(eta, S0), 3, 4);
+	// add_term(f1, "k4", comm(eta, S0), 3, 4);
 	auto S1 = taylor(S0, -f1, 2 * max_order);
 
 	// even terms
 	auto f2 = Cov(0);
-	add_term(f2, "k5", S0, 2, 4);
+	add_term(f2, "k5", S0, 2, 4); // primitive!
 	add_term(f2, "k6", S1, 2, 4);
-	add_term(f2, "k7", comm(eta, eta, S0), 4, 4);
+	// add_term(f2, "k7", comm(eta, eta, S0), 4, 4); // primitive! cA term?
+	add_term(f2, "k7", cA * S0, 4, 4); // primitive! cA term?
 	// odd terms
 	add_term(f2, "k8", eta, 1, 4);
-	add_term(f2, "k9", comm(eta, S0), 3, 4);
-	add_term(f2, "k10", comm(eta, S1), 3, 4);
+	// add_term(f2, "k9", comm(eta, S0), 3, 4);
+	// add_term(f2, "k10", comm(eta, S1), 3, 4);
 	auto S2 = taylor(S0, -f2, 2 * max_order);
 
 	// even terms
 	auto f3 = Cov(0);
-	add_term(f3, "k11", S0, 2);
-	add_term(f3, "k12", S1, 2); // remove this for "Torrero-style"
-	add_term(f3, "k13", S2, 2);
-	add_term(f3, "k14", comm(S0, S1), 4);
+	// add_term(f3, "k14", comm(S0, S1), 4);
 	// add_term(f3, "k15", comm(S0, S2), 4);
 	// add_term(f3, "k16", comm(S1, S2), 4);
-	add_term(f3, "k17", comm(eta, eta, S0), 4);
-	add_term(f3, "k18", comm(eta, eta, S1), 4);
-	add_term(f3, "k19", comm(eta, eta, S2), 4);
-	add_term(f3, "k20", comm(eta, eta, comm(eta, eta, S0)), 6); // cA^2 term
-	// odd terms
-	add_term(f3, "1", eta, 1); // scale setting
-	add_term(f3, "k21", comm(eta, S0), 3);
-	add_term(f3, "k22", comm(eta, S1), 3);
-	add_term(f3, "k23", comm(eta, S2), 3);
+	// add_term(f3, "k17", comm(eta, eta, S0), 4);
+	// add_term(f3, "k18", comm(eta, eta, S1), 4);
+	// add_term(f3, "k19", comm(eta, eta, S2), 4);
 	// add_term(f3, "k24", comm(eta, eta, eta, S0), 5);
 	// add_term(f3, "k25", comm(eta, eta, eta, S1), 5);
 	// add_term(f3, "k26", comm(eta, eta, eta, S2), 5);
+	// add_term(f3, "k21", comm(eta, S0), 3); // not needed
+	// add_term(f3, "k22", comm(eta, S1), 3); // not needed
 
-	add_term(f3, "k30", comm(S0, eta, S0), 5);
+	add_term(f3, "k11", S0, 2); // primitive!
+	// add_term(f3, "k12", S1, 2); // remove this for "Torrero-style"
+	add_term(f3, "k13", S2, 2); // primitive!
+
+	// add_term(f3, "k17", cA * S0, 4); // vanishes on its own
+	// add_term(f3, "k18", cA * S1, 4);
+	add_term(f3, "k19", cA * S2, 4);
+
+	add_term(f3, "k20", cA * cA * S0, 6); // cA^2 term
+
+	add_term(f3, "1", eta, 1); // scale setting
+
+	// add_term(f3, "k23", comm(eta, S2), 3); // not needed
+	add_term(f3, "k30", comm(S0, eta, S0), 5); // primite!
 	// add_term(f3, "k27", comm(S0, eta, S1), 5);
 	// add_term(f3, "k28", comm(S0, eta, S2), 5);
-	add_term(f3, "k31", comm(S1, eta, S1), 5);
+	// add_term(f3, "k31", comm(S1, eta, S1), 5);
 	// add_term(f3, "k29", comm(S1, eta, S2), 5);
 	// add_term(f3, "k32", comm(S2, eta, S2), 5);
 
-	add_term(f3, "k33", comm(eta, S0, S1), 5);
+	// add_term(f3, "k33", comm(eta, S0, S1), 5);
 	// add_term(f3, "k34", comm(eta, S0, S2), 5);
 	// add_term(f3, "k35", comm(eta, S1, S2), 5);
 	// MORE MISSING eps^5/2 TERMS. (probabaly some duplicates/linear
@@ -189,6 +198,12 @@ int main()
 	//   - k27 = k28 = k30 (exactly)
 	//   - k29 = k31 = k32 (k31/29 with 'k3', and k32 with 'k8' factor)
 	//   - k33 = k34 = k35 (with k3,k8,(-k3-k8) respectively)
+	//   - k30 = k31 = k33 (with '1','-k3+1','k3' factors respectively)
+	//   - k4 = k9 = k14 (with k12+2*k22, k13+2*k23, -1 respectively)
+	//   - k14 = k30 (with k3, 2 as factors)
+	//   - In the commutative case, the torrero-style exists uniquely,
+	//     so we set here k12=0 as well
+	//   - k10 contributes as combination of k7 an k30, so remove it
 	//   - k20 is the 'cA^2' term we expect from dimensional analysis.
 	//   - k14/15/16 are essentially equivalent (appear with k3, k8, k3+k8
 	//     respectively). So only one is enough.
@@ -197,6 +212,7 @@ int main()
 	//     term in <f> (and not in <f^2> at all). So it can be removed
 	//     completely by rescaling rescaling epsilon as s' = s + # cA^2 s^5.
 	//   - k31/32 are equivalent (appear with k3/k8 respectively)
+
 	// full condition is
 	//  (∇ <f> + 1/2 ∇∇<ff> + ...) e^-S = (T-1)e^-S
 	fmt::print("---------- Expectation values ----------\n");
@@ -241,6 +257,20 @@ int main()
 			dump_summary(tmp2);
 			for (auto term : tmp2.terms())
 				cond_list.push_back(term.coefficient);
+		}
+	}
+	interred(cond_list);
+
+	fmt::print(
+	    "---------- Dependence of conditions on coefficients ----------\n");
+	for (int i = 2; i < RANK; ++i)
+	{
+		fmt::print("----- {} -----\n", ring.var_names()[i]);
+		for (size_t j = 0; j < cond_list.size(); ++j)
+		{
+			auto tmp = diff(cond_list[j], i);
+			if (!(tmp == 0))
+				fmt::print("df{}/d{} = {}\n", j, ring.var_names()[i], tmp);
 		}
 	}
 

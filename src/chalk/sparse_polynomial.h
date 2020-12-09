@@ -108,6 +108,15 @@ template <typename R, size_t rank> class PolynomialRing
 	auto const &max_order() const { return max_order_; }
 	auto const &weights() const { return weights_; }
 
+	/** look up variable name */
+	int var_id(std::string const &name)
+	{
+		for (size_t i = 0; i < rank; ++i)
+			if (var_names_[i] == name)
+				return (int)i;
+		throw std::runtime_error("Variable name not found in Poly-Ring");
+	}
+
 	/** constant polynomial */
 	SparsePolynomial<R, rank> operator()(R const &value) const;
 	SparsePolynomial<R, rank> operator()(int value) const;
@@ -676,6 +685,19 @@ SparsePolynomial<R, rank> get_coefficient(SparsePolynomial<R, rank> const &a,
 			t.exponent[k] = 0;
 		else
 			t.coefficient = R(0);
+	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
+}
+
+/** differentiate w.r.t. x_k */
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> diff(SparsePolynomial<R, rank> const &a, size_t k)
+{
+	auto terms = a.terms();
+	for (auto &t : terms)
+	{
+		t.coefficient *= t.exponent[k];
+		t.exponent[k] -= 1;
+	}
 	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
 }
 

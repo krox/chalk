@@ -248,7 +248,8 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	file.print(";\n");
 
 	// 4) compute groebner basis
-	// fmt::print("groebner(I);\n");
+	file.print("ideal Is = groebner(I);\n");
+	file.print("print(dim(Is));\n");
 }
 
 template <typename R, size_t rank>
@@ -286,6 +287,42 @@ inline void Ideal<R, rank>::groebner(size_t max_polys)
 		else
 			break;
 	}
+}
+
+/**
+ * Reduce polynomials with each other and remove zeros.
+ * Intended as lightweight simplification. (Heavy-weight being Groebner basis)
+ */
+template <typename R, size_t rank>
+inline void interred(std::vector<SparsePolynomial<R, rank>> &basis)
+{
+	// pivotize
+	bool change = false;
+	do
+	{
+		change = false;
+		for (size_t i = 0; i < basis.size(); ++i)
+		{
+			if (basis[i] == 0)
+				continue;
+			basis[i] /= basis[i].terms()[0].coefficient;
+			for (size_t j = 0; j < basis.size(); ++j)
+				if (j != i)
+					change |= chalk::reduce(basis[j], basis[i]);
+		}
+	} while (change == true);
+
+	// remove zero entries
+	basis.erase(std::remove_if(basis.begin(), basis.end(),
+	                           [](SparsePolynomial<R, rank> const &poly) {
+		                           return poly == 0;
+	                           }),
+	            basis.end());
+
+	// sort by leading term
+	std::sort(basis.begin(), basis.end(), [](auto &a, auto &b) {
+		return order_degrevlex(a.terms()[0], b.terms()[0], a.ring()->weights());
+	});
 }
 
 /* some future project to have some more clever analysis than just gröbner
