@@ -11,6 +11,16 @@
 
 namespace chalk {
 
+/**
+ * NOTE: previously, there was an actual 'Ideal' class, but after some thought,
+ *       thats not too useful, because we don't actually wont to enforce a
+ *       strong normal form all the time. Also it lead to plenty of
+ *       code-duplication, because operations on raw vector<Polynomial> were
+ *       still neccessary.
+ */
+template <typename R, size_t rank>
+using Ideal = std::vector<SparsePolynomial<R, rank>>;
+
 /** reduce f using g */
 template <typename R, size_t rank>
 bool reduce(SparsePolynomial<R, rank> &f, SparsePolynomial<R, rank> const &g)
@@ -50,6 +60,104 @@ bool reduce_partial(SparsePolynomial<R, rank> &f,
 }
 
 template <typename R, size_t rank>
+bool reduce(SparsePolynomial<R, rank> &f, Ideal<R, rank> const &gs)
+{
+	bool r = false;
+	while (true)
+	{
+		bool change = false;
+		for (auto const &g : gs)
+			change |= reduce(f, g);
+		if (change)
+			r = true;
+		else
+			break;
+	}
+	return r;
+}
+
+template <typename R, size_t rank>
+bool reduce_partial(SparsePolynomial<R, rank> &f, Ideal<R, rank> const &gs)
+{
+	bool r = false;
+	while (true)
+	{
+		bool change = false;
+		for (auto const &g : gs)
+			change |= reduce_partial(f, g);
+		if (change)
+			r = true;
+		else
+			break;
+	}
+	return r;
+}
+
+template <typename R, size_t rank> void reduce(Ideal<R, rank> &fs)
+{
+	if (fs.empty())
+		return;
+	auto ring = fs[0].ring();
+
+	// normalize polynomials
+	for (auto &f : fs)
+		if (!(f == 0))
+			f /= f.terms()[0].coefficient;
+
+	// remove zero entries
+	fs.erase(std::remove_if(fs.begin(), fs.end(),
+	                        [](SparsePolynomial<R, rank> const &poly) {
+		                        return poly == 0;
+	                        }),
+	         fs.end());
+
+	// sort by leading term
+	std::sort(fs.begin(), fs.end(), [ring](auto &a, auto &b) {
+		return order_degrevlex(a.terms()[0], b.terms()[0], ring->weights());
+	});
+
+	bool change = false;
+	for (size_t i = 0; i < fs.size(); ++i)
+		for (size_t j = 0; j < i; ++j)
+			change |= reduce(fs[j], fs[i]);
+
+	if (change)
+		reduce(fs);
+}
+
+template <typename R, size_t rank> void reduce_partial(Ideal<R, rank> &fs)
+{
+	if (fs.empty())
+		return;
+	auto ring = fs[0].ring();
+
+	// normalize polynomials
+	for (auto &f : fs)
+		if (!(f == 0))
+			f /= f.terms()[0].coefficient;
+
+	// remove zero entries
+	fs.erase(std::remove_if(fs.begin(), fs.end(),
+	                        [](SparsePolynomial<R, rank> const &poly) {
+		                        return poly == 0;
+	                        }),
+	         fs.end());
+
+	// sort by leading term
+	std::sort(fs.begin(), fs.end(), [ring](auto &a, auto &b) {
+		return order_degrevlex(a.terms()[0], b.terms()[0], ring->weights());
+	});
+
+	bool change = false;
+	for (size_t i = 0; i < fs.size(); ++i)
+		for (size_t j = 0; j < i; ++j)
+			change |= reduce_partial(fs[j], fs[i]);
+
+	if (change)
+		reduce_partial(fs);
+}
+
+template <typename R, size_t rank>
 SparsePolynomial<R, rank> resolvent(SparsePolynomial<R, rank> const &a,
                                     SparsePolynomial<R, rank> const &b)
 {
@@ -63,148 +171,56 @@ SparsePolynomial<R, rank> resolvent(SparsePolynomial<R, rank> const &a,
 	return a * (mon / a.terms()[0]).value() - b * (mon / b.terms()[0]).value();
 }
 
-template <typename R, size_t rank> class Ideal
+/** enumerate variables that actually occur in the polynomials */
+template <typename R, size_t rank>
+std::vector<std::string> active_variables(Ideal<R, rank> const &fs)
 {
-  public:
-	using polynomial_ring_t = PolynomialRing<R, rank>;
-	using polynomial_t = SparsePolynomial<R, rank>;
+	if (fs.empty())
+		return {};
 
-  private:
-	std::vector<polynomial_t> basis_;
+	std::array<bool, rank> occ;
+	occ.fill(false);
+	for (auto const &f : fs)
+		for (auto &mon : f.terms())
+			for (size_t i = 0; i < rank; ++i)
+				if (mon.exponent[i] != 0)
+					occ[i] = true;
+	std::vector<std::string> r;
+	for (size_t i = 0; i < rank; ++i)
+		if (occ[i])
+			r.push_back(fs[0].ring()->var_names()[i]);
+	return r;
+}
 
-	void cleanup()
-	{
-		// pivotize
-		bool change = false;
-		do
-		{
-			change = false;
-			for (size_t i = 0; i < basis_.size(); ++i)
-			{
-				if (basis_[i] == 0)
-					continue;
-				basis_[i] /= basis_[i].terms()[0].coefficient;
-				for (size_t j = 0; j < basis_.size(); ++j)
-					if (j != i)
-						change |= chalk::reduce(basis_[j], basis_[i]);
-			}
-		} while (change == true);
-
-		// remove zero entries
-		basis_.erase(
-		    std::remove_if(basis_.begin(), basis_.end(),
-		                   [](polynomial_t const &poly) { return poly == 0; }),
-		    basis_.end());
-
-		// sort by leading term
-		std::sort(basis_.begin(), basis_.end(), [](auto &a, auto &b) {
-			return order_degrevlex(a.terms()[0], b.terms()[0],
-			                       a.ring()->weights());
-		});
-	}
-
-  public:
-	Ideal() = default;
-	explicit Ideal(std::vector<polynomial_t> polys) : basis_{polys}
-	{
-		cleanup();
-	}
-
-	/** enumerate variables that actually occur in the polynomials */
-	std::vector<std::string> active_variables() const
-	{
-		if (basis_.empty())
-			return {};
-
-		std::array<bool, rank> occ;
-		occ.fill(false);
-		for (polynomial_t const &f : basis_)
-			for (auto &mon : f.terms())
-				for (size_t i = 0; i < rank; ++i)
-					if (mon.exponent[i] != 0)
-						occ[i] = true;
-		std::vector<std::string> r;
-		for (size_t i = 0; i < rank; ++i)
-			if (occ[i])
-				r.push_back(basis_[0].ring()->var_names()[i]);
-		return r;
-	}
-
-	/** reduce f using all polynomials in this basis */
-	void reduce(polynomial_t &f) const
-	{
-		while (true)
-		{
-			bool change = false;
-			for (auto &g : basis_)
-			{
-				change |= chalk::reduce(f, g);
-				if (f.terms().empty())
-					return;
-			}
-			if (!change)
-				return;
-		}
-	}
-
-	/** partially reduce f using all polynomials in this basis */
-	void reduce_partial(polynomial_t &f) const
-	{
-		while (true)
-		{
-			bool change = false;
-			for (auto &g : basis_)
-			{
-				change |= chalk::reduce_partial(f, g);
-				if (f.terms().empty())
-					return;
-			}
-			if (!change)
-				return;
-		}
-	}
-
-	std::vector<polynomial_t> const &basis() const { return basis_; }
-	PolynomialRing<R, rank> const *ring() const
-	{
-		if (basis_.empty())
-			return SparsePolynomial<R, rank>::default_ring();
-		else
-			return basis_[0].ring();
-	}
-
-	/** transform into groebner basis */
-	void groebner(size_t max_polys = SIZE_MAX);
-
-	/** change basis ring */
-	template <typename R2, size_t rank2, typename F>
-	Ideal<R2, rank2> change_ring(PolynomialRing<R2, rank2> const *ring2,
-	                             F &&convert) const
-	{
-		std::vector<SparsePolynomial<R2, rank2>> r;
-		r.reserve(basis_.size());
-		for (auto &f : basis_)
-			r.push_back(f.change_ring(ring2, convert));
-		return Ideal<R2, rank2>(std::move(r));
-	}
-};
+/** change basis ring */
+template <typename R2, size_t rank2, typename R, size_t rank, typename F>
+Ideal<R2, rank2> change_ring(Ideal<R, rank> const &fs,
+                             PolynomialRing<R2, rank2> const *ring2,
+                             F &&convert)
+{
+	Ideal<R2, rank2> r;
+	r.reserve(fs.size());
+	for (auto const &f : fs)
+		r.push_back(f.change_ring(ring2, convert));
+	return r;
+}
 
 template <typename R, size_t rank> inline void dump(Ideal<R, rank> const &ideal)
 {
-	auto active_vars = ideal.active_variables();
+	auto vars = active_variables(ideal);
 	fmt::print("polynomial ideal with {} equations for {} variables ({})\n",
-	           ideal.basis().size(), active_vars.size(), active_vars);
-	for (size_t i = 0; i < ideal.basis().size(); ++i)
-		fmt::print("    f{} = {}\n", i, ideal.basis()[i]);
+	           ideal.size(), vars.size(), vars);
+	for (size_t i = 0; i < ideal.size(); ++i)
+		fmt::print("    f{} = {}\n", i, ideal[i]);
 }
 
 template <typename R, size_t rank>
 inline void dump_summary(Ideal<R, rank> const &ideal)
 {
-	auto active_vars = ideal.active_variables();
+	auto vars = active_variables(ideal);
 	fmt::print("polynomial ideal with {} equations for {} variables ({})\n",
-	           ideal.basis().size(), active_vars.size(), active_vars);
-	for (auto &poly : ideal.basis())
+	           ideal.size(), vars.size(), vars);
+	for (auto const &poly : ideal)
 	{
 		if (poly.terms().size() <= 10)
 			fmt::print("    {} ( {} terms total )\n", poly,
@@ -228,7 +244,7 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	// "QQ" is the field of coefficients, here its rational numbers.
 	// Alternatively, some finite field could be used to speed up computations.
 	file.print("ring r = QQ,(");
-	auto vars = ideal.active_variables();
+	auto vars = active_variables(ideal);
 	for (size_t i = 0; i < vars.size(); ++i)
 		file.print(i == 0 ? "{}" : ",{}", vars[i]);
 	// "dp" is the monomial ordering , here its "degree reverse lexicographical"
@@ -238,12 +254,12 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	file.print("),dp;\n");
 
 	// 2) define the basis polynomials
-	for (size_t i = 0; i < ideal.basis().size(); ++i)
-		file.print("poly f{} = {};\n", i, ideal.basis()[i]);
+	for (size_t i = 0; i < ideal.size(); ++i)
+		file.print("poly f{} = {};\n", i, ideal[i]);
 
 	// 3) define the ideal
 	file.print("ideal I = ");
-	for (size_t i = 0; i < ideal.basis().size(); ++i)
+	for (size_t i = 0; i < ideal.size(); ++i)
 		file.print(i == 0 ? "f{}" : ",f{}", i);
 	file.print(";\n");
 
@@ -253,21 +269,20 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 }
 
 template <typename R, size_t rank>
-inline void Ideal<R, rank>::groebner(size_t max_polys)
+inline void groebner(Ideal<R, rank> &fs, size_t max_polys = 999999999)
 {
 	int batch_size = 5;
 	// really naive algorithm adding resolvents until saturation
 	while (true)
 	{
 		int new_polys = 0;
-		int old_count = (int)basis_.size();
+		int old_count = (int)fs.size();
 		for (int i = old_count - 1; i >= 0; --i)
 			for (int j = old_count - 1;
-			     j > i && basis_.size() < max_polys && new_polys < batch_size;
-			     --j)
+			     j > i && fs.size() < max_polys && new_polys < batch_size; --j)
 			{
-				auto r = resolvent(basis_[i], basis_[j]);
-				reduce_partial(r);
+				auto r = resolvent(fs[i], fs[j]);
+				reduce_partial(r, fs);
 				if (r.terms().empty())
 					continue;
 				r /= r.lc();
@@ -276,53 +291,18 @@ inline void Ideal<R, rank>::groebner(size_t max_polys)
 				           basis_.size(), r.lm(), r.terms().size());*/
 
 				new_polys++;
-				basis_.push_back(r);
+				fs.push_back(r);
 			}
 		if (new_polys)
 		{
 			// dump_summary(*this);
 			// fmt::print("sweep...\n");
-			cleanup();
+			reduce_partial(fs);
 		}
 		else
 			break;
 	}
-}
-
-/**
- * Reduce polynomials with each other and remove zeros.
- * Intended as lightweight simplification. (Heavy-weight being Groebner basis)
- */
-template <typename R, size_t rank>
-inline void interred(std::vector<SparsePolynomial<R, rank>> &basis)
-{
-	// pivotize
-	bool change = false;
-	do
-	{
-		change = false;
-		for (size_t i = 0; i < basis.size(); ++i)
-		{
-			if (basis[i] == 0)
-				continue;
-			basis[i] /= basis[i].terms()[0].coefficient;
-			for (size_t j = 0; j < basis.size(); ++j)
-				if (j != i)
-					change |= chalk::reduce(basis[j], basis[i]);
-		}
-	} while (change == true);
-
-	// remove zero entries
-	basis.erase(std::remove_if(basis.begin(), basis.end(),
-	                           [](SparsePolynomial<R, rank> const &poly) {
-		                           return poly == 0;
-	                           }),
-	            basis.end());
-
-	// sort by leading term
-	std::sort(basis.begin(), basis.end(), [](auto &a, auto &b) {
-		return order_degrevlex(a.terms()[0], b.terms()[0], a.ring()->weights());
-	});
+	reduce(fs);
 }
 
 /* some future project to have some more clever analysis than just gröbner
@@ -370,15 +350,16 @@ inline std::vector<std::map<std::string, double>> analyze_variety(
     std::map<std::string, std::pair<double, double>> const &constraints = {},
     bool verbose = true)
 {
+	assert(!ideal.empty());
 	using poly_list = std::vector<SparsePolynomial<double, rank>>;
 	using value_map = std::map<int, double>;
-	auto &var_names = ideal.ring()->var_names();
+	auto &var_names = ideal[0].ring()->var_names();
 	int solution_count = 0;
 	std::vector<std::map<std::string, double>> result;
 
 	// stack of partial solutions
 	std::vector<std::pair<poly_list, value_map>> stack;
-	stack.push_back({ideal.basis(), {}});
+	stack.push_back({ideal, {}});
 	while (!stack.empty())
 	{
 		auto state = std::move(stack.back());
@@ -454,7 +435,7 @@ inline std::vector<std::map<std::string, double>> analyze_variety(
 			{
 				result.push_back({});
 				for (auto &[var, val] : state.second)
-					result.back()[ideal.ring()->var_names()[var]] = val;
+					result.back()[ideal[0].ring()->var_names()[var]] = val;
 			}
 		}
 	}

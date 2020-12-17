@@ -190,15 +190,17 @@ int main()
 	    {"k1", {0.0, 1.0}}};*/
 	std::map<std::string, std::pair<double, double>> constraints = {};
 	// cond_list.push_back(ring("c11-1/2"));
-	auto ideal = Ideal(cond_list);
-	fmt::print("\ngeneral form (before gröbner)\n");
-	dump(ideal);
-	dump_singular(ideal, "ideal.singular");
+	fmt::print("\ngeneral form (before reduce)\n");
+	dump(cond_list);
+	dump_singular(cond_list, "ideal.singular");
+	fmt::print("\ngeneral form (after reduce)\n");
+	reduce_partial(cond_list);
+	dump(cond_list);
 	fmt::print("\ngeneral form (after gröbner)\n");
-	ideal.groebner();
-	dump(ideal);
+	groebner(cond_list);
+	dump(cond_list);
 
 	auto double_ring = PolynomialRing<double, RANK>(ring.var_names());
-	analyze_variety(ideal.change_ring(&double_ring, rationalToDouble),
+	analyze_variety(change_ring(cond_list, &double_ring, rationalToDouble),
 	                constraints, true);
 }

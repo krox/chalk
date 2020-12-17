@@ -95,8 +95,8 @@ int main()
 	auto f1 = Cov(0);
 	add_term(f1, "k1", S0, 2);
 	add_term(f1, "k2", eta1, 1);
-	add_term(f1, "k3", eta2, 1);
-	add_term(f1, "k3b", eta3, 1);
+	// add_term(f1, "k3", eta2, 1);
+	// add_term(f1, "k3b", eta3, 1);
 	auto S1 = taylor(S0, -f1, 2 * max_order);
 
 	// even terms
@@ -105,7 +105,7 @@ int main()
 	add_term(f2, "k5", S1, 2);
 	add_term(f2, "k6", eta1, 1);
 	add_term(f2, "k7", eta2, 1);
-	add_term(f2, "k7b", eta3, 1);
+	// add_term(f2, "k7b", eta3, 1);
 	auto S2 = taylor(S0, -f2, 2 * max_order);
 
 	// even terms
@@ -121,8 +121,9 @@ int main()
 	add_term(f4, "k13", S0, 2);
 	add_term(f4, "k14", S1, 2);
 	add_term(f4, "k15", S2, 2);
-	add_term(f4, "k16", S3, 2);
-	add_term(f4, "1", eta1, 1); // scale setting at order 4
+	add_term(f4, "1-k15-k14-k13", S3, 2);
+	add_term(f4, "k17", eta1, 1); // scale setting at order 4
+	add_term(f4, "k18", eta2, 1); // scale setting at order 4
 	// add_term(f4, "k18", eta2, 1); // scale setting at order 4
 	auto f = f4;
 
@@ -170,8 +171,16 @@ int main()
 		for (auto term : tmp.terms())
 			cond_list.push_back(term.coefficient);
 	}
-	interred(cond_list);
 
+	/*std::map<std::string, std::pair<double, double>> constraints = {
+	    {"k1", {0.0, 1.0}}};*/
+	std::map<std::string, std::pair<double, double>> constraints = {};
+	// cond_list.push_back(ring("c11-1/2"));
+	fmt::print("\ngeneral form (before reduce)\n");
+	dump(cond_list);
+	dump_singular(cond_list, "ideal.singular");
+
+	reduce_partial(cond_list);
 	/*fmt::print("---------- Dependence of conditions on coefficients "
 	           "----------\n");
 	for (int i = 2; i < RANK; ++i)
@@ -184,20 +193,13 @@ int main()
 	            fmt::print("df{}/d{} = {}\n", j, ring.var_names()[i], tmp);
 	    }
 	}*/
-
-	/*std::map<std::string, std::pair<double, double>> constraints = {
-	    {"k1", {0.0, 1.0}}};*/
-	std::map<std::string, std::pair<double, double>> constraints = {};
-	// cond_list.push_back(ring("c11-1/2"));
-	auto ideal = Ideal(cond_list);
-	fmt::print("\ngeneral form (before gröbner)\n");
-	dump(ideal);
-	dump_singular(ideal, "ideal.singular");
+	fmt::print("\ngeneral form (after reduce)\n");
+	dump(cond_list);
 	/*fmt::print("\ngeneral form (after gröbner)\n");
-	ideal.groebner();
-	dump(ideal);
+	groebner(cond_list);
+	dump(cond_list);
 
 	auto double_ring = PolynomialRing<double, RANK>(ring.var_names());
-	analyze_variety(ideal.change_ring(&double_ring, rationalToDouble),
+	analyze_variety(change_ring(cond_list, &double_ring, rationalToDouble),
 	                constraints, true);*/
 }
