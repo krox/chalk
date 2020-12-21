@@ -323,6 +323,16 @@ template <typename R, size_t rank> class SparsePolynomial
 		throw std::runtime_error(fmt::format("unknown variable '{}'", var));
 	}
 
+	/** largest power of x_k */
+	int max_order(size_t k) const
+	{
+		assert(k < rank);
+		int r = 0;
+		for (auto const &term : terms())
+			r = std::max(r, term.exponent[k]);
+		return r;
+	}
+
 	/** lead coefficient and exponent and monomial*/
 	R const &lc() const
 	{
@@ -686,6 +696,19 @@ SparsePolynomial<R, rank> get_coefficient(SparsePolynomial<R, rank> const &a,
 		else
 			t.coefficient = R(0);
 	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
+}
+
+/** get coefficients of x_k */
+template <typename R, size_t rank>
+std::vector<SparsePolynomial<R, rank>>
+get_coefficients(SparsePolynomial<R, rank> const &a, size_t k)
+{
+	int m = a.max_order(k);
+	std::vector<SparsePolynomial<R, rank>> r;
+	r.reserve(m);
+	for (int i = 0; i <= m; ++i)
+		r.push_back(get_coefficient(a, k, i));
+	return r;
 }
 
 /** differentiate w.r.t. x_k */

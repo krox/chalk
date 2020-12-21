@@ -113,6 +113,9 @@ bool simplify_deltas(std::vector<IndexedAtom> &atoms)
  */
 void sort_atoms(std::vector<IndexedAtom> &atoms)
 {
+	if (atoms.size() < 2) // NOTE: the trivial empty case has a problem below
+		return;
+
 	auto comp = [](IndexedAtom const &a, IndexedAtom const &b) {
 		// ascending name
 		if (a.symbol != b.symbol)

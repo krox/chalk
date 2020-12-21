@@ -67,6 +67,27 @@ template <typename R> inline Covariant<R> diff(Covariant<R> const &a)
 }
 
 /**
+ * derivative adding a "'" to symbols
+ * lower-case symbols are assumed to be constants
+ * upper-case symbols optain new prime.
+ */
+template <typename R> inline Covariant<R> diff_1d(Covariant<R> const &a)
+{
+	std::vector<CovariantTerm<R>> terms;
+	for (auto &t : a.terms())
+		for (size_t i = 0; i < t.index.size(); ++i)
+		{
+			if (!std::isupper(t.index[i].symbol[0]))
+				continue;
+			terms.push_back(t);
+			std::vector<IndexedAtom> tmp = terms.back().index.release();
+			tmp[i].symbol = tmp[i].symbol + "'";
+			terms.back().index = Indexed(std::move(tmp));
+		}
+	return Covariant<R>(std::move(terms));
+}
+
+/**
  * build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
  *   - f needs exactly one open index
  *   - S can have arbitrary open indices (which simply stay that way)
@@ -89,6 +110,36 @@ inline Covariant<R> taylor(Covariant<R> const &S, Covariant<R> const &force,
 		for (int i = 0; i < d; ++i)
 		{
 			term = inner_product(term, force);
+			prefactor /= (i + 1);
+		}
+		result += term * prefactor;
+	}
+	return result;
+}
+
+/**
+ * build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
+ *   - f may not have any open index
+ *   - S can have arbitrary open indices (which simply stay that way)
+ */
+template <typename R>
+inline Covariant<R> taylor_1d(Covariant<R> const &S, Covariant<R> const &force,
+                              int degree)
+{
+	// the force should have exactly one open index
+	for (auto &t : force.terms())
+		assert(t.index.rank() == 0);
+
+	Covariant<R> result = Covariant<R>(0);
+	for (int d = 0; d <= degree; ++d)
+	{
+		Covariant<R> term = S;
+		R prefactor = R(1);
+		for (int i = 0; i < d; ++i)
+			term = diff_1d(term);
+		for (int i = 0; i < d; ++i)
+		{
+			term = term * force;
 			prefactor /= (i + 1);
 		}
 		result += term * prefactor;

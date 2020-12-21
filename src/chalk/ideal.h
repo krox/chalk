@@ -264,8 +264,8 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	file.print(";\n");
 
 	// 4) compute groebner basis
-	file.print("ideal Is = groebner(I);\n");
-	file.print("print(dim(Is));\n");
+	// file.print("ideal Is = groebner(I);\n");
+	// file.print("print(dim(Is));\n");
 }
 
 template <typename R, size_t rank>
