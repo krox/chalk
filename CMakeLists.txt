@@ -1,6 +1,9 @@
 cmake_minimum_required (VERSION 3.10.0)
 project (chalk)
 
+
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+
 include(GoogleTest)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -g -Wno-type-limits -Wno-unused-function")
@@ -21,12 +24,12 @@ include_directories(fmt/include)
 # the library
 file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
-target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr)
+target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr Eigen3::Eigen)
 
 # executables
 foreach(bin "factor" "primes" "calculator" "exponential_product" "langevin_scheme_order2" "langevin_scheme_order3" "langevin_scheme_commutative" "langevin_scheme_1d")
 	add_executable(${bin} src/apps/${bin}.cpp)
-	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr readline)
+	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr readline Eigen3::Eigen)
 endforeach(bin)
 
 # tests

@@ -157,21 +157,29 @@ Floating<M> operator/(Floating<M> const &a, Floating<M> const &b)
 }
 
 /** assign arithmetic (Floating <-> Floating) */
-template <mpfr_prec_t M> void operator+=(Floating<M> &a, Floating<M> const &b)
+template <mpfr_prec_t M>
+Floating<M> &operator+=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_add(a.f_, a.f_, b.f_, MPFR_RNDN);
+	return a;
 }
-template <mpfr_prec_t M> void operator-=(Floating<M> &a, Floating<M> const &b)
+template <mpfr_prec_t M>
+Floating<M> &operator-=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_sub(a.f_, a.f_, b.f_, MPFR_RNDN);
+	return a;
 }
-template <mpfr_prec_t M> void operator*=(Floating<M> &a, Floating<M> const &b)
+template <mpfr_prec_t M>
+Floating<M> &operator*=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_mul(a.f_, a.f_, b.f_, MPFR_RNDN);
+	return a;
 }
-template <mpfr_prec_t M> void operator/=(Floating<M> &a, Floating<M> const &b)
+template <mpfr_prec_t M>
+Floating<M> &operator/=(Floating<M> &a, Floating<M> const &b)
 {
 	mpfr_div(a.f_, a.f_, b.f_, MPFR_RNDN);
+	return a;
 }
 
 /** binary arithmetic (Floating <-> double) */
@@ -225,21 +233,25 @@ template <mpfr_prec_t M> Floating<M> operator/(double a, Floating<M> const &b)
 }
 
 /** assign arithmetic (Floating <-> double) */
-template <mpfr_prec_t M> void operator+=(Floating<M> &a, double b)
+template <mpfr_prec_t M> Floating<M> operator+=(Floating<M> &a, double b)
 {
 	mpfr_add_d(a.f_, a.f_, b, MPFR_RNDN);
+	return a;
 }
-template <mpfr_prec_t M> void operator-=(Floating<M> &a, double b)
+template <mpfr_prec_t M> Floating<M> operator-=(Floating<M> &a, double b)
 {
 	mpfr_sub_d(a.f_, a.f_, b, MPFR_RNDN);
+	return a;
 }
-template <mpfr_prec_t M> void operator*=(Floating<M> &a, double b)
+template <mpfr_prec_t M> Floating<M> operator*=(Floating<M> &a, double b)
 {
 	mpfr_mul_d(a.f_, a.f_, b, MPFR_RNDN);
+	return a;
 }
-template <mpfr_prec_t M> void operator/=(Floating<M> &a, double b)
+template <mpfr_prec_t M> Floating<M> operator/=(Floating<M> &a, double b)
 {
 	mpfr_div_d(a.f_, a.f_, b, MPFR_RNDN);
+	return a;
 }
 
 /** comparison Floating <-> Floating (false if unordered, just as IEEE)*/
@@ -267,6 +279,11 @@ template <mpfr_prec_t M>
 bool operator==(Floating<M> const &a, Floating<M> const &b)
 {
 	return mpfr_equal_p(a.f_, b.f_);
+}
+template <mpfr_prec_t M>
+bool operator!=(Floating<M> const &a, Floating<M> const &b)
+{
+	return !mpfr_equal_p(a.f_, b.f_);
 }
 
 /** comparison Floating <-> double  */
@@ -328,6 +345,9 @@ CHALK_DEFINE_FLOATING_FUNCTION(zeta)
 CHALK_DEFINE_FLOATING_FUNCTION(erf)
 CHALK_DEFINE_FLOATING_FUNCTION(erfc)
 
+// misc
+CHALK_DEFINE_FLOATING_FUNCTION(abs)
+
 } // namespace chalk
 
 template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
@@ -340,5 +360,44 @@ template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
 		return format_to(ctx.out(), "{}", x.to_string());
 	}
 };
+
+namespace Eigen {
+
+// we prefer not to #include any header of Eigen here. Luckily, some forward
+// declarations suffice for our purposes.
+template <typename T> class NumTraits;
+template <typename T, int Rows, int Cols, int Options, int MaxRows, int MaxCols>
+class Matrix;
+
+template <mpfr_prec_t M> struct NumTraits<chalk::Floating<M>>
+{
+	using Real = chalk::Floating<M>;
+	using NonInteger = chalk::Floating<M>;
+	using Nested = chalk::Floating<M>;
+	using Literal = double; // is this correct?
+
+	static inline Real epsilon() { Real(ldexp(1.0, -M + 4)); }
+	static inline Real dummy_precision() { Real(ldexp(1.0, -M * 3 / 4)); }
+	static inline int digits10() { return M * 3 / 10; }
+	// missing: highest(), lowest()
+
+	// TODO: scoring (for choosing pivots in matrix decompisition) should be
+	//       done using exponent only or something. not the (costly) full value
+
+	enum
+	{
+		IsComplex = 0,
+		IsInteger = 0,
+		IsSigned = 1,
+		RequireInitialization = 1,
+
+		// not tuned at all (also should depends on M to be precise)
+		ReadCost = 1,
+		AddCost = 3,
+		MulCost = 10
+	};
+};
+
+} // namespace Eigen
 
 #endif
