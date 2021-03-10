@@ -1,6 +1,6 @@
 #include "chalk/numtheory.h"
 
-#include "util/bitset.h"
+#include "util/bit_vector.h"
 #include "util/random.h"
 #include <algorithm>
 #include <cassert>
@@ -65,8 +65,8 @@ std::vector<int64_t> primes(int64_t n)
 	assert(limit * limit > n);
 
 	// excluding 2 and 3 as special cases, all primes have the form 6*k +- 1
-	auto b5 = bitset(n / 6); // b5[k] represents 6*k+5
-	auto b7 = bitset(n / 6); // b7[k] represents 6*k+7
+	auto b5 = bit_vector(n / 6); // b5[k] represents 6*k+5
+	auto b7 = bit_vector(n / 6); // b7[k] represents 6*k+7
 
 	// mark all non-primes
 	for (int64_t k = 0; k < n / 6; ++k)

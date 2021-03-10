@@ -121,27 +121,27 @@ TEST(Langevin, Torrero)
 	    {"k1", {0.0, 1.0}}};
 
 	{
-		auto ideal = Ideal(cond_list);
 		// fmt::print("\n(general form)\n");
-		ideal.groebner();
+		auto ideal = cond_list;
+
+		groebner(ideal);
 		// dump(ideal);
 		auto result =
-		    analyze_variety(ideal.change_ring(&double_ring, rationalToDouble),
+		    analyze_variety(change_ring(ideal, &double_ring, rationalToDouble),
 		                    constraints, false);
 		ASSERT_EQ(result.size(), 0); // no unique solution (variety dimension=2)
 	}
 
 	{
 		// fmt::print("\n(bf / trapezoid)\n");
-		cond_list.push_back(k2 - 1);
-		cond_list.push_back(k7);
-		auto ideal2 = Ideal(cond_list);
-		cond_list.pop_back();
-		cond_list.pop_back();
-		ideal2.groebner();
+		auto ideal = cond_list;
+		ideal.push_back(k2 - 1);
+		ideal.push_back(k7);
+
+		groebner(ideal);
 		// dump(ideal2);
 		auto result =
-		    analyze_variety(ideal2.change_ring(&double_ring, rationalToDouble),
+		    analyze_variety(change_ring(ideal, &double_ring, rationalToDouble),
 		                    constraints, false);
 		ASSERT_EQ(result.size(), 1);
 		EXPECT_NEAR(result[0].at("k1"), 1.0, 1.0e-10);
@@ -153,13 +153,13 @@ TEST(Langevin, Torrero)
 
 	{
 		// fmt::print("\n(torrero / minimal step)\n");
-		cond_list.push_back(k3);
-		cond_list.push_back(k7);
-		auto ideal3 = Ideal(cond_list);
-		ideal3.groebner();
+		auto ideal = cond_list;
+		ideal.push_back(k3);
+		ideal.push_back(k7);
+		groebner(ideal);
 		// dump(ideal3);
 		auto result =
-		    analyze_variety(ideal3.change_ring(&double_ring, rationalToDouble),
+		    analyze_variety(change_ring(ideal, &double_ring, rationalToDouble),
 		                    constraints, false);
 		ASSERT_EQ(result.size(), 1);
 		EXPECT_NEAR(result[0].at("k1"), 0.08578643762690494, 1.0e-10);
