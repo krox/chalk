@@ -1,5 +1,4 @@
-#ifndef CHALK_FLOATING_H
-#define CHALK_FLOATING_H
+#pragma once
 
 /**
  * C++ wrapper for arbitrary precision floating point numbers using GNU MPFR.
@@ -7,6 +6,7 @@
 
 #include <stdio.h> // needs to be before mpfr.h
 
+#include "chalk/integer.h"
 #include "fmt/format.h"
 #include <cassert>
 #include <mpfr.h>
@@ -28,18 +28,8 @@ template <mpfr_prec_t M> class Floating
 
 	static constexpr mpfr_prec_t precision = M;
 
-	/** constructors / destructor / moves */
+	/** special members */
 	Floating() { mpfr_init2(f_, precision); }
-	explicit Floating(double value)
-	{
-		mpfr_init2(f_, precision);
-		mpfr_set_d(f_, value, MPFR_RNDN);
-	}
-	explicit Floating(std::string const &value)
-	{
-		mpfr_init2(f_, precision);
-		mpfr_set_str(f_, value.c_str(), 0, MPFR_RNDN);
-	}
 	~Floating() { mpfr_clear(f_); }
 	Floating(Floating const &other)
 	{
@@ -53,7 +43,32 @@ template <mpfr_prec_t M> class Floating
 	}
 	void operator=(Floating const &other) { mpfr_set(f_, other.f_, MPFR_RNDN); }
 	void operator=(Floating &&other) { mpfr_swap(f_, other.f_); }
+
+	/** constructors / assignments from other types */
+	explicit Floating(double value)
+	{
+		mpfr_init2(f_, precision);
+		mpfr_set_d(f_, value, MPFR_RNDN);
+	}
+	explicit Floating(std::string const &value)
+	{
+		mpfr_init2(f_, precision);
+		mpfr_set_str(f_, value.c_str(), 0, MPFR_RNDN);
+	}
+	explicit Floating(Integer const &value)
+	{
+		mpfr_init2(f_, precision);
+		mpfr_set_z(f_, value.z_, MPFR_RNDN);
+	}
 	void operator=(double value) { mpfr_set_d(f_, value, MPFR_RNDN); }
+	void operator=(std::string const &value)
+	{
+		mpfr_set_str(f_, value.c_str(), 0, MPFR_RNDN);
+	}
+	void operator=(Integer const &value)
+	{
+		mpfr_set_z(f_, value.z_, MPFR_RNDN);
+	}
 
 	/** convert to double/string */
 	double to_double() const { return (double)mpfr_get_d(f_, MPFR_RNDN); }
@@ -254,7 +269,17 @@ template <mpfr_prec_t M> Floating<M> operator/=(Floating<M> &a, double b)
 	return a;
 }
 
-/** comparison Floating <-> Floating (false if unordered, just as IEEE)*/
+/** basic properties (naming as in std::is{inf,nan}) */
+template <mpfr_prec_t M> bool isnan(Floating<M> const &a)
+{
+	return mpfr_nan_p(a.f_);
+}
+template <mpfr_prec_t M> bool isinf(Floating<M> const &a)
+{
+	return mpfr_inf_p(a.f_);
+}
+
+/** comparison Floating <-> Floating */
 template <mpfr_prec_t M>
 bool operator>(Floating<M> const &a, Floating<M> const &b)
 {
@@ -286,10 +311,62 @@ bool operator!=(Floating<M> const &a, Floating<M> const &b)
 	return !mpfr_equal_p(a.f_, b.f_);
 }
 
-/** comparison Floating <-> double  */
+/** comparison Floating <-> double */
 template <mpfr_prec_t M> bool operator<(Floating<M> const &a, double b)
 {
 	return mpfr_cmp_d(a.f_, b) < 0; // 0 if either is NaN
+}
+template <mpfr_prec_t M> bool operator<=(Floating<M> const &a, double b)
+{
+	if (std::isnan(b) || isnan(a))
+		return false;
+	return mpfr_cmp_d(a.f_, b) <= 0;
+}
+template <mpfr_prec_t M> bool operator==(Floating<M> const &a, double b)
+{
+	if (std::isnan(b) || isnan(a))
+		return false;
+	return mpfr_cmp_d(a.f_, b) == 0;
+}
+template <mpfr_prec_t M> bool operator>=(Floating<M> const &a, double b)
+{
+	if (std::isnan(b) || isnan(a))
+		return false;
+	return mpfr_cmp_d(a.f_, b) >= 0;
+}
+template <mpfr_prec_t M> bool operator>(Floating<M> const &a, double b)
+{
+	return mpfr_cmp_d(a.f_, b) > 0; // 0 if either is NaN
+}
+template <mpfr_prec_t M> bool operator!=(Floating<M> const &a, double b)
+{
+	return !(a == b);
+}
+
+/** comparison double <-> Floating */
+template <mpfr_prec_t M> bool operator<(double a, Floating<M> const &b)
+{
+	return b > a;
+}
+template <mpfr_prec_t M> bool operator<=(double a, Floating<M> const &b)
+{
+	return b >= a;
+}
+template <mpfr_prec_t M> bool operator==(double a, Floating<M> const &b)
+{
+	return b == a;
+}
+template <mpfr_prec_t M> bool operator>=(double a, Floating<M> const &b)
+{
+	return b <= a;
+}
+template <mpfr_prec_t M> bool operator>(double a, Floating<M> const &b)
+{
+	return b < a;
+}
+template <mpfr_prec_t M> bool operator!=(double a, Floating<M> const &b)
+{
+	return b != a;
 }
 
 /** mathematical functions of one parameter */
@@ -348,6 +425,19 @@ CHALK_DEFINE_FLOATING_FUNCTION(erfc)
 // misc
 CHALK_DEFINE_FLOATING_FUNCTION(abs)
 
+template <mpfr_prec_t M> Floating<M> pow(Floating<M> const &a, int b)
+{
+	Floating<M> r;
+	mpfr_pow_si(r.f_, a.f_, b, MPFR_RNDN);
+	return r;
+}
+
+// make Floating work nicely with Polynomial<R> and such
+template <mpfr_prec_t M> bool is_negative(Floating<M> const &a)
+{
+	return a < 0;
+}
+
 } // namespace chalk
 
 template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
@@ -366,8 +456,6 @@ namespace Eigen {
 // we prefer not to #include any header of Eigen here. Luckily, some forward
 // declarations suffice for our purposes.
 template <typename T> class NumTraits;
-template <typename T, int Rows, int Cols, int Options, int MaxRows, int MaxCols>
-class Matrix;
 
 template <mpfr_prec_t M> struct NumTraits<chalk::Floating<M>>
 {
@@ -376,12 +464,15 @@ template <mpfr_prec_t M> struct NumTraits<chalk::Floating<M>>
 	using Nested = chalk::Floating<M>;
 	using Literal = double; // is this correct?
 
-	static inline Real epsilon() { Real(ldexp(1.0, -M + 4)); }
-	static inline Real dummy_precision() { Real(ldexp(1.0, -M * 3 / 4)); }
+	static inline Real epsilon() { return Real(ldexp(1.0, -M + 4)); }
+	static inline Real dummy_precision()
+	{
+		return Real(ldexp(1.0, -M * 3 / 4));
+	}
 	static inline int digits10() { return M * 3 / 10; }
 	// missing: highest(), lowest()
 
-	// TODO: scoring (for choosing pivots in matrix decompisition) should be
+	// TODO: scoring (for choosing pivots in matrix decomposition) should be
 	//       done using exponent only or something. not the (costly) full value
 
 	enum
@@ -399,5 +490,3 @@ template <mpfr_prec_t M> struct NumTraits<chalk::Floating<M>>
 };
 
 } // namespace Eigen
-
-#endif
