@@ -7,6 +7,7 @@
  * expression-templates.
  */
 
+#include "chalk/rings.h"
 #include "fmt/format.h"
 #include <cassert>
 #include <gmp.h>
@@ -228,18 +229,8 @@ inline Integer nextPrime(Integer const &a)
 	return r;
 }
 
-/** helper functions to make Fraction<Integer> and such work nicely */
-inline bool is_negative(Integer const &a) { return a.sign() < 0; }
-inline bool is_invertible(Integer const &a) { return a.sign() != 0; }
-inline bool is_regular(Integer const &a) { return a.sign() != 0; }
-inline Integer invertible_factor(Integer const &a)
-{
-	if (a.sign() == -1)
-		return Integer(-1);
-	else
-		return Integer(1);
-}
-inline bool need_parens(Integer const &) { return false; }
+template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
+{};
 
 } // namespace chalk
 

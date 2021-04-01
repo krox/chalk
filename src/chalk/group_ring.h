@@ -1,7 +1,7 @@
-#ifndef CHALK_GROUP_RING_H
-#define CHALK_GROUP_RING_H
+#pragma once
 
 #include "chalk/free_group.h"
+#include "chalk/rings.h"
 #include "fmt/format.h"
 #include <vector>
 
@@ -276,6 +276,20 @@ template <typename R, typename G> void dump_summary(Multinomial<R, G> const &a)
 		           term.coefficient.lm(), term.coefficient.terms().size());
 }
 
+template <typename R, typename G> struct RingTraits<Multinomial<R, G>>
+{
+	static bool is_zero(Multinomial<R, G> const &a)
+	{
+		return a.terms().empty();
+	}
+	static bool is_one(Multinomial<R, G> const &a) { return a == 1; }
+	static bool is_negative(Multinomial<R, G> const &) { return false; }
+
+	/** these two are not precisely correct, but at least not wrong */
+	static bool need_parens_product(Multinomial<R, G> const &) { return true; }
+	static bool need_parens_power(Multinomial<R, G> const &) { return true; }
+};
+
 template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
 } // namespace chalk
@@ -286,33 +300,31 @@ struct fmt::formatter<chalk::Multinomial<R, G>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Multinomial<R, G> &mult, FormatContext &ctx)
+	auto format(const chalk::Multinomial<R, G> &a, FormatContext &ctx)
 	    -> decltype(ctx.out())
 	{
 		// empty sum -> '0'
-		if (mult.terms().empty())
+		if (a.terms().empty())
 			return format_to(ctx.out(), "0");
 
 		// otherwise -> terms with '+' inbetween
 		auto it = ctx.out();
-		for (size_t i = 0; i < mult.terms().size(); ++i)
+		for (size_t i = 0; i < a.terms().size(); ++i)
 		{
 			if (i != 0)
 				it = format_to(it, " + ");
+			auto const &term = a.terms()[i];
 
-			if (mult.terms()[i].coefficient == 1)
-				it = format_to(it, "{}", mult.terms()[i].index);
-			else if (mult.terms()[i].index == 1)
-				it = format_to(it, "{}", mult.terms()[i].coefficient);
-			else if (need_parens(mult.terms()[i].coefficient))
-				it = format_to(it, "({})*{}", mult.terms()[i].coefficient,
-				               mult.terms()[i].index);
+			if (chalk::is_one(term.coefficient))
+				it = format_to(it, "{}", term.index);
+			else if (term.index == 1)
+				it = format_to(it, "{}", term.coefficient);
+			else if (chalk::need_parens_product(term.coefficient))
+				it = format_to(it, "({})*{}", a.terms()[i].coefficient,
+				               term.index);
 			else
-				it = format_to(it, "{}*{}", mult.terms()[i].coefficient,
-				               mult.terms()[i].index);
+				it = format_to(it, "{}*{}", term.coefficient, term.index);
 		}
 		return it;
 	}
 };
-
-#endif

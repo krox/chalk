@@ -1,27 +1,11 @@
-#ifndef CHALK_FRACTION_H
-#define CHALK_FRACTION_H
+#pragma once
 
 #include "chalk/integer.h"
 #include "chalk/numtheory.h"
+#include "chalk/rings.h"
 #include "fmt/format.h"
 
 namespace chalk {
-
-/** helper functions to make Fraction<int64/128_t> work */
-inline bool is_zero(int64_t a) { return a == 0; }
-inline bool is_negative(int64_t a) { return a < 0; }
-inline bool is_invertible(int64_t a) { return a == 1 || a == -1; }
-inline bool is_regular(int64_t a) { return a != 0; }
-inline int64_t invertible_factor(int64_t a) { return a < 0 ? -1 : 1; }
-inline bool need_parens(int64_t) { return false; }
-inline bool is_zero(int128_t a) { return a == 0; }
-inline bool is_negative(int128_t a) { return a < 0; }
-inline bool is_invertible(int128_t a) { return a == 1 || a == -1; }
-inline bool is_regular(int128_t a) { return a != 0; }
-inline int128_t invertible_factor(int128_t a) { return a < 0 ? -1 : 1; }
-inline bool need_parens(int128_t) { return false; }
-// int64_t gcd(int64_t,int64_t); // defined in numtheory
-// int128_t gcd(int128_t,int128_t); // defined in numtheory
 
 /**
  * Ring of fractions a/b with a,b ∈ R
@@ -37,9 +21,11 @@ template <typename R> class Fraction
 		R g = gcd(num_, denom_);
 		num_ /= g;
 		denom_ /= g;
-		auto u = invertible_factor(denom_);
-		num_ /= u;
-		denom_ /= u;
+		if (is_negative(denom_))
+		{
+			num_ = -num_;
+			denom_ = -denom_;
+		}
 
 		// makes sure that Fraction<int128_t> does not overflow
 		// assert(INT64_MIN < num_ && num_ < INT64_MAX);
@@ -62,42 +48,13 @@ template <typename R> class Fraction
 	R const &denom() const { return denom_; }
 };
 
-/** unary operators */
-template <typename R> bool is_zero(Fraction<R> const &a)
-{
-	return is_zero(a.num());
-}
-template <typename R> bool is_negative(Fraction<R> const &a)
-{
-	return is_negative(a.num());
-}
-template <typename R> bool is_invertible(Fraction<R> const &a)
-{
-	return is_regular(a.num());
-}
-template <typename R> bool is_regular(Fraction<R> const &a)
-{
-	return is_regular(a.num());
-}
-template <typename R> Fraction<R> invertible_factor(Fraction<R> const &a)
-{
-	return Fraction<R>{regular_factor(a.num()), a.denom()};
-}
-template <typename R> bool need_parens(Fraction<R> const &a)
-{
-	if (a.denom() == 1)
-		return need_parens(a.num());
-	else
-		return false;
-}
-
 template <typename R> Fraction<R> operator-(Fraction<R> const &a)
 {
 	return Fraction<R>{-a.num(), a.denom()};
 }
 template <typename R> Fraction<R> inverse(Fraction<R> const &a)
 {
-	assert(is_regular(a.num()));
+	// assert(is_regular(a.num()));
 	return Fraction<R>{a.denom(), a.num()};
 }
 
@@ -126,7 +83,7 @@ Fraction<R> operator*(Fraction<R> const &a, Fraction<R> const &b)
 template <typename R>
 Fraction<R> operator/(Fraction<R> const &a, Fraction<R> const &b)
 {
-	assert(is_regular(b.num()));
+	// assert(is_regular(b.num()));
 	R num = a.num() * b.denom();
 	R denom = a.denom() * b.num();
 	return Fraction<R>{num, denom};
@@ -147,7 +104,7 @@ template <typename R> Fraction<R> operator*(Fraction<R> const &a, int b)
 }
 template <typename R> Fraction<R> operator/(Fraction<R> const &a, int b)
 {
-	assert(is_regular(R(b)));
+	// assert(is_regular(R(b)));
 	return Fraction<R>{a.num(), a.denom() * b};
 }
 template <typename R> Fraction<R> operator+(int a, Fraction<R> const &b)
@@ -164,7 +121,7 @@ template <typename R> Fraction<R> operator*(int a, Fraction<R> const &b)
 }
 template <typename R> Fraction<R> operator/(int a, Fraction<R> const &b)
 {
-	assert(is_regular(b));
+	// assert(is_regular(b));
 	return Fraction<R>{a * b.denom(), b.num()};
 }
 
@@ -217,6 +174,37 @@ template <typename R> bool operator!=(Fraction<R> const &a, int b)
 	return !(a.denom() == 1 && a.num() == b);
 }
 
+template <typename R> struct RingTraits<Fraction<R>>
+{
+	static bool is_zero(Fraction<R> const &value)
+	{
+		return chalk::is_zero(value.num());
+	}
+	static bool is_one(Fraction<R> const &value)
+	{
+		return chalk::is_one(value.num()) && chalk::is_one(value.denom());
+	}
+	static bool is_negative(Fraction<R> const &value)
+	{
+		return chalk::is_negative(value.num());
+	}
+
+	static bool need_parens_product(Fraction<R> const &value)
+	{
+		if (chalk::is_one(value.denom()))
+			return chalk::need_parens_product(value.num());
+		else
+			return false;
+	}
+	static bool need_parens_power(Fraction<R> const &value)
+	{
+		if (chalk::is_one(value.denom()))
+			return chalk::need_parens_power(value.num());
+		else
+			return true;
+	}
+};
+
 /** main usecase of fractions are of course rational numbers */
 using Rational = Fraction<Integer>;
 using Rational64 = Fraction<int64_t>;
@@ -231,25 +219,22 @@ template <typename R> struct fmt::formatter<chalk::Fraction<R>>
 	template <typename FormatContext>
 	auto format(const chalk::Fraction<R> &x, FormatContext &ctx)
 	{
-		using chalk::need_parens;
-
-		if (x.denom() == 1)
+		if (chalk::is_one(x.denom()))
 			return format_to(ctx.out(), "{}", x.num());
-		if (need_parens(x.num()))
+
+		if (chalk::need_parens_product(x.num()))
 		{
-			if (need_parens(x.denom()))
+			if (chalk::need_parens_power(x.denom()))
 				return format_to(ctx.out(), "({})/({})", x.num(), x.denom());
 			else
 				return format_to(ctx.out(), "({})/{}", x.num(), x.denom());
 		}
 		else
 		{
-			if (need_parens(x.denom()))
+			if (chalk::need_parens_power(x.denom()))
 				return format_to(ctx.out(), "{}/({})", x.num(), x.denom());
 			else
 				return format_to(ctx.out(), "{}/{}", x.num(), x.denom());
 		}
 	}
 };
-
-#endif
