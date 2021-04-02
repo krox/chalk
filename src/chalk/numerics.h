@@ -20,7 +20,7 @@ T jacobiPolynomial(T2 alpha, T2 beta, int n, int k, T x)
 		return T(0);
 	if (k != 0)
 	{
-		T factor = 1;
+		T factor = T(1);
 		for (int i = 1; i <= k; ++i)
 			factor *= (alpha + beta + n + i) / 2;
 		return factor * jacobiPolynomial(alpha + k, beta + k, n - k, 0, x);

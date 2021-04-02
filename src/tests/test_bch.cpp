@@ -17,7 +17,7 @@ R exp(R const &a)
 {
 	assert(a.max_order() < 100);
 	auto inc = R(1);
-	R r = 0;
+	R r = R(0);
 	for (int i = 1; !(inc == 0); ++i)
 	{
 		r += inc;

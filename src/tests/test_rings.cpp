@@ -9,8 +9,10 @@ TEST(Polynomial, Univariate)
 {
 	using R = Fraction<int64_t>;
 	auto x = Polynomial<R>::generator();
-	assert(fmt::format("{}", (x + 1) * (x - 1)) == "x^2 - 1");
-	assert(fmt::format("{}", (x + 1) * (x + 1)) == "x^2 + 2*x + 1");
+	auto y = Polynomial<Polynomial<R, 'y'>>(Polynomial<R, 'y'>::generator());
+	EXPECT_EQ(fmt::format("{}", (x + 1) * (x - 1)), "x^2 - 1");
+	EXPECT_EQ(fmt::format("{}", (y + 1) * (y + 1)), "y^2 + 2*y + 1");
+	EXPECT_EQ(fmt::format("{}", (y + x) * (x - y)), "x^2 - y^2");
 }
 
 TEST(Polynomial, Multivariate)
