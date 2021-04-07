@@ -1,72 +1,22 @@
-#ifndef CHALK_SPARSE_POLYNOMIAL_H
-#define CHALK_SPARSE_POLYNOMIAL_H
+#pragma once
 
+#include "chalk/monomial.h"
 #include "chalk/parser.h"
 #include "chalk/polynomial.h"
+#include "chalk/rings.h"
 #include "fmt/format.h"
 #include "util/span.h"
 #include <array>
 #include <bitset>
 #include <cassert>
 #include <climits>
+#include <map>
 #include <optional>
 #include <utility>
 #include <vector>
 
 namespace chalk {
 
-/** a single term of a polynomial: a*x1^e1*...*xn^en */
-template <typename R, size_t rank> struct Monomial
-{
-	R coefficient = {};
-	std::array<int, rank> exponent = {};
-
-	Monomial operator*(Monomial const &b) const
-	{
-		std::array<int, rank> ex;
-		for (size_t i = 0; i < rank; ++i)
-			ex[i] = exponent[i] + b.exponent[i];
-		return Monomial{coefficient * b.coefficient, ex};
-	}
-	std::optional<Monomial> operator/(Monomial const &b) const
-	{
-		std::array<int, rank> ex;
-		for (size_t i = 0; i < rank; ++i)
-			if (exponent[i] >= b.exponent[i])
-				ex[i] = exponent[i] - b.exponent[i];
-			else
-				return std::nullopt;
-		return Monomial{coefficient / b.coefficient, ex};
-	}
-
-	bool operator==(Monomial const &b) const
-	{
-		return coefficient == b.coefficient && exponent == b.exponent;
-	}
-};
-
-template <typename R, size_t rank>
-bool order_degrevlex(Monomial<R, rank> const &a, Monomial<R, rank> const &b,
-                     std::array<int, rank> const &ws)
-{
-	int totA = 0, totB = 0;
-	for (size_t i = 0; i < rank; ++i)
-	{
-		totA += a.exponent[i] * ws[i];
-		totB += b.exponent[i] * ws[i];
-	}
-	if (totA != totB)
-		return totA > totB;
-
-	for (int i = (int)rank - 1; i >= 0; --i)
-		if (a.exponent[i] < b.exponent[i])
-			return true;
-		else if (a.exponent[i] > b.exponent[i])
-			return false;
-	return false;
-}
-
-template <typename R, size_t rank> class PolynomialRing;
 template <typename R, size_t rank> class SparsePolynomial;
 
 template <typename R, size_t rank> class PolynomialRing
@@ -77,26 +27,8 @@ template <typename R, size_t rank> class PolynomialRing
 	size_t namedVars_ = 0;
 
   public:
-	constexpr PolynomialRing()
-	{
-		namedVars_ = 0;
-		for (size_t i = 0; i < rank; ++i)
-		{
-			var_names_[i] = fmt::format("x_{}", i);
-			max_order_[i] = INT_MAX;
-			weights_[i] = 1;
-		}
-	}
-	explicit constexpr PolynomialRing(std::array<std::string, rank> var_names)
-	    : var_names_(std::move(var_names))
-	{
-		namedVars_ = rank;
-		for (size_t i = 0; i < rank; ++i)
-		{
-			max_order_[i] = INT_MAX;
-			weights_[i] = 1;
-		}
-	}
+	constexpr PolynomialRing();
+	explicit constexpr PolynomialRing(std::array<std::string, rank> var_names);
 
 	// pointers to the ring are stored inside the polynomial, so moving the
 	// ring is usually bad, therefore we disable copy/move
@@ -109,13 +41,7 @@ template <typename R, size_t rank> class PolynomialRing
 	auto const &weights() const { return weights_; }
 
 	/** look up variable name */
-	int var_id(std::string const &name)
-	{
-		for (size_t i = 0; i < rank; ++i)
-			if (var_names_[i] == name)
-				return (int)i;
-		throw std::runtime_error("Variable name not found in Poly-Ring");
-	}
+	int var_id(std::string const &name) const;
 
 	/** constant polynomial */
 	SparsePolynomial<R, rank> operator()(R const &value) const;
@@ -125,17 +51,9 @@ template <typename R, size_t rank> class PolynomialRing
 	SparsePolynomial<R, rank> generator(int k);
 	SparsePolynomial<R, rank> generator(std::string_view varName,
 	                                    int maxOrder = INT_MAX, int weight = 1);
-	SparsePolynomial<R, rank> operator()(std::string const &str)
-	{
-		auto f = [&](std::string_view token) -> SparsePolynomial<R, rank> {
-			if (std::isdigit(token[0]))
-				return (*this)(parse_int(token));
-			else
-				return generator(token);
-		};
 
-		return parse<SparsePolynomial<R, rank>>(str, f);
-	}
+	/** parse polynomial from string */
+	SparsePolynomial<R, rank> operator()(std::string const &str);
 };
 
 /**
@@ -152,39 +70,7 @@ template <typename R, size_t rank> class SparsePolynomial
 	std::vector<Monomial<R, rank>> terms_;
 
 	/** sort terms and collect common terms */
-	void cleanup()
-	{
-		std::sort(terms_.begin(), terms_.end(),
-		          [&ws = ring_->weights()](auto &a, auto &b) {
-			          return order_degrevlex<R, rank>(a, b, ws);
-		          });
-		size_t j = 0;
-		for (size_t i = 0; i < terms_.size(); ++i)
-		{
-			// effectively remove terms of too-high order
-			for (size_t k = 0; k < rank; ++k)
-				if (terms_[i].exponent[k] > ring_->max_order()[k])
-					goto next_term;
-
-			// if exponent == previous exponent -> join
-			if (j != 0 && terms_[j - 1].exponent == terms_[i].exponent)
-				terms_[j - 1].coefficient += terms_[i].coefficient;
-
-			// else new term
-			else if (i != j)
-				terms_[j++] = std::move(terms_[i]);
-			else
-				j++;
-
-			// if coeff = 0 -> remove term
-			assert(j);
-			if (terms_[j - 1].coefficient == 0)
-				--j;
-
-		next_term:;
-		}
-		terms_.resize(j);
-	}
+	void cleanup();
 
   public:
 	static PolynomialRing<R, rank> const *default_ring()
@@ -203,7 +89,7 @@ template <typename R, size_t rank> class SparsePolynomial
 		cleanup();
 	};
 
-	/** monomial */
+	/** single monomial */
 	explicit SparsePolynomial(std::array<int, rank> const &exponent)
 	    : terms_{{R(1), exponent}}
 	{}
@@ -322,6 +208,32 @@ template <typename R, size_t rank> class SparsePolynomial
 		// maybe unknown variables should be silently ignored?
 		throw std::runtime_error(fmt::format("unknown variable '{}'", var));
 	}
+	R substitute(std::map<std::string, R> const &vals) const
+	{
+		SparsePolynomial r = *this;
+		for (auto const &[var, val] : vals)
+			r = r.substitute(var, val);
+		assert(r.var_count() == 0);
+		assert(r.terms().size() <= 1);
+		if (r.terms().size() == 0)
+			return R(0);
+		else
+			return r.terms()[0].coefficient;
+	}
+	R substitute(util::span<const R> vals) const
+	{
+		assert(vals.size() == rank);
+		auto r = R(0);
+		for (auto &term : terms())
+		{
+			R tmp = term.coefficient;
+			for (size_t i = 0; i < rank; ++i)
+				if (term.exponent[i] != 0)
+					tmp *= pow(vals[i], term.exponent[i]);
+			r += tmp;
+		}
+		return r;
+	}
 
 	/** largest power of x_k */
 	int max_order(size_t k) const
@@ -422,6 +334,58 @@ template <typename R, size_t rank> class SparsePolynomial
 	}
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// definitions for PolynomialRing
+///////////////////////////////////////////////////////////////////////////////
+
+template <typename R, size_t rank>
+constexpr PolynomialRing<R, rank>::PolynomialRing()
+{
+	namedVars_ = 0;
+	for (size_t i = 0; i < rank; ++i)
+	{
+		var_names_[i] = fmt::format("x_{}", i);
+		max_order_[i] = INT_MAX;
+		weights_[i] = 1;
+	}
+}
+
+template <typename R, size_t rank>
+constexpr PolynomialRing<R, rank>::PolynomialRing(
+    std::array<std::string, rank> var_names)
+    : var_names_(std::move(var_names))
+{
+	namedVars_ = rank;
+	for (size_t i = 0; i < rank; ++i)
+	{
+		max_order_[i] = INT_MAX;
+		weights_[i] = 1;
+	}
+}
+
+template <typename R, size_t rank>
+int PolynomialRing<R, rank>::var_id(std::string const &name) const
+{
+	for (size_t i = 0; i < rank; ++i)
+		if (var_names_[i] == name)
+			return (int)i;
+	throw std::runtime_error("Variable name not found in Poly-Ring");
+}
+
+template <typename R, size_t rank>
+SparsePolynomial<R, rank>
+PolynomialRing<R, rank>::operator()(std::string const &str)
+{
+	auto f = [&](std::string_view token) -> SparsePolynomial<R, rank> {
+		if (std::isdigit(token[0]))
+			return (*this)(parse_int(token));
+		else
+			return generator(token);
+	};
+
+	return parse<SparsePolynomial<R, rank>>(str, f);
+}
+
 /** helper function to determine ring of result of binary operations */
 template <typename R, size_t rank>
 PolynomialRing<R, rank> const *unify(PolynomialRing<R, rank> const *a,
@@ -434,6 +398,44 @@ PolynomialRing<R, rank> const *unify(PolynomialRing<R, rank> const *a,
 	if (b == &SparsePolynomial<R, rank>::trivialRing)
 		return a;
 	throw std::runtime_error("incompatible polynomial rings");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// definitions for SparsePolynomial
+///////////////////////////////////////////////////////////////////////////////
+
+template <typename R, size_t rank> void SparsePolynomial<R, rank>::cleanup()
+{
+	std::sort(terms_.begin(), terms_.end(),
+	          [&ws = ring_->weights()](auto &a, auto &b) {
+		          return order_degrevlex<R, rank>(a, b, ws);
+	          });
+	size_t j = 0;
+	for (size_t i = 0; i < terms_.size(); ++i)
+	{
+		// effectively remove terms of too-high order
+		for (size_t k = 0; k < rank; ++k)
+			if (terms_[i].exponent[k] > ring_->max_order()[k])
+				goto next_term;
+
+		// if exponent == previous exponent -> join
+		if (j != 0 && terms_[j - 1].exponent == terms_[i].exponent)
+			terms_[j - 1].coefficient += terms_[i].coefficient;
+
+		// else new term
+		else if (i != j)
+			terms_[j++] = std::move(terms_[i]);
+		else
+			j++;
+
+		// if coeff = 0 -> remove term
+		assert(j);
+		if (terms_[j - 1].coefficient == 0)
+			--j;
+
+	next_term:;
+	}
+	terms_.resize(j);
 }
 
 template <typename R, size_t rank>
@@ -610,8 +612,8 @@ void operator*=(SparsePolynomial<R, rank> &a,
 
 /** constant polynomial */
 template <typename R, size_t rank>
-SparsePolynomial<R, rank> PolynomialRing<R, rank>::
-operator()(R const &value) const
+SparsePolynomial<R, rank>
+PolynomialRing<R, rank>::operator()(R const &value) const
 {
 	std::vector<Monomial<R, rank>> terms;
 	terms.emplace_back(value, {});
@@ -724,6 +726,13 @@ SparsePolynomial<R, rank> diff(SparsePolynomial<R, rank> const &a, size_t k)
 	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
 }
 
+template <typename R, size_t rank>
+SparsePolynomial<R, rank> diff(SparsePolynomial<R, rank> const &a,
+                               std::string const &var)
+{
+	return diff(a, a.ring()->var_id(var));
+}
+
 } // namespace chalk
 
 template <typename R, size_t rank>
@@ -748,7 +757,7 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 			R coeff = terms[i].coefficient;
 			auto &exp = terms[i].exponent;
 
-			if (is_negative(coeff))
+			if (chalk::is_negative(coeff))
 			{
 				if (i == 0)
 					it = format_to(it, "-");
@@ -780,5 +789,3 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 		return it;
 	}
 };
-
-#endif
