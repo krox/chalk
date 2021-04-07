@@ -2,22 +2,20 @@
 #include "chalk/fraction.h"
 #include "chalk/free_group.h"
 #include "chalk/group_ring.h"
-#include "chalk/polynomial.h"
+#include "chalk/series.h"
 #include "gtest/gtest.h"
 #include <fmt/format.h>
 using namespace chalk;
 
 using Rat = Fraction<int64_t>;
 using Algebra = FreeAlgebra<Rat>;
-using R = Polynomial<Algebra>;
 
 namespace {
 
-R exp(R const &a)
+template <int N> Series<Algebra, N> exp(Series<Algebra, N> const &a)
 {
-	assert(a.max_order() < 100);
-	auto inc = R(1);
-	R r = R(0);
+	auto inc = Series<Algebra, N>(1);
+	auto r = Series<Algebra, N>(0);
 	for (int i = 1; !(inc == 0); ++i)
 	{
 		r += inc;
@@ -27,18 +25,35 @@ R exp(R const &a)
 	return r;
 }
 
-R comm(R const &a, R const &b) { return a * b - b * a; }
+template <int N>
+Series<Algebra, N> comm(Series<Algebra, N> const &a,
+                        Series<Algebra, N> const &b)
+{
+	return a * b - b * a;
+}
+
+template <int order> void test()
+{
+	// test BCH formula by explicitly expanding everything
+
+	using R = Series<Algebra, order>;
+	Series<Algebra, order> a = R::generator() * Scalar(Algebra::generator(0));
+	Series<Algebra, order> b = R::generator() * Scalar(Algebra::generator(1));
+	auto error = exp(a) * exp(b) - exp(bch(a, b, order, comm<order>));
+	EXPECT_EQ(fmt::format("{}", error), fmt::format("0 + O(x^{})", order + 1));
+	fmt::print("{}\n", exp(a) * exp(b));
+}
+
 } // namespace
 
 TEST(FreeGroup, BCH)
 {
-	// test BCH formula by explicitly expanding everything
-	for (int order = 1; order <= 8; ++order)
-	{
-		auto a = truncate(R::generator() * Algebra::generator(0), order);
-		auto b = truncate(R::generator() * Algebra::generator(1), order);
-		auto error = exp(a) * exp(b) - exp(bch(a, b, order, comm));
-		EXPECT_EQ(fmt::format("{}", error),
-		          fmt::format("0 + O(x^{})", order + 1));
-	}
+	test<1>();
+	test<2>();
+	test<3>();
+	test<4>();
+	test<5>();
+	test<6>();
+	test<7>();
+	test<8>();
 }

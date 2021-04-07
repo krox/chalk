@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fmt/format.h"
+#include <complex>
 
 namespace chalk {
 
@@ -34,6 +35,15 @@ template <> struct RingTraits<float> : RingTraitsSimple<float>
 template <> struct RingTraits<double> : RingTraitsSimple<double>
 {};
 
+template <typename T> struct RingTraits<std::complex<T>>
+{
+	static bool is_zero(std::complex<T> const &value) { return value == T(0); }
+	static bool is_one(std::complex<T> const &value) { return value == T(1); }
+	static bool is_negative(std::complex<T> const &value) { return false; }
+	static bool need_parens_product(std::complex<T> const &) { return true; }
+	static bool need_parens_power(std::complex<T> const &) { return true; }
+};
+
 template <typename T> bool is_zero(T const &value)
 {
 	return RingTraits<T>::is_zero(value);
@@ -54,5 +64,31 @@ template <typename T> bool need_parens_power(T const &value)
 {
 	return RingTraits<T>::need_parens_power(value);
 }
+
+template <typename T> struct Scalar
+{
+	T value;
+
+	Scalar() = default;
+	explicit Scalar(T v) : value(std::move(v)) {}
+};
+
+template <typename T> struct RingTraits<Scalar<T>>
+{
+	static bool is_zero(Scalar<T> const &value) { return is_zero(value.value); }
+	static bool is_one(Scalar<T> const &value) { return is_one(value.value); }
+	static bool is_negative(Scalar<T> const &value)
+	{
+		return is_negative(value.value);
+	}
+	static bool need_parens_product(Scalar<T> const &value)
+	{
+		return needs_parens_product(value.value);
+	}
+	static bool need_parens_power(Scalar<T> const &value)
+	{
+		return need_paren_power(value.value);
+	}
+};
 
 } // namespace chalk
