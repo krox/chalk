@@ -3,6 +3,7 @@
 #include "util/random.h"
 #include "util/stopwatch.h"
 #include "gtest/gtest.h"
+#include <Eigen/Dense>
 #include <fmt/format.h>
 using namespace chalk;
 
@@ -23,7 +24,9 @@ ddouble to_ddouble(FloatingOctuple const &a)
 	return ddouble::sum(high, low);
 } // namespace
 
-template <typename F> void test_unary(F &&f, double min = 0, double max = 1)
+template <typename F>
+void test_unary([[maybe_unused]] std::string const &label, F f, double min,
+                double max, double eps, bool relative)
 {
 	auto rng = util::xoshiro256(0);
 	double worst = 0.0;
@@ -33,8 +36,10 @@ template <typename F> void test_unary(F &&f, double min = 0, double max = 1)
 		ddouble x = ddouble::random(rng) * (max - min) + min;
 		ddouble result = f(x);
 		FloatingOctuple exact = f(to_octuple(x));
-		double error =
-		    std::abs((double)(to_octuple(result) - exact) / (double)exact);
+		double error = (double)(to_octuple(result) - exact);
+
+		error = relative ? std::abs(error / (double)exact) : std::abs(error);
+
 		if (error > worst)
 		{
 			worst = error;
@@ -42,8 +47,9 @@ template <typename F> void test_unary(F &&f, double min = 0, double max = 1)
 		}
 	}
 	// fmt::print("worst x = {}\n", worst_x.high());
-	EXPECT_LE(worst, 1e-28);
-	// fmt::print("worst relative error = {}\n", worst);
+	EXPECT_LE(worst, eps);
+	/*fmt::print("{:8} : max error ({}) = {:5.3e} (at x = {})\n", label,
+	           relative ? "relative" : "absolute", worst, (double)worst_x);*/
 }
 
 template <typename F>
@@ -106,14 +112,28 @@ TEST(Numerics, ddouble)
 	test_binary([](auto a, auto b) { return a * b; });
 	test_binary([](auto a, auto b) { return a / b; });
 
-	test_unary([](auto a) { return sqrt(a); });
-	test_unary([](auto a) { return cbrt(a); });
-	test_unary([](auto a) { return rec_sqrt(a); }, 0.1, 1000000000.0);
+	test_unary(
+	    "sqrt", [](auto a) { return sqrt(a); }, 1e-10, 1e10, 1e-29, true);
+	test_unary(
+	    "cbrt", [](auto a) { return cbrt(a); }, 1e-10, 1e10, 1e-29, true);
+	test_unary(
+	    "rec_sqrt", [](auto a) { return rec_sqrt(a); }, 1e-10, 1e10, 1e-29,
+	    true);
 
-	test_unary([](auto a) { return exp(a); }, -5.0, 5.0);
-	test_unary([](auto a) { return log(a); }, 1e-10, 1e10);
+	test_unary(
+	    "exp", [](auto a) { return exp(a); }, -5.0, 5.0, 1e-29, true);
+	test_unary(
+	    "log", [](auto a) { return log(a); }, 1e-10, 1e10, 1e-29, true);
 
-	test_unary([](auto a) { return sin(a); }, -3, 3);
+	test_unary(
+	    "sin", [](auto a) { return sin(a); }, -10, 10, 1e-29, false);
+	test_unary(
+	    "cos", [](auto a) { return cos(a); }, -10, 10, 1e-29, false);
+
+	/*benchmark_unary(
+	    "sin", [](auto a) { return sin(a); }, -10, 10);
+	benchmark_unary(
+	    "cos", [](auto a) { return cos(a); }, -10, 10);*/
 
 	/*
 	print_ddouble("e", exp(FloatingOctuple(1)));
@@ -131,6 +151,31 @@ TEST(Numerics, ddouble)
 	// ASSERT_EQ(zeros.size(), 2);
 	// EXPECT_DOUBLE_EQ(zeros[0], -1.);
 	// EXPECT_DOUBLE_EQ(zeros[1], +1.);
+}
+
+TEST(Numerics, ddouble_eigen)
+{
+	// matrix type to use
+	using Matrix = Eigen::Matrix<ddouble, Eigen::Dynamic, Eigen::Dynamic>;
+
+	// get some random matrices
+	auto rng = util::xoshiro256(0);
+	auto dist = std::uniform_real_distribution<double>(-1.0, 1.0);
+	size_t n = 20;
+	Matrix A(n, n);
+	Matrix B(n, n);
+	for (size_t i = 0; i < n; ++i)
+		for (size_t j = 0; j < n; ++j)
+		{
+			A(i, j) = dist(rng);
+			B(i, j) = dist(rng);
+		}
+
+	// test basic linear algebra
+	Matrix M = A * B;
+	Matrix Minv = M.inverse();
+	EXPECT_LE((double)(M * Minv - Matrix::Identity(n, n)).norm(), 1.e-28);
+	EXPECT_LE((double)(Minv - B.inverse() * A.inverse()).norm(), 1.e-28);
 }
 
 } // namespace

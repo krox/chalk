@@ -41,7 +41,7 @@ template <int order> void test()
 	Series<Algebra, order> b = R::generator() * Scalar(Algebra::generator(1));
 	auto error = exp(a) * exp(b) - exp(bch(a, b, order, comm<order>));
 	EXPECT_EQ(fmt::format("{}", error), fmt::format("0 + O(x^{})", order + 1));
-	fmt::print("{}\n", exp(a) * exp(b));
+	// fmt::print("{}\n", exp(a) * exp(b));
 }
 
 } // namespace

@@ -19,6 +19,8 @@ namespace chalk {
  *    - This module will break if compiled with '-ffast-math'. Just dont. Some
  *      weaker flags are okay though, e.g.:
  *      -fno-signed-zeros -fno-math-errno -ffinite-math-only
+ *    - It might break if compiled to x87 code due to extended precision for
+ *      intermediates. SSE/AVX is always fine.
  *    - It will also probably break if FP rounding mode is changed away
  *      from 'nearest'. But who would ever consider that?
  *    - Correct handling of inf/nan/signed-zero/subnormals is not really tested.
@@ -56,7 +58,13 @@ class ddouble
 	}
 
   public:
+	ddouble() : high_(0.0 / 0.0), low_(0.0 / 0.0) {}
 	explicit ddouble(double a) : high_(a), low_(0) {}
+	ddouble &operator=(double a)
+	{
+		high_ = a, low_ = 0;
+		return *this;
+	}
 
 	static ddouble unchecked(double high, double low)
 	{
@@ -66,6 +74,10 @@ class ddouble
 	/** should not really be needed in user code */
 	double high() const { return high_; }
 	double low() const { return low_; }
+
+	explicit operator double() const { return high(); }
+	explicit operator float() const { return (float)high(); }
+	double to_double() const { return high(); }
 
 	/** constant naming as in std::numbers, though not exactly the same list */
 	// generated with high precision MPFR, so should be precise in all digits
@@ -130,6 +142,7 @@ inline ddouble operator-(ddouble a)
 {
 	return ddouble::unchecked(-a.high(), -a.low());
 }
+inline ddouble abs(ddouble a) { return a.high() < 0.0 ? -a : a; }
 
 inline ddouble times2(ddouble a)
 {
@@ -211,14 +224,14 @@ inline ddouble operator/(ddouble a, ddouble b)
 }
 
 /** convenience operators */
-inline void operator+=(ddouble &a, double b) { a = a + b; }
-inline void operator-=(ddouble &a, double b) { a = a - b; }
-inline void operator*=(ddouble &a, double b) { a = a * b; }
-inline void operator/=(ddouble &a, double b) { a = a / b; }
-inline void operator+=(ddouble &a, ddouble b) { a = a + b; }
-inline void operator-=(ddouble &a, ddouble b) { a = a - b; }
-inline void operator*=(ddouble &a, ddouble b) { a = a * b; }
-inline void operator/=(ddouble &a, ddouble b) { a = a / b; }
+inline ddouble &operator+=(ddouble &a, double b) { return a = a + b; }
+inline ddouble &operator-=(ddouble &a, double b) { return a = a - b; }
+inline ddouble &operator*=(ddouble &a, double b) { return a = a * b; }
+inline ddouble &operator/=(ddouble &a, double b) { return a = a / b; }
+inline ddouble &operator+=(ddouble &a, ddouble b) { return a = a + b; }
+inline ddouble &operator-=(ddouble &a, ddouble b) { return a = a - b; }
+inline ddouble &operator*=(ddouble &a, ddouble b) { return a = a * b; }
+inline ddouble &operator/=(ddouble &a, ddouble b) { return a = a / b; }
 
 namespace ddouble_detail {
 ddouble taylor(util::span<const ddouble> c, ddouble x)
@@ -271,22 +284,10 @@ static ddouble coeffs_sin[] = {
     ddouble::unchecked(-0x1.761b41316381ap-75, 0x1.3423c7d91404fp-130),
     ddouble::unchecked(0x1.3f3ccdd165fa9p-84, -0x1.58ddadf344487p-139),
     ddouble::unchecked(-0x1.d1ab1c2dccea3p-94, -0x1.054d0c78aea14p-149),
-    ddouble::unchecked(0x1.259f98b4358adp-103, 0x1.eaf8c39dd9bc5p-157),
-    ddouble::unchecked(-0x1.434d2e783f5bcp-113, -0x1.0b87b91be9affp-167),
-    ddouble::unchecked(0x1.3981254dd0d52p-123, -0x1.2b1f4c8015a2fp-177),
-    ddouble::unchecked(-0x1.0dc59c716d91fp-133, -0x1.419e3fad3f031p-188),
-    ddouble::unchecked(0x1.9ec8d1c94e85bp-144, -0x1.670e9d4784ec6p-201),
-    ddouble::unchecked(-0x1.1e99449a4bacep-154, 0x1.fefbb89514b3cp-210),
-    ddouble::unchecked(0x1.65e61c39d0241p-165, -0x1.c0ed181727269p-220),
-    ddouble::unchecked(-0x1.95db45257e512p-176, -0x1.6e5d72b6f79b9p-231),
-    ddouble::unchecked(0x1.a3cb872220648p-187, -0x1.c7f4e85b8e6cdp-241),
-    ddouble::unchecked(-0x1.8da8e0a127ebap-198, 0x1.21d2eac9d275cp-252),
-    ddouble::unchecked(0x1.5a42f0dfeb086p-209, -0x1.35ae015f78f6ep-264),
-    ddouble::unchecked(-0x1.161872bf7b823p-220, -0x1.bb96c8e2e8897p-275),
-    ddouble::unchecked(0x1.9d4f1058674dfp-232, 0x1.03c81b6914d59p-286),
-    ddouble::unchecked(-0x1.1d008faac5c50p-243, -0x1.50348ded2636fp-298),
-    ddouble::unchecked(0x1.6db793c887b97p-255, -0x1.966963ad60539p-314),
-    ddouble::unchecked(-0x1.b5bfc17fa97d3p-267, 0x1.ff5794693c028p-321),
+    // ddouble::unchecked(0x1.259f98b4358adp-103, 0x1.eaf8c39dd9bc5p-157),
+    // ddouble::unchecked(-0x1.434d2e783f5bcp-113, -0x1.0b87b91be9affp-167),
+    // ddouble::unchecked(0x1.3981254dd0d52p-123, -0x1.2b1f4c8015a2fp-177),
+    // ddouble::unchecked(-0x1.0dc59c716d91fp-133, -0x1.419e3fad3f031p-188),
 };
 
 // taylor coefficients of cos (even only)
@@ -305,22 +306,10 @@ static ddouble coeffs_cos[] = {
     ddouble::unchecked(-0x1.0ce396db7f853p-70, 0x1.aebcdbd20331cp-124),
     ddouble::unchecked(0x1.f2cf01972f578p-80, -0x1.9ada5fcc1ab14p-135),
     ddouble::unchecked(-0x1.88e85fc6a4e5ap-89, 0x1.71c37ebd16540p-143),
-    ddouble::unchecked(0x1.0a18a2635085dp-98, 0x1.b9e2e28e1aa54p-153),
-    ddouble::unchecked(-0x1.3932c5047d60ep-108, -0x1.832b7b530a627p-162),
-    ddouble::unchecked(0x1.434d2e783f5bcp-118, 0x1.0b87b91be9affp-172),
-    ddouble::unchecked(-0x1.2710231c0fd7ap-128, -0x1.3f8a2b4af9d6bp-184),
-    ddouble::unchecked(0x1.df983290c2ca9p-139, 0x1.5835c6895393bp-194),
-    ddouble::unchecked(-0x1.5d4acb9c0c3abp-149, 0x1.6ec2c8f5b13b2p-205),
-    ddouble::unchecked(0x1.ca8ed42a12ae3p-160, 0x1.a07244abad2abp-224),
-    ddouble::unchecked(-0x1.10af527530de8p-170, -0x1.b626c912ee5c8p-225),
-    ddouble::unchecked(0x1.272b1b03fec6ap-181, 0x1.3f67cc9f9fdb8p-235),
-    ddouble::unchecked(-0x1.240804f659510p-192, -0x1.8b291b93c9718p-246),
-    ddouble::unchecked(0x1.091b406b6ff26p-203, 0x1.e973637973b18p-257),
-    ddouble::unchecked(-0x1.bb36f6e12cd78p-215, -0x1.02f85029a29b0p-270),
-    ddouble::unchecked(0x1.56457989358c9p-226, -0x1.e3792533eafc8p-282),
-    ddouble::unchecked(-0x1.e9d8f6ed83eaap-238, 0x1.be25ac1066519p-293),
-    ddouble::unchecked(0x1.45b77f9e98e12p-249, 0x1.e4b05119ccb1bp-303),
-    ddouble::unchecked(-0x1.938cc661b03f6p-261, -0x1.c4da1977e56d6p-318),
+    // ddouble::unchecked(0x1.0a18a2635085dp-98, 0x1.b9e2e28e1aa54p-153),
+    // ddouble::unchecked(-0x1.3932c5047d60ep-108, -0x1.832b7b530a627p-162),
+    // ddouble::unchecked(0x1.434d2e783f5bcp-118, 0x1.0b87b91be9affp-172),
+    // ddouble::unchecked(-0x1.2710231c0fd7ap-128, -0x1.3f8a2b4af9d6bp-184),
 };
 
 } // namespace ddouble_detail
@@ -397,36 +386,48 @@ ddouble sin(ddouble a)
 {
 	using namespace ddouble_detail;
 
-	// reduce mod pi
-	int k = (int)std::round(a.high() * (1 / M_PI));
-	a -= k * ddouble::pi();
+	// reduce mod pi/2, so that resulting |a| <= pi/4 = 0.785...
+	int k = (int)std::round(a.high() * (2 / M_PI));
+	a -= k * divide2(ddouble::pi());
+	assert(std::abs(a.high()) < 0.786);
 
-	// now |a| <= pi/2 = 1.57...
-	assert(std::abs(a.high()) < 1.58);
-
-	// remaining a is small -> Taylor
-	if (k & 1)
-		return -a * taylor(coeffs_sin, a * a);
-	else
+	// taylor series of sin/cos
+	switch (k & 3)
+	{
+	case 0:
 		return a * taylor(coeffs_sin, a * a);
+	case 1:
+		return taylor(coeffs_cos, a * a);
+	case 2:
+		return -a * taylor(coeffs_sin, a * a);
+	case 3:
+		return -taylor(coeffs_cos, a * a);
+	}
+	assert(false);
 }
 
 ddouble cos(ddouble a)
 {
 	using namespace ddouble_detail;
 
-	// reduce mod pi
-	int k = (int)std::round(a.high() * (1 / M_PI));
-	a -= k * ddouble::pi();
+	// reduce mod pi/2, so that resulting |a| <= pi/4 = 0.785...
+	int k = (int)std::round(a.high() * (2 / M_PI));
+	a -= k * divide2(ddouble::pi());
+	assert(std::abs(a.high()) < 0.786);
 
-	// now |a| <= pi/2 = 1.57...
-	assert(std::abs(a.high()) < 1.58);
-
-	// remaining a is small -> Taylor
-	if (k & 1)
-		return -taylor(coeffs_cos, a * a);
-	else
+	// taylor series of sin/cos
+	switch (k & 3)
+	{
+	case 0:
 		return taylor(coeffs_cos, a * a);
+	case 1:
+		return -a * taylor(coeffs_sin, a * a);
+	case 2:
+		return -taylor(coeffs_cos, a * a);
+	case 3:
+		return a * taylor(coeffs_sin, a * a);
+	}
+	assert(false);
 }
 
 ddouble tan(ddouble a) { return sin(a) / cos(a); }
