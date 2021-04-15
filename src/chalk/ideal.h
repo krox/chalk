@@ -1,19 +1,20 @@
-#ifndef CHALK_IDEAL_H
-#define CHALK_IDEAL_H
+#pragma once
 
 /** ideals in multivariate polynomial rings */
 
 #include "chalk/numerics.h"
 #include "chalk/sparse_polynomial.h"
 #include "fmt/ranges.h"
+#include "util/random.h"
+#include <Eigen/Dense>
 #include <fmt/os.h>
 #include <map>
 
 namespace chalk {
 
 /**
- * NOTE: previously, there was an actual 'Ideal' class, but after some thought,
- *       thats not too useful, because we don't actually wont to enforce a
+ * NOTE: previously, there was an actual 'Ideal' class. But after some thought,
+ *       thats not too useful because we don't actually want to enforce a
  *       strong normal form all the time. Also it lead to plenty of
  *       code-duplication, because operations on raw vector<Polynomial> were
  *       still neccessary.
@@ -444,6 +445,91 @@ inline std::vector<std::map<std::string, double>> analyze_variety(
 	return result;
 }
 
-} // namespace chalk
+template <typename R, size_t rank>
+void solve_numerical(Ideal<R, rank> const &ideal,
+                     std::map<std::string, R> startingValues = {},
+                     std::vector<std::string> fixedVars = {})
+{
+	using Poly = SparsePolynomial<R, rank>;
+	using Matrix = Eigen::Matrix<R, Eigen::Dynamic, Eigen::Dynamic>;
+	using Vector = Eigen::Matrix<R, Eigen::Dynamic, 1>;
+	auto ring = ideal[0].ring();
+	auto rng = util::xoshiro256{std::random_device()()};
 
-#endif
+	// compute derivative polynomials
+	auto derivs = std::vector<std::vector<Poly>>(ideal.size());
+	for (size_t i = 0; i < ideal.size(); ++i)
+	{
+		derivs[i].resize(rank);
+		for (size_t j = 0; j < rank; ++j)
+			derivs[i][j] = diff(ideal[i], j);
+	}
+
+	// random starting points
+	auto x = Vector(rank);
+	auto xs = util::span<const R>(x.data(), (int)x.size());
+	for (size_t i = 0; i < rank; ++i)
+	{
+		if (startingValues.count(ring->var_names()[i]))
+			x[i] = startingValues[ring->var_names()[i]];
+		else
+			x[i] = R(std::uniform_real_distribution<double>()(rng));
+	}
+
+	// (squared) error
+	double err = 0;
+	for (auto const &f : ideal)
+	{
+		auto e = (double)f.substitute(xs);
+		err += e * e;
+	}
+	fmt::print("error^2 = {}\n", err);
+	double last_err = err;
+
+	for (int iter = 0;; ++iter)
+	{
+		// compute (pseudo-)inverse and update x
+		auto f = Vector(ideal.size());
+		auto fd = Matrix(ideal.size(), rank);
+		for (size_t i = 0; i < ideal.size(); ++i)
+		{
+			f(i) = ideal[i].substitute(xs);
+			for (size_t j = 0; j < rank; ++j)
+				fd(i, j) = derivs[i][j].substitute(xs);
+		}
+		for (auto const &var : fixedVars)
+			fd.col(ring->var_id(var)).setZero();
+
+		Vector step = fd.completeOrthogonalDecomposition().solve(f);
+		auto scale = step.template lpNorm<Eigen::Infinity>();
+		if (scale > 0.05)
+			x -= (0.05 / scale) * step;
+		else
+			x -= step;
+
+		// (squared) error
+		err = 0;
+		for (auto const &f : ideal)
+		{
+			auto e = (double)f.substitute(xs);
+			err += e * e;
+		}
+
+		if (iter % 50 == 0)
+		{
+			fmt::print("iter = {}, error^2 = {}\n", iter, err);
+			for (size_t i = 0; i < rank; ++i)
+				fmt::print("values[\"{}\"] = \"{}\";\n",
+				           ideal[0].ring()->var_names()[i], x(i));
+		}
+		if (last_err < 1e-100)
+			break;
+		last_err = err;
+	}
+	fmt::print("--------- end result ----------\n");
+	for (size_t i = 0; i < rank; ++i)
+		fmt::print("values[\"{}\"] = \"{}\";\n",
+		           ideal[0].ring()->var_names()[i], x(i));
+}
+
+} // namespace chalk

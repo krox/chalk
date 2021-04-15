@@ -16,15 +16,15 @@ using Cov = Covariant<R>;
 
 auto getEpsOrder(Cov const &a, int k)
 {
-	return map_coefficients(
-	    a, [&](R const &poly) { return get_coefficient(poly, 0, 2 * k); });
+	return mapCoefficients(
+	    [&](R const &poly) { return get_coefficient(poly, 0, 2 * k); }, a);
 }
 
 /** extract coefficient of cA^k */
 auto getcAOrder(Cov const &a, int k)
 {
-	return map_coefficients(
-	    a, [&](R const &poly) { return get_coefficient(poly, 1, k); });
+	return mapCoefficients(
+	    [&](R const &poly) { return get_coefficient(poly, 1, k); }, a);
 }
 
 /** diff(A*exp(-S))*exp(S) */

@@ -253,8 +253,10 @@ void operator*=(Multinomial<R, G> &a, Multinomial<R, G> const &b)
 
 /** apply a function to all coefficients */
 template <typename R, typename G, typename F>
-Multinomial<R, G> map_coefficients(Multinomial<R, G> const &a, F &&f)
+Multinomial<R, G> mapCoefficients(F f, Multinomial<R, G> const &a)
 {
+	// TODO: this function should be able to change the coefficient type
+
 	auto terms = a.terms();
 	for (auto &t : terms)
 		t.coefficient = f(t.coefficient);

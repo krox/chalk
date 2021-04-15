@@ -91,4 +91,7 @@ template <typename T> struct RingTraits<Scalar<T>>
 	}
 };
 
+using std::pow;
+using std::sqrt;
+
 } // namespace chalk

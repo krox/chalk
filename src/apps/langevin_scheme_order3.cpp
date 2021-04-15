@@ -1,5 +1,6 @@
 #include "chalk/bch.h"
 #include "chalk/covariant.h"
+#include "chalk/floating.h"
 #include "chalk/fraction.h"
 #include "chalk/ideal.h"
 #include "chalk/sparse_polynomial.h"
@@ -8,7 +9,7 @@
 using namespace chalk;
 
 static constexpr int max_order = 3; // orders of epsilon we want everything in
-#define RANK 32 // enough space for all parameters (plus two for 'cA' and 'eps')
+#define RANK 16 // enough space for all parameters (plus two for 'cA' and 'eps')
 
 using R = SparsePolynomial<Rational, RANK>;
 auto ring = PolynomialRing<Rational, RANK>();
@@ -52,6 +53,11 @@ auto rationalToDouble(Rational const &x)
 {
 	return (double)x.num() / (double)x.denom();
 };
+
+auto rationalToOctuple(Rational const &x)
+{
+	return FloatingOctuple(x.num()) / FloatingOctuple(x.denom());
+}
 
 /** commutator c=[a,b]. all three interpreted as  'iT^a f_a' */
 Cov comm(Cov const &a, Cov const &b)
@@ -285,6 +291,10 @@ int main()
 
 	fmt::print("\ngeneral form (after reduce)\n");
 	dump(cond_list);
+	cond_list.push_back(ring("k1-1"));
+
+	auto oct_ring = PolynomialRing<FloatingOctuple, RANK>(ring.var_names());
+	solve_numerical(change_ring(cond_list, &oct_ring, rationalToOctuple));
 	/*fmt::print("\ngeneral form (after gröbner)\n");
 	groebner(cond_list);
 	dump(cond_list);

@@ -285,6 +285,17 @@ auto mapCoefficients(F f, Series<R, N, X> const &a)
 	return r;
 }
 
+template <typename R, int N, char X, typename F>
+auto mapCoefficientsNested(F f, Series<R, N, X> const &a)
+    -> Series<decltype(mapCoefficients(f, a[0])), N, X>
+{
+	using T = decltype(mapCoefficients(f, a[0]));
+	Series<T, N, X> r;
+	for (int i = 0; i <= N; ++i)
+		r[i] = mapCoefficients(f, a[i]);
+	return r;
+}
+
 template <typename R, int N, char X> struct RingTraits<Series<R, N, X>>
 {
 	static bool is_zero(Series<R, N, X> const &s)

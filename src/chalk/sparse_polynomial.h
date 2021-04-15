@@ -88,6 +88,17 @@ template <typename R, size_t rank> class SparsePolynomial
 	{
 		cleanup();
 	};
+	explicit SparsePolynomial(int value, PolynomialRing<R, rank> const *ring)
+	    : ring_(ring), terms_{{R(value), {}}}
+	{
+		cleanup();
+	}
+	explicit SparsePolynomial(R const &value,
+	                          PolynomialRing<R, rank> const *ring)
+	    : ring_(ring), terms_{{value, {}}}
+	{
+		cleanup();
+	};
 
 	/** single monomial */
 	explicit SparsePolynomial(std::array<int, rank> const &exponent)
@@ -672,6 +683,20 @@ SparsePolynomial<R, rank> remove_odd_powers(SparsePolynomial<R, rank> const &a,
 	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
 }
 
+template <typename R, size_t rank, typename F>
+SparsePolynomial<R, rank> mapCoefficients(F f,
+                                          SparsePolynomial<R, rank> const &a)
+{
+	// NOTE: the ring knows the coefficient type. therefore we cant change
+	//       the coefficient type.
+
+	std::vector<Monomial<R, rank>> terms;
+	terms.reserve(a.terms().size());
+	for (auto &term : a.terms())
+		terms.emplace_back(f(term.coefficient), term.exponent);
+	return SparsePolynomial<R, rank>(a.ring(), std::move(terms));
+}
+
 /** remove all powers above x_k^n */
 template <typename R, size_t rank>
 SparsePolynomial<R, rank> truncate(SparsePolynomial<R, rank> const &a, size_t k,
@@ -732,6 +757,26 @@ SparsePolynomial<R, rank> diff(SparsePolynomial<R, rank> const &a,
 {
 	return diff(a, a.ring()->var_id(var));
 }
+
+template <typename R, size_t rank> struct RingTraits<SparsePolynomial<R, rank>>
+{
+	static bool is_zero(SparsePolynomial<R, rank> const &a)
+	{
+		return a.terms().empty();
+	}
+	static bool is_one(SparsePolynomial<R, rank> const &a) { return a == 1; }
+	static bool is_negative(SparsePolynomial<R, rank> const &) { return false; }
+
+	/** these two are not precisely correct, but at least not wrong */
+	static bool need_parens_product(SparsePolynomial<R, rank> const &)
+	{
+		return true;
+	}
+	static bool need_parens_power(SparsePolynomial<R, rank> const &)
+	{
+		return true;
+	}
+};
 
 } // namespace chalk
 
