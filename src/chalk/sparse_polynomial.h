@@ -22,7 +22,6 @@ template <typename R, size_t rank> class SparsePolynomial;
 template <typename R, size_t rank> class PolynomialRing
 {
 	std::array<std::string, rank> var_names_;
-	std::array<int, rank> max_order_;
 	std::array<int, rank> weights_;
 	size_t namedVars_ = 0;
 
@@ -37,7 +36,6 @@ template <typename R, size_t rank> class PolynomialRing
 
 	/** names of the variables */
 	auto const &var_names() const { return var_names_; }
-	auto const &max_order() const { return max_order_; }
 	auto const &weights() const { return weights_; }
 
 	/** look up variable name */
@@ -50,7 +48,7 @@ template <typename R, size_t rank> class PolynomialRing
 	/** generator x_k */
 	SparsePolynomial<R, rank> generator(int k);
 	SparsePolynomial<R, rank> generator(std::string_view varName,
-	                                    int maxOrder = INT_MAX, int weight = 1);
+	                                    int weight = 1);
 
 	/** parse polynomial from string */
 	SparsePolynomial<R, rank> operator()(std::string const &str);
@@ -356,7 +354,6 @@ constexpr PolynomialRing<R, rank>::PolynomialRing()
 	for (size_t i = 0; i < rank; ++i)
 	{
 		var_names_[i] = fmt::format("x_{}", i);
-		max_order_[i] = INT_MAX;
 		weights_[i] = 1;
 	}
 }
@@ -368,10 +365,7 @@ constexpr PolynomialRing<R, rank>::PolynomialRing(
 {
 	namedVars_ = rank;
 	for (size_t i = 0; i < rank; ++i)
-	{
-		max_order_[i] = INT_MAX;
 		weights_[i] = 1;
-	}
 }
 
 template <typename R, size_t rank>
@@ -424,11 +418,6 @@ template <typename R, size_t rank> void SparsePolynomial<R, rank>::cleanup()
 	size_t j = 0;
 	for (size_t i = 0; i < terms_.size(); ++i)
 	{
-		// effectively remove terms of too-high order
-		for (size_t k = 0; k < rank; ++k)
-			if (terms_[i].exponent[k] > ring_->max_order()[k])
-				goto next_term;
-
 		// if exponent == previous exponent -> join
 		if (j != 0 && terms_[j - 1].exponent == terms_[i].exponent)
 			terms_[j - 1].coefficient += terms_[i].coefficient;
@@ -443,8 +432,6 @@ template <typename R, size_t rank> void SparsePolynomial<R, rank>::cleanup()
 		assert(j);
 		if (terms_[j - 1].coefficient == 0)
 			--j;
-
-	next_term:;
 	}
 	terms_.resize(j);
 }
@@ -651,21 +638,18 @@ SparsePolynomial<R, rank> PolynomialRing<R, rank>::generator(int k)
 }
 template <typename R, size_t rank>
 SparsePolynomial<R, rank>
-PolynomialRing<R, rank>::generator(std::string_view varName, int max_order,
-                                   int weight)
+PolynomialRing<R, rank>::generator(std::string_view varName, int weight)
 {
-	assert(max_order >= 0);
 	assert(weight >= 1);
 	for (size_t i = 0; i < namedVars_; ++i)
 		if (var_names_[i] == varName)
 		{
-			assert(max_order_[i] == max_order);
+			// assert(weights_[i] == weight);
 			return generator(i);
 		}
 	if (namedVars_ >= rank)
 		throw std::runtime_error("too many generators in polynomial ring");
 	var_names_[namedVars_] = varName;
-	max_order_[namedVars_] = max_order;
 	weights_[namedVars_] = weight;
 	return generator(namedVars_++);
 }
@@ -730,9 +714,9 @@ template <typename R, size_t rank>
 std::vector<SparsePolynomial<R, rank>>
 get_coefficients(SparsePolynomial<R, rank> const &a, size_t k)
 {
-	int m = a.max_order(k);
+	auto m = a.max_order(k);
 	std::vector<SparsePolynomial<R, rank>> r;
-	r.reserve(m);
+	r.reserve(m + 1);
 	for (int i = 0; i <= m; ++i)
 		r.push_back(get_coefficient(a, k, i));
 	return r;
