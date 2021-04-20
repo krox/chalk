@@ -9,8 +9,8 @@
 #include <fmt/format.h>
 using namespace chalk;
 
-// using Real = double;
-using Real = FloatingDoubleOctuple;
+using Real = double;
+// using Real = FloatingDoubleOctuple;
 
 /**
  * For the 1D case, we represent the derivatives as S', S'', ..., i.e. without
@@ -20,17 +20,15 @@ using Real = FloatingDoubleOctuple;
  * noise term(s) 'eta' are represented as polynomial vars, instead of 'indexed'
  */
 
-static constexpr int max_order = 4; // orders of epsilon we want everything in
-
 // polynomial ring of coefficients
-#define RANK 20
+static constexpr size_t RANK = 20; // needs space for eta1,2,3 too
 using R = SparsePolynomial<Rational, RANK>;
 auto ring = PolynomialRing<Rational, RANK>();
 
-// R seps = ring.generator("s", max_order * 2);
-// R eps = seps * seps;
+// terms of the transition operator */
+static constexpr int max_order = 4;
 using Term = Series<Covariant<R>, max_order * 2>;
-auto seps = Term::generator();
+auto seps = Term::generator(); // sqrt(epsilon)
 
 /** diff(A*exp(-S))*exp(S) */
 Term myDiff(Term const &a)
@@ -108,6 +106,7 @@ int main()
 	 *  the weight of a variable (for term-ordering), to force the gröbner-
 	 *  algorithm to solve for that variable first.
 	 */
+
 	/** the forces */
 	auto eta1 = ring("eta1");
 	auto eta2 = ring("eta2");
@@ -172,8 +171,6 @@ int main()
 		full_condition += ev;
 	}
 
-	// full_condition = simplify_lie_commutative(full_condition, "S");
-
 	// collect order conditions for all epsilon
 	// these are 'T^(k) e^-S = 0'
 	std::vector<R> cond_list;
@@ -190,16 +187,16 @@ int main()
 			cond_list.push_back(term.coefficient);
 	}
 
-	/*std::map<std::string, std::pair<double, double>> constraints = {
-	    {"k1", {0.0, 1.0}}};*/
-	// std::map<std::string, std::pair<double, double>> constraints = {};
-	// cond_list.push_back(ring("c11-1/2"));
-	fmt::print("\ngeneral form (before reduce)\n");
+	// simplify a bit (no full gröbner) and print
+	reduce(cond_list);
+	fmt::print("\ngeneral form\n");
 	dump(cond_list);
 	dump_singular(cond_list, "ideal.singular");
 
-	reduce_partial(cond_list);
-	/*fmt::print("---------- Dependence of conditions on coefficients "
+	// print dependence of conditions on coefficients, in order to find
+	// redunant coefficients by hand
+	/*
+	fmt::print("---------- Dependence of conditions on coefficients "
 	           "----------\n");
 	for (int i = 2; i < RANK; ++i)
 	{
@@ -210,26 +207,9 @@ int main()
 	        if (!(tmp == 0))
 	            fmt::print("df{}/d{} = {}\n", j, ring.var_names()[i], tmp);
 	    }
-	}*/
-	/* old solution
-	std::map<std::string, Real> values = {
-	    {"a1", 0.03908321893732925},
-	    {"b1", 0.1976947620381715},
-	    {"a2", -0.046200419239713963},
-	    {"b2", 0.31300617291850696},
-	    {"a3", 0.22},
-	    {"b3", 0.2753665129875376},
-	    {"a4", 0.020348166006750767},
-	    {"b4", 0.2726958234381351},
-	    {"a5", 0.16889888941280423},
-	    {"b5", 0.6402884345777209},
-	    {"a6", 0.2950852361550359},
-	    {"a7", 0.016730096231808433},
-	    {"b6", 0.6112713096065316},
-	    {"a8", 0.433560541281889},
-	    {"b7", 0.791421118022457},
-	    {"a9", 0.28457665417547295},
-	    {"a10", 0.2651327083108296}};*/
+	}
+	*/
+
 	std::map<std::string, Real> values;
 	// clang-format off
 	/* old solution with one negative coeff :/
@@ -251,38 +231,13 @@ int main()
 	values["b6"] = "6.112713096216171893236362634950972685822938167093318175308924026549222241e-01";
 	values["b7"] = "7.914211180108053021299056291610290099230055271388432783984667489968495298e-01";
 	*/
-	// funny new scheme with negative a4, and a9 seems to be zero?
-	values["a1"] = "0.079734";
-	values["b1"] = "0.282363";
-	values["a2"] = "0.716393";
-	values["a3"] = "0.083155";
-	values["b2"] = "0.649631";
-	values["b3"] = "-0.702100";
-	values["a4"] = "-0.131367";
-	values["a5"] = "0.444071";
-	values["a6"] = "0.008058";
-	values["b4"] = "0.384715";
-	values["b5"] = "0.415647";
-	values["a7"] = "0.065171";
-	values["a8"] = "0.484072";
-	//values["a9"] = "0.000007";
-	values["a9"] = 0.0;
-	values["a10"] = "0.450749";
-	values["b6"] = "0.634689";
-	values["b7"] = "0.772768";
-
 	// clang-format on
 
-	fmt::print("\ngeneral form (after reduce)\n");
-	dump(cond_list);
-
+	// numerical root finding
 	auto real_ring = PolynomialRing<Real, RANK>(ring.var_names());
 	solve_numerical(change_ring(cond_list, &real_ring, toReal), values, {});
 
-	/*for (auto const &cond : cond_list)
-	    fmt::print("{}\n", cond.change_ring(&double_ring, rationalToDouble)
-	                           .substitute(values));*/
-
+	// hybrid algebraic/numerical root finding
 	/*
 	fmt::print("\ngeneral form (after gröbner)\n");
 	groebner(cond_list);
