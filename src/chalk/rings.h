@@ -94,4 +94,11 @@ template <typename T> struct RingTraits<Scalar<T>>
 using std::pow;
 using std::sqrt;
 
+// helper to pass overloaded functions as templated parameters.
+// for details see: https://florianjw.de/en/passing_overloaded_functions.html
+#define CHALK_LIFT(...)                                                        \
+	[](auto &&... args) -> decltype(auto) {                                    \
+		return __VA_ARGS__(std::forward<decltype(args)>(args)...);             \
+	}
+
 } // namespace chalk

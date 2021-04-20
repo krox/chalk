@@ -10,6 +10,12 @@
 
 namespace chalk {
 
+// some forward declarations to make the compiler find everything...
+template <typename R, int N, char X> class Series;
+template <typename R, int N, char X, typename F>
+auto mapCoefficients(F f, Series<R, N, X> const &a)
+    -> Series<decltype(f(a[0])), N, X>;
+
 /**
  * Truncated series.
  *   - order is compile-time
@@ -51,6 +57,14 @@ template <typename R, int N, char X = 'x'> class Series
 	/** array-like access to coefficients */
 	R &operator[](int i) { return coefficients_.at(i); }
 	R const &operator[](int i) const { return coefficients_.at(i); }
+
+	/** s.mapCoefficients(fun, args...) = mapCoefficients(fun(_, args...), s) */
+	template <typename Fun, typename... Args>
+	auto mapCoefficients(Fun fun, Args const &... args)
+	{
+		return chalk::mapCoefficients(
+		    [&fun, &args...](R const &c) { return fun(c, args...); }, *this);
+	}
 };
 
 template <typename R, int N, char X>
@@ -166,6 +180,15 @@ auto operator*(Series<R, N, X> const &a, R b)
 	Series<T, N, X> r;
 	for (int i = 0; i <= N; ++i)
 		r[i] = a[i] * b;
+	return r;
+}
+template <typename R, int N, char X>
+auto operator*(R a, Series<R, N, X> const &b)
+{
+	using T = decltype(a * b[0]);
+	Series<T, N, X> r;
+	for (int i = 0; i <= N; ++i)
+		r[i] = a * b[i];
 	return r;
 }
 template <typename R, int N, char X>

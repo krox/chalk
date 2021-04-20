@@ -3,52 +3,34 @@
 #include "chalk/floating.h"
 #include "chalk/fraction.h"
 #include "chalk/ideal.h"
+#include "chalk/series.h"
 #include "chalk/sparse_polynomial.h"
 #include <cassert>
 #include <fmt/format.h>
 using namespace chalk;
 
-static constexpr int max_order = 3; // orders of epsilon we want everything in
-#define RANK 16 // enough space for all parameters (plus two for 'cA' and 'eps')
-
+// polynomial ring of coefficients
+static constexpr size_t RANK = 20;
 using R = SparsePolynomial<Rational, RANK>;
 auto ring = PolynomialRing<Rational, RANK>();
-R seps = ring.generator("s", max_order * 2);
-R eps = seps * seps;
-R cA = ring.generator("cA");
-using Cov = Covariant<R>;
 
-/** extract the coefficient of eps^k */
-auto getEpsOrder(Cov const &a, int k)
-{
-	return map_coefficients(
-	    a, [&](R const &poly) { return get_coefficient(poly, 0, 2 * k); });
-}
-auto getSepsOrder(Cov const &a, int k)
-{
-	return map_coefficients(
-	    a, [&](R const &poly) { return get_coefficient(poly, 0, k); });
-}
-auto truncate_seps_order(Cov const &a, int k)
-{
-	return map_coefficients(
-	    a, [&](R const &poly) { return truncate(poly, 0, k); });
-}
-
-/** extract coefficient of cA^k */
-auto getcAOrder(Cov const &a, int k)
-{
-	return map_coefficients(
-	    a, [&](R const &poly) { return get_coefficient(poly, 1, k); });
-}
+// terms of the transition operator */
+static constexpr int max_order = 3;
+using Term = Series<Covariant<R>, max_order * 2>;
+auto seps = Term::generator(); // sqrt(epsilon)
+auto eps = seps * seps;
+auto cA = Term(Covariant<R>(Indexed("cA")));
 
 /** diff(A*exp(-S))*exp(S) */
-auto myDiff(Cov const &a)
+Term myDiff(Term const &a)
 {
 	// NOTE: '*' not abelian in this case due to index-naming
-	return diff(a) - a * Cov(Indexed("S", 1));
+	return mapCoefficients(
+	    [](Covariant<R> const &b) {
+		    return diff(b) - b * Covariant<R>(Indexed("S", 1));
+	    },
+	    a);
 }
-
 auto rationalToDouble(Rational const &x)
 {
 	return (double)x.num() / (double)x.denom();
@@ -59,69 +41,88 @@ auto rationalToOctuple(Rational const &x)
 	return FloatingOctuple(x.num()) / FloatingOctuple(x.denom());
 }
 
+void checkRank(Term const &a)
+{
+	int rank = -1;
+	for (auto const &tmp : a.coefficients())
+		for (auto &[_, indexed] : tmp.terms())
+		{
+			assert(rank == -1 || indexed.rank() == rank);
+			rank = indexed.rank();
+		}
+}
+
+void checkRank(Term const &a, int rank)
+{
+	for (auto const &tmp : a.coefficients())
+		for (auto &[_, indexed] : tmp.terms())
+			assert(indexed.rank() == rank);
+}
+
 /** commutator c=[a,b]. all three interpreted as  'iT^a f_a' */
-Cov comm(Cov const &a, Cov const &b)
+Term comm(Term const &a, Term const &b)
 {
 	// need exactly one open index
-	for (auto &[_, indexed] : a.terms())
-		assert(indexed.rank() == 1);
-	for (auto &[_, indexed] : b.terms())
-		assert(indexed.rank() == 1);
-	auto c = -Cov(Indexed("f", 0, 1, 2)) * a * b; // order is important here!
-	c = contract(c, 1, 3);
-	c = contract(c, 1, 2);
+	checkRank(a, 1);
+	checkRank(b, 1);
+	auto c = -Term(Covariant<R>(Indexed("f", 0, 1, 2))) * a * b; // order matter
+	// fmt::print("---------\n{}\n---------\n", c);
+	checkRank(c, 5);
+	c = mapCoefficients([](Covariant<R> const &x) { return contract(x, 1, 3); },
+	                    c);
+	c = mapCoefficients([](Covariant<R> const &x) { return contract(x, 1, 2); },
+	                    c);
+	checkRank(c, 1);
 	return c;
 }
 /** commutator [a,[b,c]] */
-Cov comm(Cov const &a, Cov const &b, Cov const &c)
+Term comm(Term const &a, Term const &b, Term const &c)
 {
 	return comm(a, comm(b, c));
 }
-Cov comm(Cov const &a, Cov const &b, Cov const &c, Cov const &d)
+Term comm(Term const &a, Term const &b, Term const &c, Term const &d)
 {
 	return comm(a, comm(b, comm(c, d)));
 }
 
-/** Same as 'a*b', but faster because it knows about finite order of epsilon */
-Cov myMul(Cov const &a, Cov const &b)
+/*
+ * S(f) = S + S'f + 1/2 S''ff + ...
+ *   - f should have exactly one open index, contracted with derivatives
+ *   - S can have arbitrary open indices (which simply stay that way)
+ */
+Term myTaylor(Term const &S, Term const &force, int degree)
 {
-	// split into orders of epsilon
-	std::array<Cov, max_order * 2 + 1> A, B, C;
-	for (int i = 0; i <= 2 * max_order; ++i)
+	checkRank(S, 1);
+	checkRank(force, 1);
+	Term result = Term(0);
+	for (int d = 0; d <= degree; ++d)
 	{
-		A[i] = getSepsOrder(a, i);
-		B[i] = getSepsOrder(b, i);
-		C[i] = Cov(0);
+		Term term = S;
+		R prefactor = R(1);
+		for (int i = 0; i < d; ++i)
+			term = mapCoefficients(
+			    [](Covariant<R> const &c) { return diff(c); }, term);
+		checkRank(term, 1 + d);
+		for (int i = 0; i < d; ++i)
+		{
+			term = term * force;
+			term = term.mapCoefficients(CHALK_LIFT(contract), d - i, d + 1 - i);
+			prefactor /= (i + 1);
+		}
+		checkRank(term, 1);
+		result += term * Scalar(prefactor);
 	}
-
-	// multiply
-	for (int i = 0; i <= 2 * max_order; ++i)
-		for (int j = 0; j <= i; ++j)
-			C[i] += A[j] * B[i - j];
-
-	// collect into one again
-	auto c = Cov(0);
-	for (int i = 0; i <= 2 * max_order; ++i)
-		c += C[i] * pow(seps, i);
-	return c;
+	return result;
 }
 
-void add_term(Cov &a, std::string const &name, Cov term, int order,
-              int local_max_order = 99)
+void add_term(Term &a, std::string const &name, Term term, int order)
 {
 	while (order-- > 0)
 		term *= seps;
-	term = truncate_seps_order(term, local_max_order);
-	term = simplify_lie(term, "S", cA);
-	auto high =
-	    getSepsOrder(term, 2 * max_order); // should only exists in final steps
-	term = truncate_seps_order(term, 2 * max_order - 1);
-	high = wick_contract(high, "eta", R(2));
-	high = simplify_lie(high, "S", cA);
+	term = mapCoefficients([](auto const &x) { return simplify_lie(x, "S"); },
+	                       term);
 	fmt::print("{}      : {}\n", name, term);
-	if (!(high == 0))
-		fmt::print("{}_high : {}\n", name, high);
-	a += ring(name) * (term + high * pow(eps, max_order));
+	a += term * Scalar(Scalar(ring(name)));
 }
 
 int main()
@@ -133,34 +134,34 @@ int main()
 	 */
 
 	/** the forces */
-	auto eta = Cov(Indexed("eta", 1));
-	auto S0 = Cov(Indexed("S", 1));
+	auto eta = Term(Covariant<R>(Indexed("eta", 1)));
+	auto S0 = Term(Covariant<R>(Indexed("S", 1)));
 
 	fmt::print("---------- Terms of the scheme ----------\n");
 	// first step
-	auto f1 = Cov(0);
-	add_term(f1, "k1", S0, 2, 4);
-	add_term(f1, "k2", comm(eta, eta, S0), 4,
+	auto f1 = Term(0);
+	add_term(f1, "k1", S0, 2);
+	add_term(f1, "k2", comm(eta, eta, S0),
 	         4); // killed when removing k12 (Torrero term)
 	// odd terms
-	add_term(f1, "k3", eta, 1, 4);
+	add_term(f1, "k3", eta, 1);
 	// add_term(f1, "k4", comm(eta, S0), 3, 4);
-	auto S1 = taylor(S0, -f1, 2 * max_order);
+	auto S1 = myTaylor(S0, -f1, 2 * max_order);
 
 	// even terms
-	auto f2 = Cov(0);
-	add_term(f2, "k5", S0, 2, 4); // primitive!
-	add_term(f2, "k6", S1, 2, 4);
+	auto f2 = Term(0);
+	add_term(f2, "k5", S0, 2); // primitive!
+	add_term(f2, "k6", S1, 2);
 	// add_term(f2, "k7", comm(eta, eta, S0), 4, 4); // primitive! cA term?
-	add_term(f2, "k7", cA * S0, 4, 4); // primitive! cA term?
+	add_term(f2, "k7", S0 * cA, 4); // primitive! cA term?
 	// odd terms
-	add_term(f2, "k8", eta, 1, 4);
+	add_term(f2, "k8", eta, 1);
 	// add_term(f2, "k9", comm(eta, S0), 3, 4);
 	// add_term(f2, "k10", comm(eta, S1), 3, 4);
-	auto S2 = taylor(S0, -f2, 2 * max_order);
+	auto S2 = myTaylor(S0, -f2, 2 * max_order);
 
 	// even terms
-	auto f3 = Cov(0);
+	auto f3 = Term(0);
 	// add_term(f3, "k14", comm(S0, S1), 4);
 	// add_term(f3, "k15", comm(S0, S2), 4);
 	// add_term(f3, "k16", comm(S1, S2), 4);
@@ -179,9 +180,9 @@ int main()
 
 	// add_term(f3, "k17", cA * S0, 4); // vanishes on its own
 	// add_term(f3, "k18", cA * S1, 4);
-	add_term(f3, "k19", cA * S2, 4);
+	add_term(f3, "k19", S2 * cA, 4);
 
-	add_term(f3, "k20", cA * cA * S0, 6); // cA^2 term
+	add_term(f3, "k20", S0 * (cA * cA), 6); // cA^2 term
 
 	add_term(f3, "1", eta, 1); // scale setting
 
@@ -222,14 +223,20 @@ int main()
 	// full condition is
 	//  (∇ <f> + 1/2 ∇∇<ff> + ...) e^-S = (T-1)e^-S
 	fmt::print("---------- Expectation values ----------\n");
-	auto full_condition = Cov(0);
+	auto full_condition = Term(0);
 	for (int k = 1; k <= max_order * 2; ++k)
 	{
 		// build ev = <f^k>
-		auto ev = Cov(1);
+		auto ev = Term(1);
+
+		fmt::print("f = {}\n", f);
 		for (int i = 0; i < k; ++i)
-			ev = myMul(ev, f); // same as 'ev *= f'
-		ev = wick_contract(ev, "eta", R(2));
+		{
+			ev *= f;
+			checkRank(ev);
+		}
+		checkRank(ev, k);
+		ev = ev.mapCoefficients(CHALK_LIFT(wick_contract), "eta", R(2));
 
 		fmt::print("----- <f^{}> -----\n", k);
 		fmt::print("{}\n", ev);
@@ -238,32 +245,25 @@ int main()
 		for (int i = 1; i <= k; ++i)
 		{
 			ev = myDiff(ev);
-			ev = contract(ev, 0, k + 1 - i);
+			checkRank(ev, k - i + 2);
+			ev = ev.mapCoefficients(CHALK_LIFT(contract), 0, k + 1 - i);
 			ev = ev / i;
 		}
 		full_condition += ev;
 	}
 
-	full_condition = simplify_lie(full_condition, "S", cA);
+	full_condition =
+	    full_condition.mapCoefficients(CHALK_LIFT(simplify_lie), "S");
 
 	// collect order conditions for all epsilon
 	// these are 'T^(k) e^-S = 0'
 	std::vector<R> cond_list;
 	for (int k = 0; k <= max_order; ++k)
 	{
-		auto tmp = getEpsOrder(full_condition, k);
-		if (tmp == 0)
-			continue;
-		for (int l = 0; l <= max_order + 3; ++l)
-		{
-			auto tmp2 = getcAOrder(tmp, l);
-			if (tmp2 == 0)
-				continue;
-			fmt::print("---------- T^({},{})e^-S ----------\n", k, l);
-			dump_summary(tmp2);
-			for (auto term : tmp2.terms())
-				cond_list.push_back(term.coefficient);
-		}
+		fmt::print("---------- T^({})e^-S ----------\n", k);
+		dump_summary(full_condition[2 * k]);
+		for (auto term : full_condition[2 * k].terms())
+			cond_list.push_back(term.coefficient);
 	}
 
 	/*std::map<std::string, std::pair<double, double>> constraints = {
@@ -278,7 +278,7 @@ int main()
 	reduce_partial(cond_list);
 	fmt::print(
 	    "---------- Dependence of conditions on coefficients ----------\n");
-	for (int i = 2; i < RANK; ++i)
+	for (int i = 2; i < (int)RANK; ++i)
 	{
 		fmt::print("----- {} -----\n", ring.var_names()[i]);
 		for (size_t j = 0; j < cond_list.size(); ++j)
@@ -291,15 +291,15 @@ int main()
 
 	fmt::print("\ngeneral form (after reduce)\n");
 	dump(cond_list);
-	cond_list.push_back(ring("k1-1"));
 
 	auto oct_ring = PolynomialRing<FloatingOctuple, RANK>(ring.var_names());
 	solve_numerical(change_ring(cond_list, &oct_ring, rationalToOctuple));
-	/*fmt::print("\ngeneral form (after gröbner)\n");
+
+	fmt::print("\ngeneral form (after gröbner)\n");
 	groebner(cond_list);
 	dump(cond_list);
 
 	auto double_ring = PolynomialRing<double, RANK>(ring.var_names());
 	analyze_variety(change_ring(cond_list, &double_ring, rationalToDouble),
-	                constraints, true);*/
+	                constraints, true);
 }
