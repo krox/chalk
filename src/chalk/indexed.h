@@ -21,7 +21,7 @@ namespace chalk {
 struct IndexedAtom
 {
 	std::string symbol;
-	absl::InlinedVector<int, 4> indices;
+	absl::InlinedVector<int, 4> indices = {};
 
 	// temporary helper during sort_atoms()
 	int64_t prio_ = {};

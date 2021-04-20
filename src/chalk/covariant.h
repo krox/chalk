@@ -304,8 +304,7 @@ sort_indices_brute_force(CovariantTerm<R> &term, std::string const &symbol)
  *  - contract combinations of f using cA
  */
 template <typename R>
-void simplify_lie_term_basic(CovariantTerm<R> &term, std::string const &symbol,
-                             R const &cA)
+void simplify_lie_term_basic(CovariantTerm<R> &term, std::string const &symbol)
 {
 	auto atoms = term.index.release();
 	for (auto &atom : atoms)
@@ -337,10 +336,9 @@ again:
 				if (atoms[i].indices[1] == atoms[j].indices[1] &&
 				    atoms[i].indices[2] == atoms[j].indices[2])
 				{
-					term.coefficient *= cA;
 					atoms[i] = IndexedAtom{
 					    "delta", {atoms[i].indices[0], atoms[j].indices[0]}};
-					atoms.erase(atoms.begin() + j);
+					atoms[j] = IndexedAtom{"cA"};
 					goto again;
 				}
 
@@ -348,10 +346,9 @@ again:
 				if (atoms[i].indices[0] == atoms[j].indices[1] &&
 				    atoms[i].indices[1] == atoms[j].indices[2])
 				{
-					term.coefficient *= cA;
 					atoms[i] = IndexedAtom{
 					    "delta", {atoms[i].indices[2], atoms[j].indices[0]}};
-					atoms.erase(atoms.begin() + j);
+					atoms[j] = IndexedAtom{"cA"};
 					goto again;
 				}
 			}
@@ -366,11 +363,11 @@ again:
 					    atoms[ai1].indices[2] == atoms[ai3].indices[1] &&
 					    atoms[ai2].indices[2] == atoms[ai3].indices[2])
 					{
-						term.coefficient *= cA / 2;
+						term.coefficient /= 2;
 						atoms[ai1].indices[1] = atoms[ai2].indices[0];
 						atoms[ai1].indices[2] = atoms[ai3].indices[0];
+						atoms[ai2] = IndexedAtom{"cA"};
 						atoms.erase(atoms.begin() + ai3);
-						atoms.erase(atoms.begin() + ai2);
 						goto again;
 					}
 
@@ -384,11 +381,11 @@ again:
 					if (atoms[ai].indices[i] == atoms[ai2].indices[0] &&
 					    atoms[ai].indices[i + 1] == atoms[ai2].indices[1])
 					{
-						term.coefficient *= cA / 2;
+						term.coefficient /= 2;
 						atoms[ai].indices.erase(atoms[ai].indices.begin() + i +
 						                        1);
 						atoms[ai].indices[i] = atoms[ai2].indices[2];
-						atoms.erase(atoms.begin() + ai2);
+						atoms[ai2] = IndexedAtom{"cA"};
 						goto again;
 					}
 				}
@@ -403,11 +400,11 @@ again:
 					if (atoms[ai].indices[i] == atoms[ai2].indices[1] &&
 					    atoms[ai].indices[i + 1] == atoms[ai2].indices[2])
 					{
-						term.coefficient *= cA / 2;
+						term.coefficient /= 2;
 						atoms[ai].indices.erase(atoms[ai].indices.begin() + i +
 						                        1);
 						atoms[ai].indices[i] = atoms[ai2].indices[0];
-						atoms.erase(atoms.begin() + ai2);
+						atoms[ai2] = IndexedAtom{"cA"};
 						goto again;
 					}
 				}
@@ -417,11 +414,9 @@ again:
 
 /** reorder lie-derivative indices using relations with the casimir operator */
 template <typename R>
-Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
-                          R const &cA)
+Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol)
 {
 	(void)symbol;
-	(void)cA;
 	std::vector<CovariantTerm<R>> terms = a.terms();
 
 	for (int iter = 0; iter < 5; ++iter)
@@ -430,7 +425,7 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol,
 
 		for (auto &term : terms)
 		{
-			simplify_lie_term_basic(term, symbol, cA);
+			simplify_lie_term_basic(term, symbol);
 		}
 
 		// more serious simplifications that make one term into multiple
