@@ -21,7 +21,7 @@ using Real = double;
  */
 
 // polynomial ring of coefficients
-static constexpr size_t RANK = 20; // needs space for eta1,2,3 too
+static constexpr size_t RANK = 19; // needs space for eta1,2,3 too
 using R = SparsePolynomial<Rational, RANK>;
 auto ring = PolynomialRing<Rational, RANK>();
 
@@ -99,56 +99,21 @@ void add_term(Term &a, std::string const &name, Term term, int order)
 	a += term * Scalar(Scalar(ring(name)));
 }
 
-int main()
+template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
 {
-	/** NOTE:
-	 *  use something like 'ring.generator(..., INT_MAX, 20)' to increase
-	 *  the weight of a variable (for term-ordering), to force the gröbner-
-	 *  algorithm to solve for that variable first.
-	 */
+	a.reserve(a.size() + b.size());
+	a.insert(a.end(), b.begin(), b.end());
+}
 
-	/** the forces */
-	auto eta1 = ring("eta1");
-	auto eta2 = ring("eta2");
-	auto eta3 = ring("eta3");
-	auto S0 = Term(Covariant<R>(Indexed("S'")));
-
-	fmt::print("---------- Terms of the scheme ----------\n");
-
-	auto f1 = Term(0);
-	add_term(f1, "a1", S0, 2);
-	add_term(f1, "b1", Term(Covariant<R>(eta1)), 1);
-	auto S1 = myTaylor(S0, -f1, 2 * max_order);
-
-	auto f2 = Term(0);
-	add_term(f2, "a2", S0, 2);
-	add_term(f2, "a3", S1, 2);
-	add_term(f2, "b2", Term(Covariant<R>(eta1)), 1);
-	add_term(f2, "b3", Term(Covariant<R>(eta2)), 1);
-	auto S2 = myTaylor(S0, -f2, 2 * max_order);
-
-	auto f3 = Term(0);
-	add_term(f3, "a4", S0, 2);
-	add_term(f3, "a5", S1, 2);
-	add_term(f3, "a6", S2, 2);
-	add_term(f3, "b4", Term(Covariant<R>(eta1)), 1);
-	add_term(f3, "b5", Term(Covariant<R>(eta2)), 1);
-	auto S3 = myTaylor(S0, -f3, 2 * max_order);
-
-	auto f4 = Term(0);
-	add_term(f4, "a7", S0, 2);
-	add_term(f4, "a8", S1, 2);
-	add_term(f4, "a9", S2, 2);
-	add_term(f4, "a10", S3, 2);
-	add_term(f4, "b6", Term(Covariant<R>(eta1)), 1);
-	add_term(f4, "b7", Term(Covariant<R>(eta2)), 1);
-	auto f = f4;
+std::vector<R> makeOrderConditions(Term const &f, int order = max_order)
+{
+	assert(order <= max_order);
 
 	// full condition is
 	//  (∇ <f> + 1/2 ∇∇<ff> + ...) e^-S = (T-1)e^-S
 	fmt::print("---------- Expectation values ----------\n");
 	auto full_condition = Term(0);
-	for (int k = 1; k <= max_order * 2; ++k)
+	for (int k = 1; k <= order * 2; ++k)
 	{
 		// build ev = <f^k>
 		auto ev = Term(1);
@@ -156,7 +121,6 @@ int main()
 			ev *= f;
 		ev = my_wick_contract(ev, "eta1");
 		ev = my_wick_contract(ev, "eta2");
-		ev = my_wick_contract(ev, "eta3");
 
 		fmt::print("----- <f^{}> -----\n", k);
 		fmt::print("{}\n", ev);
@@ -174,8 +138,7 @@ int main()
 	// collect order conditions for all epsilon
 	// these are 'T^(k) e^-S = 0'
 	std::vector<R> cond_list;
-	cond_list.push_back(ring("a7+a8+a9+a10-1")); // overall scale setting !!!
-	for (int k = 0; k <= max_order; ++k)
+	for (int k = 0; k <= order; ++k)
 	{
 		auto tmp = full_condition[2 * k];
 		if (tmp == 0)
@@ -186,18 +149,20 @@ int main()
 		for (auto term : tmp.terms())
 			cond_list.push_back(term.coefficient);
 	}
+	return cond_list;
+}
 
-	// simplify a bit (no full gröbner) and print
-	reduce(cond_list);
+void analyze(std::vector<R> ideal)
+{
+	reduce(ideal);
 	fmt::print("\ngeneral form\n");
-	dump(cond_list);
-	dump_singular(cond_list, "ideal.singular");
+	dump(ideal);
+	dump_singular(ideal, "ideal.singular");
 
 	// print dependence of conditions on coefficients, in order to find
 	// redunant coefficients by hand
 	/*
-	fmt::print("---------- Dependence of conditions on coefficients "
-	           "----------\n");
+	fmt::print("-------- Dependence of conditions on coefficients --------\n");
 	for (int i = 2; i < RANK; ++i)
 	{
 	    fmt::print("----- {} -----\n", ring.var_names()[i]);
@@ -211,8 +176,113 @@ int main()
 	*/
 
 	std::map<std::string, Real> values;
+
+	// numerical root finding
+	auto real_ring = PolynomialRing<Real, RANK>(ring.var_names());
+	// solve_numerical(change_ring(cond_list, &real_ring, toReal), values, {});
+
+	// hybrid algebraic/numerical root finding
+
+	fmt::print("\ngeneral form (after gröbner)\n");
+	groebner(ideal);
+	dump(ideal);
+	analyze_variety(change_ring(ideal, &real_ring, toReal), {}, true);
+}
+
+int main()
+{
+	/** NOTE:
+	 *  use something like 'ring.generator(..., INT_MAX, 20)' to increase
+	 *  the weight of a variable (for term-ordering), to force the gröbner-
+	 *  algorithm to solve for that variable first.
+	 */
+
+	/** the forces */
+	auto eta1 = ring("eta1");
+	auto eta2 = ring("eta2");
+	auto S0 = Term(Covariant<R>(Indexed("S'")));
+
+	fmt::print("---------- Terms of the scheme ----------\n");
+
+	auto f1 = Term(0);
+	add_term(f1, "a1", S0, 2);
+	add_term(f1, "b1", Term(Covariant<R>(eta1)), 1);
+	add_term(f1, "b2", Term(Covariant<R>(eta2)), 1);
+	auto S1 = myTaylor(S0, -f1, 2 * max_order);
+
+	auto f2 = Term(0);
+	add_term(f2, "a2", S0, 2);
+	add_term(f2, "a3", S1, 2);
+	add_term(f2, "b3", Term(Covariant<R>(eta1)), 1);
+	add_term(f2, "b4", Term(Covariant<R>(eta2)), 1);
+	auto S2 = myTaylor(S0, -f2, 2 * max_order);
+
+	auto f3 = Term(0);
+	add_term(f3, "a4", S0, 2);
+	add_term(f3, "a5", S1, 2);
+	add_term(f3, "a6", S2, 2);
+	add_term(f3, "b5", Term(Covariant<R>(eta1)), 1);
+	add_term(f3, "b6", Term(Covariant<R>(eta2)), 1);
+	auto S3 = myTaylor(S0, -f3, 2 * max_order);
+
+	auto f4 = Term(0);
+	add_term(f4, "a7", S0, 2);
+	add_term(f4, "a8", S1, 2);
+	add_term(f4, "a9", S2, 2);
+	add_term(f4, "a10", S3, 2);
+	add_term(f4, "1", Term(Covariant<R>(eta1)), 1);
+	// add_term(f4, "b7", Term(Covariant<R>(eta2)), 1);
+
+	// order 2 torrero
+	/*{
+	    std::vector<R> ideal = {};
+	    append(ideal, makeOrderConditions(f2, 2));
+	    ideal.push_back(ring("a2+a3-1")); // scale setting
+	    ideal.push_back(ring("a2"));      // torrero
+	    ideal.push_back(ring("b2"));
+	    ideal.push_back(ring("b4"));
+	    analyze(ideal);
+	}*/
+
+	// order 3 buerger
+	/*{
+	    std::vector<R> ideal = {};
+	    append(ideal, makeOrderConditions(f1, 1));
+	    append(ideal, makeOrderConditions(f2, 2));
+	    append(ideal, makeOrderConditions(f3, 3));
+	    ideal.push_back(ring("a4+a5+a6-1")); // scale setting
+	    ideal.push_back(ring("a5"));         // torrero-style
+	    ideal.push_back(ring("b2"));
+	    ideal.push_back(ring("b4"));
+	    ideal.push_back(ring("b6"));
+	    analyze(ideal);
+	}*/
+
+	// order 4 buerger
+	{
+		// no solution: order 1+2+3+4 + torrero, single noise
+		std::vector<R> ideal = {};
+		append(ideal, makeOrderConditions(f1, 1));
+		append(ideal, makeOrderConditions(f2, 2));
+		append(ideal, makeOrderConditions(f3, 3));
+		append(ideal, makeOrderConditions(f4, 4));
+		ideal.push_back(ring("a7+a8+a9+a10-1")); // scale setting
+		// ideal.push_back(ring("a9"));             // torrero-style
+		// ideal.push_back(ring("b2"));
+		// ideal.push_back(ring("b4"));
+		// ideal.push_back(ring("b6"));
+		// ideal.push_back(ring("a3-22/100")); // fixing the known scheme
+		ideal.push_back(ring("a1-39/1000")); // fixing the known scheme
+
+		reduce(ideal);
+		dump_singular(ideal, "ideal.singular");
+		fmt::print("ideal written to 'ideal.singular'\n");
+	}
+
 	// clang-format off
-	/* old solution with one negative coeff :/
+	/*
+	// old solution with one negative coeff :/
+	std::map<std::string, Real> values;
 	values["a1"] = "3.908321893316119026777794566668589568283401149509362110424178005984885432e-02";
 	values["b1"] = "1.976947620276298323650439914795655112885521032670732248024095524602647502e-01";
 	values["a2"] = "-4.620041923971396347070594856631942093372344970703125e-02";
@@ -232,17 +302,4 @@ int main()
 	values["b7"] = "7.914211180108053021299056291610290099230055271388432783984667489968495298e-01";
 	*/
 	// clang-format on
-
-	// numerical root finding
-	auto real_ring = PolynomialRing<Real, RANK>(ring.var_names());
-	solve_numerical(change_ring(cond_list, &real_ring, toReal), values, {});
-
-	// hybrid algebraic/numerical root finding
-	/*
-	fmt::print("\ngeneral form (after gröbner)\n");
-	groebner(cond_list);
-	dump(cond_list);
-	analyze_variety(change_ring(cond_list, &double_ring, rationalToDouble),
-	                constraints, true);
-	*/
 }
