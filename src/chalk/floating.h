@@ -10,6 +10,7 @@
 #include "fmt/format.h"
 #include <cassert>
 #include <mpfr.h>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 
@@ -107,6 +108,12 @@ template <mpfr_prec_t M> class Floating
 		Floating r;
 		mpfr_const_catalan(r.f_, MPFR_RNDN);
 		return r;
+	}
+
+	friend std::ostream &operator<<(std::ostream &stream, Floating const &value)
+	{
+		stream << fmt::format("{}", value);
+		return stream;
 	}
 };
 

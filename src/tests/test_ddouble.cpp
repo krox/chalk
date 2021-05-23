@@ -17,6 +17,7 @@ FloatingOctuple to_octuple(ddouble a)
 {
 	return FloatingOctuple(a.high()) + a.low();
 }
+FloatingOctuple to_octuple(double a) { return FloatingOctuple(a); }
 ddouble to_ddouble(FloatingOctuple const &a)
 {
 	double high = (double)a;
@@ -78,13 +79,29 @@ template <typename F> void test_binary(F &&f)
 	double worst = 0.0;
 	for (int i = 0; i < 10000; ++i)
 	{
-		ddouble x = ddouble::random(rng);
-		ddouble y = ddouble::random(rng);
-		ddouble result = f(x * 2 - 1, y * 2 - 1);
-		FloatingOctuple exact = f(to_octuple(x) * 2 - 1, to_octuple(y) * 2 - 1);
-		double error =
-		    std::abs((double)(to_octuple(result) - exact) / (double)exact);
-		worst = std::max(worst, error);
+		ddouble x = ddouble::random(rng) * 2 - 1;
+		ddouble y = ddouble::random(rng) * 2 - 1;
+		{
+			ddouble result = f(x, y);
+			FloatingOctuple exact = f(to_octuple(x), to_octuple(y));
+			double error =
+			    std::abs((double)(to_octuple(result) - exact) / (double)exact);
+			worst = std::max(worst, error);
+		}
+		{
+			ddouble result = f(x, y.high());
+			FloatingOctuple exact = f(to_octuple(x), to_octuple(y.high()));
+			double error =
+			    std::abs((double)(to_octuple(result) - exact) / (double)exact);
+			worst = std::max(worst, error);
+		}
+		{
+			ddouble result = f(x.high(), y);
+			FloatingOctuple exact = f(to_octuple(x.high()), to_octuple(y));
+			double error =
+			    std::abs((double)(to_octuple(result) - exact) / (double)exact);
+			worst = std::max(worst, error);
+		}
 	}
 	EXPECT_LE(worst, 1e-28);
 	// fmt::print("worst relative error = {}\n", worst);
@@ -119,6 +136,10 @@ TEST(Numerics, ddouble)
 	test_unary(
 	    "rec_sqrt", [](auto a) { return rec_sqrt(a); }, 1e-10, 1e10, 1e-29,
 	    true);
+	test_unary(
+	    "x^17", [](auto a) { return pow(a, 17); }, 1e-5, 1e5, 1e-29, true);
+	test_unary(
+	    "x^-3", [](auto a) { return pow(a, -3); }, 1e-5, 1e5, 1e-29, true);
 
 	test_unary(
 	    "exp", [](auto a) { return exp(a); }, -5.0, 5.0, 1e-29, true);
@@ -176,6 +197,13 @@ TEST(Numerics, ddouble_eigen)
 	Matrix Minv = M.inverse();
 	EXPECT_LE((double)(M * Minv - Matrix::Identity(n, n)).norm(), 1.e-28);
 	EXPECT_LE((double)(Minv - B.inverse() * A.inverse()).norm(), 1.e-28);
+}
+
+TEST(Numerics, ddouble_io)
+{
+	// actually, rounding in the last digit is wrong... (TODO)
+	EXPECT_EQ(fmt::format("{:.25e}", ddouble::pi() * 1.e12),
+	          "3.1415926535897932384626433e+12");
 }
 
 } // namespace

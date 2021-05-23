@@ -3,7 +3,9 @@
 #include "chalk/floating.h"
 #include "util/span.h"
 #include <cassert>
+#include <cfloat>
 #include <cmath>
+#include <ostream>
 #include <random>
 
 namespace chalk {
@@ -54,7 +56,7 @@ class ddouble
 
 	constexpr ddouble(double high, double low) : high_(high), low_(low)
 	{
-		assert(high_ + low_ == high);
+		assert(!std::isfinite(high_) || high_ + low_ == high_);
 	}
 
   public:
@@ -98,6 +100,11 @@ class ddouble
 	static constexpr ddouble log10e()     { return ddouble(0x1.bcb7b1526e50ep-2,  0x1.95355baaafad3p-57); }
 	static constexpr ddouble phi()        { return ddouble(0x1.9e3779b97f4a8p+0, -0x1.f506319fcfd19p-55); } // 1.618...
 	static constexpr ddouble inv_phi()    { return ddouble(0x1.3c6ef372fe950p-1, -0x1.f506319fcfd19p-55); }
+
+	static constexpr ddouble nan()        { return ddouble(0.0/0.0, 0.0/0.0); }
+	static constexpr ddouble infinity()   { return ddouble(1.0/0.0, 0.0    ); }
+	static constexpr ddouble highest()    { return ddouble(DBL_MAX, 0.0); }
+	static constexpr ddouble lowest()     { return ddouble(-DBL_MAX, 0.0); }
 	// clang-format on
 
 	template <typename RNG> static ddouble random(RNG &rng)
@@ -134,6 +141,12 @@ class ddouble
 		double high = a / b;
 		double low = fma(-high, b, a) / b;
 		return ddouble(high, low);
+	}
+
+	friend std::ostream &operator<<(std::ostream &stream, ddouble value)
+	{
+		stream << fmt::format("{}", value);
+		return stream;
 	}
 };
 
@@ -199,6 +212,12 @@ inline ddouble operator/(ddouble a, double b)
 {
 	double high = a.high() / b;
 	double low = (fma(-high, b, a.high()) + a.low()) / b;
+	return ddouble::sum_quick(high, low);
+}
+inline ddouble operator/(double a, ddouble b)
+{
+	double high = a / b.high();
+	double low = (fma(-high, b.high(), a) - high * b.low()) / b.high();
 	return ddouble::sum_quick(high, low);
 }
 
@@ -322,11 +341,6 @@ inline ddouble sqr(ddouble a)
 	                          tmp.low() + std::ldexp(a.high() * a.low(), 1));
 }
 
-/*inline ddouble pow(ddouble a, int b)
-{
-    (high + low) ^ b = high ^ b + b * low * high ^ (b - 1)
-}*/
-
 inline ddouble inverse(ddouble a)
 {
 	double high = 1 / a.high();
@@ -354,6 +368,20 @@ inline ddouble cbrt(ddouble a)
 {
 	auto high = std::cbrt(a.high());
 	ddouble r = (2 * high + a / (ddouble::mul(high, high))) / 3;
+	return r;
+}
+
+inline ddouble pow(ddouble a, int b)
+{
+	if (b < 0)
+	{
+		a = inverse(a);
+		b = -b;
+	}
+	ddouble r{1};
+	for (; b != 0; b >>= 1, a = sqr(a))
+		if (b & 1)
+			r *= a;
 	return r;
 }
 
@@ -499,6 +527,93 @@ template <> struct RingTraits<ddouble>
 
 } // namespace chalk
 
+template <> struct fmt::formatter<chalk::ddouble>
+{
+	int precision = 30; // digits after decimal point
+
+	auto parse(format_parse_context &ctx)
+	{
+		auto it = ctx.begin(), end = ctx.end();
+
+		auto parseInt = [&it]() -> int {
+			int r = 0;
+			while ('0' <= *it && *it <= '9')
+				r = 10 * r + *it++ - '0';
+			return r;
+		};
+
+		if (*it == '.')
+		{
+			++it;
+			precision = parseInt();
+		}
+
+		// currently, we only support 'e' format
+		if (*it == 'e')
+			++it;
+
+		// Check if reached the end of the range:
+		if (it != end && *it != '}')
+			throw format_error(
+			    fmt::format("invalid format: unexpected character '{}'", *it));
+
+		// Return an iterator past the end of the parsed range:
+		return it;
+	}
+
+	template <typename FormatContext>
+	auto format(chalk::ddouble a, FormatContext &ctx)
+	{
+		auto out = ctx.out();
+
+		// special cases and minus sign
+		if (std::isnan(a.high()))
+			return format_to(out, "nan");
+		if (std::signbit(a.high()))
+		{
+			*out++ = '-';
+			a = -a;
+		}
+		if (std::isinf(a.high()))
+			return format_to(out, "inf");
+		if (a.high() == 0.0)
+			return format_to(ctx.out(), "0.0");
+		assert(std::isfinite(a.high()));
+		assert(a > 0);
+
+		// find exponent
+		int e = (int)std::log10(a.high());
+		a *= pow(chalk::ddouble(10), -e);
+		if (a.high() < 1.0)
+		{
+			e++;
+			a *= 10;
+		}
+		else if (a.high() >= 10.0)
+		{
+			e--;
+			a /= 10;
+		}
+		assert(1.0 <= a && a < 10.0);
+
+		// output the mantissa
+		for (int i = 0; i < precision + 1; ++i)
+		{
+			int d = (int)a.high();
+			assert(0 <= d && d <= 9);
+			a -= d;
+			a *= 10;
+			*out++ = '0' + d;
+			if (i == 0)
+				*out++ = '.';
+		}
+
+		out = format_to(out, "e{:+03}", e);
+
+		return out;
+	}
+};
+
 namespace Eigen {
 
 template <typename T> class NumTraits;
@@ -513,7 +628,8 @@ template <> struct NumTraits<chalk::ddouble>
 	static inline Real epsilon() { return Real(ldexp(1.0, -107)); }
 	static inline Real dummy_precision() { return Real(ldexp(1.0, -99)); }
 	static inline int digits10() { return 29; }
-	// missing: highest(), lowest()
+	static inline Real highest() { return Real::highest(); }
+	static inline Real lowest() { return Real::lowest(); }
 
 	enum
 	{
