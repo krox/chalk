@@ -46,6 +46,11 @@ template <typename R> class Fraction
 	/** field access */
 	R const &num() const { return num_; }
 	R const &denom() const { return denom_; }
+
+	template <typename T> explicit operator T() const
+	{
+		return T(num()) / T(denom());
+	}
 };
 
 template <typename R> Fraction<R> operator-(Fraction<R> const &a)

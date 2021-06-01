@@ -65,7 +65,7 @@ template <typename R, size_t rank> class SparsePolynomial
 
   private:
 	PolynomialRing<R, rank> const *ring_ = &trivialRing;
-	std::vector<Monomial<R, rank>> terms_;
+	std::vector<Monomial<R, rank>> terms_ = {};
 
 	/** sort terms and collect common terms */
 	void cleanup();
@@ -169,6 +169,18 @@ template <typename R, size_t rank> class SparsePolynomial
 		return SparsePolynomial<R2, rank2>(ring2, std::move(r));
 	}
 
+	bool isConstant() const
+	{
+		if (terms_.empty())
+			return true;
+		if (terms_.size() > 1)
+			return false;
+		for (size_t i = 0; i < rank; ++i)
+			if (terms_[0].exponent[i] != 0)
+				return false;
+		return true;
+	}
+
 	/** convert to univariate polynomial, assuming only one variable occurs */
 	std::pair<int, Polynomial<R>> to_univariate() const
 	{
@@ -217,6 +229,14 @@ template <typename R, size_t rank> class SparsePolynomial
 		// maybe unknown variables should be silently ignored?
 		throw std::runtime_error(fmt::format("unknown variable '{}'", var));
 	}
+	SparsePolynomial substitute(int var, SparsePolynomial const &val) const
+	{
+		auto c = get_coefficients(*this, var);
+		SparsePolynomial r = SparsePolynomial(0, ring());
+		for (int i = 0; i < (int)c.size(); ++i)
+			r += c[i] * pow(val, i);
+		return r;
+	}
 	R substitute(std::map<std::string, R> const &vals) const
 	{
 		SparsePolynomial r = *this;
@@ -242,6 +262,14 @@ template <typename R, size_t rank> class SparsePolynomial
 			r += tmp;
 		}
 		return r;
+	}
+
+	SparsePolynomial solveFor(int var) const
+	{
+		auto c = get_coefficients(*this, var);
+		assert(c.size() == 2);
+		assert(c[1].isConstant());
+		return -c[0] / c[1].terms()[0].coefficient;
 	}
 
 	/** largest power of x_k */

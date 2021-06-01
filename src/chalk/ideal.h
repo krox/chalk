@@ -8,6 +8,7 @@
 #include "util/random.h"
 #include <Eigen/Dense>
 #include <fmt/os.h>
+#include <iostream>
 #include <map>
 
 namespace chalk {
@@ -194,12 +195,17 @@ std::vector<std::string> active_variables(Ideal<R, rank> const &fs)
 }
 
 /** change basis ring */
-template <typename R2, size_t rank2, typename R, size_t rank, typename F>
-Ideal<R2, rank2> change_ring(Ideal<R, rank> const &fs,
-                             PolynomialRing<R2, rank2> const *ring2,
-                             F &&convert)
+template <typename R2, typename R, size_t rank>
+Ideal<R2, rank> change_ring(Ideal<R, rank> const &fs)
 {
-	Ideal<R2, rank2> r;
+	if (fs.empty())
+		return {};
+	auto convert = [](R const &a) -> R2 { return R2(a); };
+
+	// this leaks memory. in the future all rings should be stored globally
+	auto ring2 = new PolynomialRing<R2, rank>(fs[0].ring()->var_names());
+
+	Ideal<R2, rank> r;
 	r.reserve(fs.size());
 	for (auto const &f : fs)
 		r.push_back(f.change_ring(ring2, convert));
@@ -269,6 +275,17 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	// file.print("print(dim(Is));\n");
 }
 
+/** write a fil to be used by PHCpack */
+template <typename R, size_t rank>
+inline void dump_phcpack(Ideal<R, rank> const &ideal,
+                         std::string const &filename)
+{
+	auto file = fmt::output_file(filename);
+	file.print("{}\n", ideal.size());
+	for (auto const &f : ideal)
+		file.print("{};\n", f);
+}
+
 template <typename R, size_t rank>
 inline void groebner(Ideal<R, rank> &fs, size_t max_polys = 999999999)
 {
@@ -306,39 +323,103 @@ inline void groebner(Ideal<R, rank> &fs, size_t max_polys = 999999999)
 	reduce(fs);
 }
 
-/* some future project to have some more clever analysis than just gröbner
+/** if a variable occurs in exactly one polynomial, remove that polynomial */
 template <typename R, size_t rank>
-inline Ideal<R, rank> analyze_ideal(Ideal<R, rank> const &ideal)
+std::vector<std::string> removeTrivialVariables(Ideal<R, rank> &ideal)
 {
-    // build table of which variable occurs in which polynomial
-    auto occs = std::vector<std::bitset<rank>>(ideal.basis().size());
-    for (size_t i = 0; i < ideal.basis().size(); ++i)
-        occs[i] = ideal.basis()[i].var_occs();
+	std::vector<std::string> r;
+	// build table of which variable occurs in which polynomial
+	auto occs = std::vector<std::bitset<rank>>(ideal.size());
+	for (size_t i = 0; i < ideal.size(); ++i)
+		occs[i] = ideal[i].var_occs();
 
-    // step 1: look for variables which only occur in a single polynomial
-    for (size_t k = 0; k < rank; ++k)
-    {
-        size_t pivot = (size_t)-1;
-        for (size_t i = 0; i < occs.size(); ++i)
-        {
-            if (occs[i][k])
-            {
-                if (pivot == (size_t)-1)
-                    pivot = i;
-                else
-                    goto outer;
-            }
-        }
-        if (pivot != (size_t)-1)
-        {
-            fmt::print("variable {} only occurs in poly {}\n",
-                       ideal.ring()->var_names()[k], pivot);
-        }
-    outer:;
-    }
+// step 1: look for variables which only occur in a single polynomial
+again:
+	for (size_t k = 0; k < rank; ++k)
+	{
+		size_t pivot = (size_t)-1;
+		for (size_t i = 0; i < occs.size(); ++i)
+			if (occs[i][k])
+			{
+				if (pivot == (size_t)-1)
+					pivot = i;
+				else
+					goto next;
+			}
+		if (pivot != (size_t)-1)
+		{
+			r.push_back(ideal[pivot].ring()->var_names()[k]);
+			ideal[pivot] = SparsePolynomial<R, rank>(0);
+			occs[pivot].reset();
+			goto again;
+		}
+	next:;
+	}
 
-    return {};
-}*/
+	if (!r.empty())
+		reduce_partial(ideal);
+	return r;
+}
+
+/* some future project to have some more clever analysis than just gröbner */
+template <typename R, size_t rank>
+Ideal<R, rank> analyze_ideal(Ideal<R, rank> &ideal)
+{
+	fmt::print("--------- analyzing polynomial ideal ----------\n");
+	assert(!ideal.empty());
+	auto ring = ideal[0].ring();
+	using Poly = SparsePolynomial<R, rank>;
+
+	reduce(ideal);
+	auto removedVars = removeTrivialVariables(ideal);
+	fmt::print("trivial variables: {}\n", removedVars);
+
+	auto occs = std::bitset<rank>();
+	for (size_t i = 0; i < ideal.size(); ++i)
+		occs |= ideal[i].var_occs();
+
+	// look for variables that only occur together with certain others
+	for (int v = 0; v < (int)rank; ++v)
+	{
+		if (!occs[v])
+			continue;
+		std::array<int, rank> m;
+		for (int i = 0; i < (int)rank; ++i)
+			m[i] = i == v ? 0 : INT_MAX;
+		for (Poly const &f : ideal)
+			for (auto const &term : f.terms())
+			{
+				if (term.exponent[v] == 0)
+					continue;
+
+				for (int w = 0; w < (int)rank; ++w)
+					if (w != v)
+						m[w] =
+						    std::min(m[w], term.exponent[w] / term.exponent[v]);
+			}
+
+		fmt::print("{} appears with other vars: {}\n", ring->var_names()[v], m);
+	}
+
+	// look for polys that can be used directly as definition of a variable
+	for (int v = 0; v < (int)rank; ++v)
+	{
+		for (Poly const &f : ideal)
+			if (f.max_order(v) == 1 && get_coefficient(f, v, 1).isConstant())
+			{
+				auto s = f.solveFor(v);
+				fmt::print("variable {} is defined by poly {} as {} = {}\n",
+				           ring->var_names()[v], f, ring->var_names()[v], s);
+				for (Poly &g : ideal)
+					g = g.substitute(v, s);
+				break;
+			}
+	}
+
+	reduce(ideal);
+
+	return {};
+}
 
 /**
  * Numerically solve as many basis polynomials as possible.
@@ -464,7 +545,7 @@ void solve_numerical(Ideal<R, rank> const &ideal,
 		for (size_t j = 0; j < rank; ++j)
 			derivs[i][j] = diff(ideal[i], j);
 	}
-
+start:
 	// random starting points
 	auto x = Vector(rank);
 	auto xs = util::span<const R>(x.data(), (int)x.size());
@@ -499,9 +580,18 @@ void solve_numerical(Ideal<R, rank> const &ideal,
 		}
 		for (auto const &var : fixedVars)
 			fd.col(ring->var_id(var)).setZero();
-
-		Vector step = fd.completeOrthogonalDecomposition().solve(f);
+		for (size_t i = 0; i < ideal.size(); ++i)
+			fmt::print("f[{}] = {}\n", i, (double)f(i));
+		auto tmp = fd.completeOrthogonalDecomposition();
+		std::cout << fd << std::endl;
+		assert(tmp.info() == Eigen::Success);
+		fmt::print("matrix is {} x {}, rank = {}\n", fd.rows(), fd.cols(),
+		           tmp.rank());
+		Vector step = tmp.solve(f);
 		auto scale = step.template lpNorm<Eigen::Infinity>();
+		for (size_t i = 0; i < rank; ++i)
+			fmt::print("step[{}] = {}\n", i, (double)step(i));
+		fmt::print("steps size = {}\n", (double)scale);
 		if (scale > 0.05)
 			x -= (0.05 / scale) * step;
 		else
@@ -521,6 +611,8 @@ void solve_numerical(Ideal<R, rank> const &ideal,
 			for (size_t i = 0; i < rank; ++i)
 				fmt::print("values[\"{}\"] = \"{}\";\n",
 				           ideal[0].ring()->var_names()[i], x(i));
+			if (x.template lpNorm<Eigen::Infinity>() > 10.0)
+				goto start;
 		}
 		if (last_err < 1e-100)
 			break;
