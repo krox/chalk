@@ -86,8 +86,6 @@ Term my_wick_contract(Term const &a, std::string const &eta)
 	    a);
 }
 
-Real toReal(Rational const &x) { return Real(x.num()) / Real(x.denom()); }
-
 void add_term(Term &a, std::string const &name, Term term, int order)
 {
 	while (order-- > 0)
@@ -178,15 +176,14 @@ void analyze(std::vector<R> ideal)
 	std::map<std::string, Real> values;
 
 	// numerical root finding
-	auto real_ring = PolynomialRing<Real, RANK>(ring.var_names());
-	// solve_numerical(change_ring(cond_list, &real_ring, toReal), values, {});
+	// solve_numerical(change_ring<Real>(cond_list), values, {});
 
 	// hybrid algebraic/numerical root finding
 
 	fmt::print("\ngeneral form (after gröbner)\n");
 	groebner(ideal);
 	dump(ideal);
-	analyze_variety(change_ring(ideal, &real_ring, toReal), {}, true);
+	analyze_variety(change_ring<Real>(ideal), {}, true);
 }
 
 int main()
@@ -277,6 +274,7 @@ int main()
 		reduce(ideal);
 		dump_singular(ideal, "ideal.singular");
 		fmt::print("ideal written to 'ideal.singular'\n");
+		// analyze(ideal);
 	}
 
 	// clang-format off
