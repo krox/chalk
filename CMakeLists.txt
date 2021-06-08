@@ -27,7 +27,7 @@ add_library(chalk STATIC ${files_cpp})
 target_link_libraries(chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr Eigen3::Eigen)
 
 # executables
-foreach(bin "factor" "primes" "calculator" "exponential_product" "langevin_scheme_order2" "langevin_scheme_order3" "langevin_scheme_commutative" "langevin_scheme_1d")
+foreach(bin "factor" "primes" "calculator" "exponential_product" "langevin_scheme" "langevin_scheme_1d")
 	add_executable(${bin} src/apps/${bin}.cpp)
 	target_link_libraries(${bin} chalk fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr readline Eigen3::Eigen)
 endforeach(bin)

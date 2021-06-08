@@ -231,31 +231,38 @@ int main()
 	// add_term(f4, "b7", Term(Covariant<R>(eta2)), 1);
 
 	// order 2 torrero
-	/*{
-	    std::vector<R> ideal = {};
-	    append(ideal, makeOrderConditions(f2, 2));
-	    ideal.push_back(ring("a2+a3-1")); // scale setting
-	    ideal.push_back(ring("a2"));      // torrero
-	    ideal.push_back(ring("b2"));
-	    ideal.push_back(ring("b4"));
-	    analyze(ideal);
-	}*/
+	if (false)
+	{
+		std::vector<R> ideal = {};
+		append(ideal, makeOrderConditions(f2, 2));
+		ideal.push_back(ring("a2+a3-1")); // scale setting
+		ideal.push_back(ring("a2"));      // torrero
+		ideal.push_back(ring("b2"));
+		ideal.push_back(ring("b4"));
+		analyze(ideal);
+	}
 
 	// order 3 buerger
-	/*{
-	    std::vector<R> ideal = {};
-	    append(ideal, makeOrderConditions(f1, 1));
-	    append(ideal, makeOrderConditions(f2, 2));
-	    append(ideal, makeOrderConditions(f3, 3));
-	    ideal.push_back(ring("a4+a5+a6-1")); // scale setting
-	    ideal.push_back(ring("a5"));         // torrero-style
-	    ideal.push_back(ring("b2"));
-	    ideal.push_back(ring("b4"));
-	    ideal.push_back(ring("b6"));
-	    analyze(ideal);
-	}*/
+	if (true)
+	{
+		// only main condition: 1D variety, does not imply torrero
+		// with torrero: still 1D
+		// with 1st-order consistent f1: still 1D
+		// with both:  0 dimensions, which also imply 2nd order f2
+		std::vector<R> ideal = {};
+		append(ideal, makeOrderConditions(f1, 1));
+		// append(ideal, makeOrderConditions(f2, 2));
+		append(ideal, makeOrderConditions(f3, 3));
+		ideal.push_back(ring("a4+a5+a6-1")); // scale setting
+		ideal.push_back(ring("a5"));         // torrero condition
+		ideal.push_back(ring("b2"));         // no secondary noise
+		ideal.push_back(ring("b4"));         // ditto
+		ideal.push_back(ring("b6"));         // ditto
+		analyze(ideal);
+	}
 
 	// order 4 buerger
+	if (false)
 	{
 		// no solution: order 1+2+3+4 + torrero, single noise
 		std::vector<R> ideal = {};
