@@ -37,6 +37,12 @@ std::vector<int64_t> factor(int64_t n);
 /** Jacobi symbol (a/n) defined for any odd integer n */
 int jacobi(int64_t a, int64_t n);
 
+/** Euler's totient function */
+int64_t phi(int64_t a);
+
+/** order of a mod m. returns 0 if gcd(a,b) != 1 */
+int64_t ordermod(int64_t a, int64_t m);
+
 /** factorial(n) = n! = n * (n-1) * ... * 2 * 1 */
 int64_t factorial(int64_t n);
 

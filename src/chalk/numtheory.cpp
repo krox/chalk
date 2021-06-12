@@ -310,6 +310,34 @@ int jacobi(int64_t a, int64_t n)
 	}
 }
 
+int64_t phi(int64_t n)
+{
+	assert(n >= 1);
+	int64_t last = 0;
+	int64_t r = 1;
+	for (int64_t p : factor(n))
+	{
+		r *= p == last ? p : p - 1;
+		last = p;
+	}
+	return r;
+}
+
+int64_t ordermod(int64_t a, int64_t m)
+{
+	assert(0 <= a && a < m);
+	if (gcd(a, m) != 1)
+		return 0;
+	int64_t r = phi(m);
+	assert(powmod(a, r, m) == 1);
+	auto ps = factor(r);
+	for (int64_t p : ps)
+		if (powmod(a, r / p, m) == 1)
+			r /= p;
+
+	return r;
+}
+
 int64_t factorial(int64_t n)
 {
 	assert(0 <= n && n <= 20); // n=20 is the biggest possible in int64_t

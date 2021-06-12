@@ -86,3 +86,26 @@ TEST(NumberTheory, ModularArithmetic)
 	EXPECT_EQ(pow(a, 499 - 1), 1);
 	EXPECT_EQ(pow(a, (499 - 1) / 2), -1); // only bc 3 mod 499 is cyclic
 }
+
+TEST(NumberTheory, misc)
+{
+	EXPECT_EQ(phi(2 * 2 * 3 * 5 * 19), 2 * 2 * 4 * 18);
+
+	auto orderNaive = [](int64_t a, int64_t m) -> int64_t {
+		assert(0 <= a && a < m);
+		int64_t b = a;
+		int64_t r = 1;
+		while (b != 1)
+		{
+			b = mulmod(b, a, m);
+			++r;
+			if (r > m)
+				return 0;
+		}
+		return r;
+	};
+
+	for (int64_t m = 2; m < 300; ++m)
+		for (int64_t a = 0; a < m; ++a)
+			EXPECT_EQ(ordermod(a, m), orderNaive(a, m));
+}
