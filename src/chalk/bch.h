@@ -15,7 +15,7 @@ struct BchStage
 };
 
 // tables from http://www.ehu.eus/ccwmuura/bch.html
-BchStage stages[] = {
+inline BchStage stages[] = {
     {0, 0, 0, 0},
 
     // order 1: terms 1-2
