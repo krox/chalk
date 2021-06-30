@@ -143,14 +143,14 @@ std::vector<R> makeOrderConditions(Term const &f, int order = max_order)
 			continue;
 
 		fmt::print("---------- T^({})e^-S ----------\n", k);
-		dump(tmp);
+		dump_summary(tmp);
 		for (auto term : tmp.terms())
 			cond_list.push_back(term.coefficient);
 	}
 	return cond_list;
 }
 
-void analyze(std::vector<R> ideal)
+void analyze(std::vector<R> ideal, bool full = false)
 {
 	reduce(ideal);
 	fmt::print("\ngeneral form\n");
@@ -173,17 +173,22 @@ void analyze(std::vector<R> ideal)
 	}
 	*/
 
-	std::map<std::string, Real> values;
-
 	// numerical root finding
 	// solve_numerical(change_ring<Real>(cond_list), values, {});
 
 	// hybrid algebraic/numerical root finding
+	reduce(ideal);
+	dump_singular(ideal, "ideal.singular");
+	dump_maple(ideal, "ideal.maple");
+	fmt::print("ideal written to 'ideal.singular' and 'ideal.maple'\n");
 
-	fmt::print("\ngeneral form (after gröbner)\n");
-	groebner(ideal);
-	dump(ideal);
-	analyze_variety(change_ring<Real>(ideal), {}, true);
+	if (full)
+	{
+		fmt::print("\ngeneral form (after gröbner)\n");
+		groebner(ideal);
+		dump(ideal);
+		analyze_variety(change_ring<Real>(ideal), {}, true);
+	}
 }
 
 int main()
@@ -243,7 +248,7 @@ int main()
 	}
 
 	// order 3 buerger
-	if (true)
+	if (false)
 	{
 		// only main condition: 1D variety, does not imply torrero
 		// with torrero: still 1D
@@ -262,8 +267,15 @@ int main()
 	}
 
 	// order 4 buerger
-	if (false)
+	if (true)
 	{
+		// single noise + order 1+2+3+4
+		//    * no solution (thanks to Maple)
+		// two noise + order 1,2,3,4
+		//    * contains a1^2*a5 term, so we set a5=0
+		// single noise + only final order 4
+		//    * no solution (Maple)
+
 		// no solution: order 1+2+3+4 + torrero, single noise
 		std::vector<R> ideal = {};
 		append(ideal, makeOrderConditions(f1, 1));
@@ -272,16 +284,14 @@ int main()
 		append(ideal, makeOrderConditions(f4, 4));
 		ideal.push_back(ring("a7+a8+a9+a10-1")); // scale setting
 		// ideal.push_back(ring("a9"));             // torrero-style
+		ideal.push_back(ring("a5")); // this is implied for order 1+2+3+4
 		// ideal.push_back(ring("b2"));
 		// ideal.push_back(ring("b4"));
 		// ideal.push_back(ring("b6"));
 		// ideal.push_back(ring("a3-22/100")); // fixing the known scheme
-		ideal.push_back(ring("a1-39/1000")); // fixing the known scheme
+		// ideal.push_back(ring("a1-39/1000")); // fixing the known scheme
 
-		reduce(ideal);
-		dump_singular(ideal, "ideal.singular");
-		fmt::print("ideal written to 'ideal.singular'\n");
-		// analyze(ideal);
+		analyze(ideal);
 	}
 
 	// clang-format off

@@ -275,7 +275,31 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	// file.print("print(dim(Is));\n");
 }
 
-/** write a fil to be used by PHCpack */
+/** write a file to be used by Maple to find a Gröbner basis. */
+template <typename R, size_t rank>
+inline void dump_maple(Ideal<R, rank> const &ideal, std::string const &filename)
+{
+	auto file = fmt::output_file(filename);
+
+	for (size_t i = 0; i < ideal.size(); ++i)
+		file.print("f{} := {};\n", i, ideal[i]);
+
+	// 3) define the ideal
+	file.print("ideal := [");
+	for (size_t i = 0; i < ideal.size(); ++i)
+		file.print(i == 0 ? "f{}" : ",f{}", i);
+	file.print("];\n");
+
+	file.print("with(Groebner);\n");
+	file.print("infolevel[GroebnerBasis] := 5;");
+	file.print("vars := [");
+	auto vars = active_variables(ideal);
+	for (size_t i = 0; i < vars.size(); ++i)
+		file.print(i == 0 ? "{}" : ",{}", vars[i]);
+	file.print("];\n");
+}
+
+/** write a file to be used by PHCpack */
 template <typename R, size_t rank>
 inline void dump_phcpack(Ideal<R, rank> const &ideal,
                          std::string const &filename)
