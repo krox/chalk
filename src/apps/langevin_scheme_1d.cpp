@@ -21,7 +21,7 @@ using Real = double;
  */
 
 // polynomial ring of coefficients
-static constexpr size_t RANK = 19; // needs space for eta1,2,3 too
+static constexpr size_t RANK = 23; // needs space for eta1,2,3 too
 using R = SparsePolynomial<Rational, RANK>;
 auto ring = PolynomialRing<Rational, RANK>();
 
@@ -269,25 +269,54 @@ int main()
 	// order 4 buerger
 	if (true)
 	{
-		// single noise + order 1+2+3+4
-		//    * no solution (thanks to Maple)
-		// two noise + order 1,2,3,4
-		//    * contains a1^2*a5 term, so we set a5=0
-		// single noise + only final order 4
-		//    * no solution (Maple)
-
-		// no solution: order 1+2+3+4 + torrero, single noise
+		// * we always want final order 4
+		// * explicitly coding a10 != 0 can help performance...
+		// * single noise has no solution (thanks to Maple), so we take two
+		// * first approach: order 1+2+3+4 for intermediate steps
+		//     * contains a1^2*a5 term, so we set a5=0
+		//     * additional a9=0 OR b6=0 -> no reasonable solution
+		//      (contains a1^2=0 -> b1^2+b2^2=0 -> complex noise)
+		//     * kinda think this branch wont work...
+		// * second approach: torrero-style a9=0 ?
+		//     * actually possible to solve (barely^^)
+		//     * maple can solve it modulo prime, but not in fractions
+		//       (so there probably is a at least a complex solution. but
+		//        not neccessarily a real one)
+		//     * lets try with more conditions. maybe?
+		// * third approach: order 1+1+1+4
+		// * order 0+1+1+4 + first step deterministic :) (b1=b2=0)
+		//      -> implies a3=a5=a6=a8=0
+		// * classic RK4: (1,2,2,1)/6 weights, two noises -> no solution
+		// * 3/8th rule (1,3,3,1)/8 weights, two noises -> no solution
+		// * b4=b6=0 ??
 		std::vector<R> ideal = {};
-		append(ideal, makeOrderConditions(f1, 1));
-		append(ideal, makeOrderConditions(f2, 2));
-		append(ideal, makeOrderConditions(f3, 3));
-		append(ideal, makeOrderConditions(f4, 4));
 		ideal.push_back(ring("a7+a8+a9+a10-1")); // scale setting
+
+		// append(ideal, makeOrderConditions(f1, 1));
+		// append(ideal, makeOrderConditions(f2, 1));
+		// append(ideal, makeOrderConditions(f3, 1));
+		append(ideal, makeOrderConditions(f4, 4));
+
+		// classic RK4 in the final step
+		ideal.push_back(ring("a7-1/8"));
+		ideal.push_back(ring("a8-3/8"));
+		ideal.push_back(ring("a9-3/8"));
+		ideal.push_back(ring("a10-1/8"));
+
 		// ideal.push_back(ring("a9"));             // torrero-style
-		ideal.push_back(ring("a5")); // this is implied for order 1+2+3+4
+		// ideal.push_back(ring("a5")); // this is implied for order 1+2+3+4
+
+		// no secondary noise -> no solution
 		// ideal.push_back(ring("b2"));
 		// ideal.push_back(ring("b4"));
 		// ideal.push_back(ring("b6"));
+
+		// ideal.push_back(ring("b6*b6inv-1"));
+
+		// some constraints for non-zero coeffs (purely an optimization)
+		ideal.push_back(ring("a1*a1inv-1"));
+		ideal.push_back(ring("a10*a10inv-1"));
+
 		// ideal.push_back(ring("a3-22/100")); // fixing the known scheme
 		// ideal.push_back(ring("a1-39/1000")); // fixing the known scheme
 

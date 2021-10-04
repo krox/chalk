@@ -291,12 +291,13 @@ inline void dump_maple(Ideal<R, rank> const &ideal, std::string const &filename)
 	file.print("];\n");
 
 	file.print("with(Groebner);\n");
-	file.print("infolevel[GroebnerBasis] := 5;");
+	file.print("infolevel[GroebnerBasis] := 5;\n");
 	file.print("vars := [");
 	auto vars = active_variables(ideal);
 	for (size_t i = 0; i < vars.size(); ++i)
 		file.print(i == 0 ? "{}" : ",{}", vars[i]);
 	file.print("];\n");
+	file.print("mybasis := Basis(ideal, tdeg);\n");
 }
 
 /** write a file to be used by PHCpack */
