@@ -194,10 +194,11 @@ void analyze(std::vector<R> ideal, bool full = false)
 int main()
 {
 	/** NOTE:
-	 *  use something like 'ring.generator(..., INT_MAX, 20)' to increase
+	 *  use something like 'ring.generator(..., 20)' to increase
 	 *  the weight of a variable (for term-ordering), to force the gröbner-
 	 *  algorithm to solve for that variable first.
 	 */
+#if 0
 
 	/** the forces */
 	auto eta1 = ring("eta1");
@@ -215,16 +216,16 @@ int main()
 	auto f2 = Term(0);
 	add_term(f2, "a2", S0, 2);
 	add_term(f2, "a3", S1, 2);
-	add_term(f2, "b3", Term(Covariant<R>(eta1)), 1);
-	add_term(f2, "b4", Term(Covariant<R>(eta2)), 1);
+	add_term(f2, "1", Term(Covariant<R>(eta1)), 1);
+	// add_term(f2, "0", Term(Covariant<R>(eta2)), 1);
 	auto S2 = myTaylor(S0, -f2, 2 * max_order);
 
 	auto f3 = Term(0);
 	add_term(f3, "a4", S0, 2);
-	add_term(f3, "a5", S1, 2);
-	add_term(f3, "a6", S2, 2);
-	add_term(f3, "b5", Term(Covariant<R>(eta1)), 1);
-	add_term(f3, "b6", Term(Covariant<R>(eta2)), 1);
+	add_term(f3, "k7", S1, 2);
+	add_term(f3, "k8", S2, 2);
+	add_term(f3, "1", Term(Covariant<R>(eta1)), 1);
+	// add_term(f3, "b6", Term(Covariant<R>(eta2)), 1);
 	auto S3 = myTaylor(S0, -f3, 2 * max_order);
 
 	auto f4 = Term(0);
@@ -234,19 +235,65 @@ int main()
 	add_term(f4, "a10", S3, 2);
 	add_term(f4, "1", Term(Covariant<R>(eta1)), 1);
 	// add_term(f4, "b7", Term(Covariant<R>(eta2)), 1);
+#endif
 
-	// order 2 torrero
-	if (false)
+	// full order 2 (two noise terms)
+	if (true)
 	{
+		// cleanest result (especially for NLO) for buerger2
+		ring.generator("k4", 1000);
+		ring.generator("k3", 900);
+		ring.generator("k2", 800);
+
+		auto eta1 = ring("eta1");
+		auto eta2 = ring("eta2");
+		auto S0 = Term(Covariant<R>(Indexed("S'")));
+
+		fmt::print("---------- Terms of the scheme ----------\n");
+
+		auto f1 = Term(0);
+		add_term(f1, "k1", S0, 2);
+		add_term(f1, "k2", Term(Covariant<R>(eta1)), 1);
+		add_term(f1, "k3", Term(Covariant<R>(eta2)), 1);
+		auto S1 = myTaylor(S0, -f1, 2 * max_order);
+
+		auto f2 = Term(0);
+		add_term(f2, "k4", S0, 2);
+		add_term(f2, "k5", S1, 2);
+		add_term(f2, "1", Term(Covariant<R>(eta1)), 1); // overall scale
+		auto S2 = myTaylor(S0, -f2, 2 * max_order);
+
 		std::vector<R> ideal = {};
 		append(ideal, makeOrderConditions(f2, 2));
-		ideal.push_back(ring("a2+a3-1")); // scale setting
-		ideal.push_back(ring("a2"));      // torrero
-		ideal.push_back(ring("b2"));
-		ideal.push_back(ring("b4"));
-		analyze(ideal);
+
+		// generally, we have 2 dimensions left, and 3 independent NLO terms
+
+		// torrero: third NLO vanishing, second minimized
+		// ideal.push_back(ring("k5-1"));
+		// ideal.push_back(ring("k3"));
+
+		// buerger2: first+second NLO vanishing
+		ideal.push_back(ring("2*k2-k1-2/3"));
+		ideal.push_back(ring("k1-1"));
+
+		groebner(ideal);
+
+		auto nlo = makeOrderConditions(f2, 3);
+
+		fmt::print("===== order conditions =====\n");
+		for (auto &f : ideal)
+			fmt::print("{}\n", f);
+		fmt::print("===== NLO =====\n");
+		for (auto &f : nlo)
+		{
+			reduce(f, ideal);
+			fmt::print("{}\n", f);
+		}
+
+		analyze_variety(change_ring<Real>(ideal), {}, true);
 	}
 
+#if 0
 	// order 3 buerger
 	if (false)
 	{
@@ -256,18 +303,18 @@ int main()
 		// with both:  0 dimensions, which also imply 2nd order f2
 		std::vector<R> ideal = {};
 		append(ideal, makeOrderConditions(f1, 1));
-		// append(ideal, makeOrderConditions(f2, 2));
+		append(ideal, makeOrderConditions(f2, 1));
 		append(ideal, makeOrderConditions(f3, 3));
-		ideal.push_back(ring("a4+a5+a6-1")); // scale setting
-		ideal.push_back(ring("a5"));         // torrero condition
-		ideal.push_back(ring("b2"));         // no secondary noise
-		ideal.push_back(ring("b4"));         // ditto
-		ideal.push_back(ring("b6"));         // ditto
+		// ideal.push_back(ring("a4+a5+a6-1")); // scale setting
+		// ideal.push_back(ring("a5"));         // torrero condition
+		// ideal.push_back(ring("b2"));         // no secondary noise
+		// ideal.push_back(ring("b4"));         // ditto
+		// ideal.push_back(ring("b6"));         // ditto
 		analyze(ideal);
 	}
 
 	// order 4 buerger
-	if (true)
+	if (false)
 	{
 		// * we always want final order 4
 		// * explicitly coding a10 != 0 can help performance...
@@ -322,6 +369,7 @@ int main()
 
 		analyze(ideal);
 	}
+#endif
 
 	// clang-format off
 	/*
