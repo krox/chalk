@@ -307,6 +307,13 @@ template <typename R, size_t rank> class SparsePolynomial
 			r.push_back(terms_[i]);
 		return SparsePolynomial(ring_, r);
 	}
+	R coefficient(std::array<int, rank> ex) const
+	{
+		for (auto &term : terms_)
+			if (term.exponent == ex)
+				return term.coefficient;
+		return R(0);
+	}
 
 	/** "optimized" inplace operations */
 	void operator+=(SparsePolynomial<R, rank> const &b)
@@ -402,7 +409,8 @@ int PolynomialRing<R, rank>::var_id(std::string const &name) const
 	for (size_t i = 0; i < rank; ++i)
 		if (var_names_[i] == name)
 			return (int)i;
-	throw std::runtime_error("Variable name not found in Poly-Ring");
+	throw std::runtime_error(
+	    fmt::format("Variable name '{}' not found in Poly-Ring", name));
 }
 
 template <typename R, size_t rank>
