@@ -137,7 +137,7 @@ template <typename R, typename G> class Multinomial
 	}
 };
 
-template <typename R, typename G> bool is_negative(Multinomial<R, G> const &)
+template <typename R, typename G> bool isNegative(Multinomial<R, G> const &)
 {
 	return false;
 }
@@ -280,16 +280,16 @@ template <typename R, typename G> void dump_summary(Multinomial<R, G> const &a)
 
 template <typename R, typename G> struct RingTraits<Multinomial<R, G>>
 {
-	static bool is_zero(Multinomial<R, G> const &a)
+	static bool isZero(Multinomial<R, G> const &a)
 	{
 		return a.terms().empty();
 	}
-	static bool is_one(Multinomial<R, G> const &a) { return a == 1; }
-	static bool is_negative(Multinomial<R, G> const &) { return false; }
+	static bool isOne(Multinomial<R, G> const &a) { return a == 1; }
+	static bool isNegative(Multinomial<R, G> const &) { return false; }
 
 	/** these two are not precisely correct, but at least not wrong */
-	static bool need_parens_product(Multinomial<R, G> const &) { return true; }
-	static bool need_parens_power(Multinomial<R, G> const &) { return true; }
+	static bool needParensProduct(Multinomial<R, G> const &) { return true; }
+	static bool needParensPower(Multinomial<R, G> const &) { return true; }
 };
 
 template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
@@ -317,11 +317,11 @@ struct fmt::formatter<chalk::Multinomial<R, G>>
 				it = format_to(it, " + ");
 			auto const &term = a.terms()[i];
 
-			if (chalk::is_one(term.coefficient))
+			if (chalk::isOne(term.coefficient))
 				it = format_to(it, "{}", term.index);
 			else if (term.index == 1)
 				it = format_to(it, "{}", term.coefficient);
-			else if (chalk::need_parens_product(term.coefficient))
+			else if (chalk::needParensProduct(term.coefficient))
 				it = format_to(it, "({})*{}", a.terms()[i].coefficient,
 				               term.index);
 			else

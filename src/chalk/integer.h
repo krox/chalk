@@ -1,5 +1,4 @@
-#ifndef CHALK_INTEGER_H
-#define CHALK_INTEGER_H
+#pragma once
 
 /**
  * C++ wrapper for arbitrary precision integers.
@@ -11,6 +10,7 @@
 #include "fmt/format.h"
 #include <cassert>
 #include <gmp.h>
+#include <optional>
 #include <string>
 
 namespace chalk {
@@ -22,7 +22,6 @@ namespace chalk {
  *   - always initialized to 0 (even local variables)
  *   - expensive to copy (even after default-initialization)
  *   - 'a % b' ignores the sign of b, result is always non-negative
- *   - no divison operator (dont need it, rounding might lead to bugs)
  */
 class Integer
 {
@@ -34,7 +33,8 @@ class Integer
 
 	mpz_t z_; // semi-private: use with care!
 
-	/** constructors / destructor / moves */
+	// constructors / destructor / moves
+
 	Integer() { mpz_init(z_); }
 	explicit Integer(int value) { mpz_init_set_si(z_, value); }
 	explicit Integer(std::string const &value)
@@ -52,7 +52,8 @@ class Integer
 	void operator=(Integer &&other) { mpz_swap(z_, other.z_); }
 	void operator=(int value) { mpz_set_si(z_, value); }
 
-	/** convert to double/string */
+	// convert to int/double/string
+
 	bool fits_int() const { return mpz_fits_sint_p(z_); }
 	int to_int() const
 	{
@@ -71,146 +72,166 @@ class Integer
 	}
 	explicit operator int() const { return to_int(); }
 	explicit operator double() const { return to_double(); }
-
-	/** arithmetic (unary)*/
-	Integer operator+() const { return *this; }
-	Integer operator-() const
-	{
-		Integer r;
-		mpz_neg(r.z_, z_);
-		return r;
-	}
-
-	/** arithmetic (binary Integer <-> Integer) */
-	Integer operator+(Integer const &b) const
-	{
-		Integer r;
-		mpz_add(r.z_, z_, b.z_);
-		return r;
-	}
-	Integer operator-(Integer const &b) const
-	{
-		Integer r;
-		mpz_sub(r.z_, z_, b.z_);
-		return r;
-	}
-	Integer operator*(Integer const &b) const
-	{
-		Integer r;
-		mpz_mul(r.z_, z_, b.z_);
-		return r;
-	}
-	Integer operator/(Integer const &b) const
-	{
-		Integer r;
-		mpz_cdiv_q(r.z_, z_, b.z_);
-		return r;
-	}
-	Integer operator%(Integer const &b) const
-	{
-		Integer r;
-		mpz_mod(r.z_, z_, b.z_);
-		return r;
-	}
-
-	/** arithmetic (binary assigment Integer <-> Integer) */
-	void operator+=(Integer const &b) { mpz_add(z_, z_, b.z_); }
-	void operator-=(Integer const &b) { mpz_sub(z_, z_, b.z_); }
-	void operator*=(Integer const &b) { mpz_mul(z_, z_, b.z_); }
-	void operator/=(Integer const &b) { mpz_cdiv_q(z_, z_, b.z_); }
-	void operator%=(Integer const &b) { mpz_mod(z_, z_, b.z_); }
-
-	/** arithmetic (binary Integer <-> int) */
-	Integer operator+(int b) const
-	{
-		Integer r;
-		if (b >= 0)
-			mpz_add_ui(r.z_, z_, b);
-		else
-		{
-			// there is a subtle bug if b==INT_MIN on platforms with int==long
-			assert(b > LONG_MIN);
-			mpz_sub_ui(r.z_, z_, -(long)b);
-		}
-		return r;
-	}
-
-	Integer operator-(int b) const
-	{
-		Integer r;
-		if (b >= 0)
-			mpz_sub_ui(r.z_, z_, b);
-		else
-		{
-			assert(b > LONG_MIN);
-			mpz_add_ui(r.z_, z_, -(long)b);
-		}
-		return r;
-	}
-	Integer operator*(int b) const
-	{
-		Integer r;
-		mpz_mul_si(r.z_, z_, b);
-		return r;
-	}
-	int operator%(int b) const
-	{
-		assert(b > 0);
-		Integer r;
-		return mpz_mod_ui(r.z_, z_, b);
-	}
-
-	/** arithmetic (binary assign Integer <-> int) */
-	void operator+=(int b)
-	{
-		if (b >= 0)
-			mpz_add_ui(z_, z_, b);
-		else
-		{
-			assert(b > LONG_MIN);
-			mpz_sub_ui(z_, z_, -(long)b);
-		}
-	}
-	void operator-=(int b)
-	{
-		if (b >= 0)
-			mpz_sub_ui(z_, z_, b);
-		else
-		{
-			assert(b > LONG_MIN);
-			mpz_add_ui(z_, z_, -(long)b);
-		}
-	}
-	void operator*=(int b) { mpz_mul_si(z_, z_, b); }
-	void operator/=(int b)
-	{
-		assert(b > 0);
-		mpz_cdiv_q_ui(z_, z_, b);
-	}
-	void operator%=(int b)
-	{
-		assert(b > 0);
-		mpz_mod_ui(z_, z_, b);
-	}
-
-	friend Integer gcd(Integer const &, Integer const &);
-
-	/** comaprisons */
-	bool operator==(Integer const &b) const { return mpz_cmp(z_, b.z_) == 0; }
-	bool operator<(Integer const &b) const { return mpz_cmp(z_, b.z_) < 0; }
-	bool operator==(int b) const { return mpz_cmp_si(z_, b) == 0; }
-	bool operator<(int b) const { return mpz_cmp_si(z_, b) < 0; }
-	int sign() const { return mpz_sgn(z_); } // 1 / -1 / 0
 };
+
+// functions that are missing from GMP to make the interface more uniform
+
+inline void mpz_add_si(mpz_ptr r, mpz_srcptr a, long b)
+{
+	if (b >= 0)
+		mpz_add_ui(r, a, (unsigned long)b);
+	else
+		mpz_sub_ui(r, a, -(unsigned long)b);
+}
+inline void mpz_sub_si(mpz_ptr r, mpz_srcptr a, long b)
+{
+	if (b >= 0)
+		mpz_sub_ui(r, a, (unsigned long)b);
+	else
+		mpz_add_ui(r, a, -(unsigned long)b);
+}
+inline void mpz_mod_si(mpz_ptr r, mpz_srcptr a, long b)
+{
+	mpz_mod_ui(r, a, b >= 0 ? (unsigned long)b : -(unsigned long)b);
+}
+inline void mpz_divexact_si(mpz_ptr r, mpz_srcptr a, long b)
+{
+	assert(b >= 0);
+	mpz_mod_ui(r, a, (unsigned long)b);
+}
+inline void mpz_cdiv_q_si(mpz_ptr r, mpz_srcptr a, long b)
+{
+	assert(b >= 0);
+	mpz_cdiv_q_ui(r, a, (unsigned long)b);
+}
+
+// basic arithmetic
+
+#define CHALK_DEFINE_INTEGER_UNARY(fun, gmp_fun)                               \
+	inline Integer fun(Integer const &a)                                       \
+	{                                                                          \
+		Integer r;                                                             \
+		gmp_fun(r.z_, a.z_);                                                   \
+		return r;                                                              \
+	}
+
+#define CHALK_DEFINE_INTEGER_BINARY(fun, funInplace, gmp_fun)                  \
+	inline Integer fun(Integer const &a, Integer const &b)                     \
+	{                                                                          \
+		Integer r;                                                             \
+		gmp_fun(r.z_, a.z_, b.z_);                                             \
+		return r;                                                              \
+	}                                                                          \
+	inline Integer fun(Integer const &a, int b)                                \
+	{                                                                          \
+		Integer r;                                                             \
+		gmp_fun##_si(r.z_, a.z_, b);                                           \
+		return r;                                                              \
+	}                                                                          \
+	inline Integer &funInplace(Integer &a, Integer const &b)                   \
+	{                                                                          \
+		gmp_fun(a.z_, a.z_, b.z_);                                             \
+		return a;                                                              \
+	}                                                                          \
+	inline Integer &funInplace(Integer &a, int b)                              \
+	{                                                                          \
+		gmp_fun##_si(a.z_, a.z_, b);                                           \
+		return a;                                                              \
+	}
+
+CHALK_DEFINE_INTEGER_UNARY(operator-, mpz_neg)
+CHALK_DEFINE_INTEGER_UNARY(nextPrime, mpz_nextprime)
+
+CHALK_DEFINE_INTEGER_BINARY(operator+, operator+=, mpz_add)
+CHALK_DEFINE_INTEGER_BINARY(operator-, operator-=, mpz_sub)
+CHALK_DEFINE_INTEGER_BINARY(operator*, operator*=, mpz_mul)
+CHALK_DEFINE_INTEGER_BINARY(operator/, operator/=, mpz_cdiv_q)
+CHALK_DEFINE_INTEGER_BINARY(operator%, operator%=, mpz_mod)
+CHALK_DEFINE_INTEGER_BINARY(divExact, divExactInplace, mpz_divexact)
+
+#undef CHALK_DEFINE_INTEGER_UNARY
+#undef CHALK_DEFINE_INTEGER_BINARY
+
+// comparisons
+
+inline bool operator==(Integer const &a, Integer const &b)
+{
+	return mpz_cmp(a.z_, b.z_) == 0;
+}
+inline bool operator<(Integer const &a, Integer const &b)
+{
+	return mpz_cmp(a.z_, b.z_) < 0;
+}
+inline bool operator==(Integer const &a, int b)
+{
+	return mpz_cmp_si(a.z_, b) == 0;
+}
+inline bool operator<(Integer const &a, int b)
+{
+	return mpz_cmp_si(a.z_, b) < 0;
+}
+inline bool operator<(int a, Integer const &b)
+{
+	return mpz_cmp_si(b.z_, a) > 0;
+}
+
+inline int sign(Integer const &a) { return mpz_sgn(a.z_); } // 1 / -1 / 0
+
+inline std::optional<Integer> trySqrt(Integer const &a)
+{
+	if (!mpz_perfect_square_p(a.z_))
+		return {};
+	Integer r;
+	mpz_sqrt(r.z_, a.z_);
+	return r;
+}
 
 inline Integer operator+(int a, Integer const &b) { return b + a; }
 inline Integer operator*(int a, Integer const &b) { return b * a; }
 
+// greatest common divisor
+//    - signs of input are ignored, result is always non-negative
+//    - convention: gcd(0,x) = abs(x)
 inline Integer gcd(Integer const &a, Integer const &b)
 {
 	Integer r;
 	mpz_gcd(r.z_, a.z_, b.z_);
 	return r;
+}
+
+inline Integer gcd(Integer const &a, Integer const &b, Integer const &c)
+{
+	Integer r;
+	mpz_gcd(r.z_, a.z_, b.z_);
+	mpz_gcd(r.z_, r.z_, c.z_);
+	return r;
+}
+
+inline bool divisible(Integer const &n, Integer const &d)
+{
+	return mpz_divisible_p(n.z_, d.z_) != 0;
+}
+
+// divide a,b by their greatest common divisor. Also makes a non-negative.
+inline Integer removeCommonFactor(Integer &a, Integer &b)
+{
+	auto d = gcd(a, b);
+	if (sign(a) < 0)
+		mpz_neg(d.z_, d.z_);
+	mpz_divexact(a.z_, a.z_, d.z_);
+	mpz_divexact(b.z_, b.z_, d.z_);
+	return d;
+}
+
+inline Integer removeCommonFactor(Integer &a, Integer &b, Integer &c)
+{
+	auto d = gcd(a, b, c);
+	if (sign(a) < 0)
+		mpz_neg(d.z_, d.z_);
+	mpz_divexact(a.z_, a.z_, d.z_);
+	mpz_divexact(b.z_, b.z_, d.z_);
+	mpz_divexact(c.z_, c.z_, d.z_);
+	return d;
 }
 
 inline bool isPrime(Integer const &a)
@@ -222,15 +243,24 @@ inline bool isPrime(Integer const &a)
 	return mpz_probab_prime_p(a.z_, reps) != 0;
 }
 
-inline Integer nextPrime(Integer const &a)
+inline Integer removeSquareFactor(Integer &a)
 {
-	Integer r;
-	mpz_nextprime(r.z_, a.z_);
+	auto r = Integer(1);
+	for (auto p = Integer(2); !(a < p * p); p = nextPrime(p))
+		if (divisible(a, p * p))
+		{
+			a = divExact(a, p * p);
+			r *= p;
+			p -= 1;
+		}
 	return r;
 }
 
 template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
-{};
+{
+	static bool isZero(Integer const &a) { return mpz_sgn(a.z_) == 0; }
+	static bool isNegative(Integer const &a) { return mpz_sgn(a.z_) < 0; }
+};
 
 } // namespace chalk
 
@@ -244,5 +274,3 @@ template <> struct fmt::formatter<chalk::Integer>
 		return format_to(ctx.out(), "{}", x.to_string());
 	}
 };
-
-#endif

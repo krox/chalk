@@ -77,7 +77,7 @@ template <typename R, int N, char X, typename U>
 bool operator==(Series<R, N, X> const &a, Scalar<U> const &b)
 {
 	for (int i = 1; i <= N; ++i)
-		if (!is_zero(a[i]))
+		if (!isZero(a[i]))
 			return false;
 	return a[0] == b.value;
 }
@@ -86,7 +86,7 @@ template <typename R, int N, char X>
 bool operator==(Series<R, N, X> const &a, R const &b)
 {
 	for (int i = 1; i <= N; ++i)
-		if (!is_zero(a[i]))
+		if (!isZero(a[i]))
 			return false;
 	return a[0] == b;
 }
@@ -95,7 +95,7 @@ template <typename R, int N, char X>
 bool operator==(Series<R, N, X> const &a, int b)
 {
 	for (int i = 1; i <= N; ++i)
-		if (!is_zero(a[i]))
+		if (!isZero(a[i]))
 			return false;
 	return a[0] == b;
 }
@@ -321,24 +321,24 @@ auto mapCoefficientsNested(F f, Series<R, N, X> const &a)
 
 template <typename R, int N, char X> struct RingTraits<Series<R, N, X>>
 {
-	static bool is_zero(Series<R, N, X> const &s)
+	static bool isZero(Series<R, N, X> const &s)
 	{
 		for (R const &c : s.coefficients())
-			if (!is_zero(c))
+			if (!isZero(c))
 				return false;
 		return true;
 	}
-	static bool is_one(Series<R, N, X> const &s)
+	static bool isOne(Series<R, N, X> const &s)
 	{
 		for (int i = 1; i <= N; ++i)
-			if (!is_zero(s[i]))
+			if (!isZero(s[i]))
 				return false;
-		return is_one(s[0]);
+		return isOne(s[0]);
 	}
 
-	static bool is_negative(Series<R, N, X> const &) { return false; }
-	static bool need_parens_product(Series<R, N, X> const &) { return true; }
-	static bool need_parens_power(Series<R, N, X> const &) { return true; }
+	static bool isNegative(Series<R, N, X> const &) { return false; }
+	static bool needParensProduct(Series<R, N, X> const &) { return true; }
+	static bool needParensPower(Series<R, N, X> const &) { return true; }
 };
 
 } // namespace chalk
@@ -363,7 +363,7 @@ struct fmt::formatter<chalk::Series<R, N, X>>
 				continue;
 			printed_someting = true;
 
-			if (is_negative(c))
+			if (isNegative(c))
 			{
 				if (first)
 					it = format_to(it, "-");

@@ -4,6 +4,7 @@
 #include "chalk/numtheory.h"
 #include "chalk/rings.h"
 #include "fmt/format.h"
+#include <optional>
 
 namespace chalk {
 
@@ -21,7 +22,7 @@ template <typename R> class Fraction
 		R g = gcd(num_, denom_);
 		num_ /= g;
 		denom_ /= g;
-		if (is_negative(denom_))
+		if (isNegative(denom_))
 		{
 			num_ = -num_;
 			denom_ = -denom_;
@@ -156,7 +157,25 @@ template <typename R> void operator-=(Fraction<R> &a, int b) { a = a - b; }
 template <typename R> void operator*=(Fraction<R> &a, int b) { a = a * b; }
 template <typename R> void operator/=(Fraction<R> &a, int b) { a = a / b; }
 
-/** comparisons */
+template <typename R> Fraction<R> removeSquareFactor(Fraction<R> &a)
+{
+	auto b = a.num() * a.denom();
+	auto rDenom = a.denom() * a.denom();
+	auto rNum = removeSquareFactor(b);
+	a = Fraction<R>(b);
+	return Fraction<R>(std::move(rNum), std::move(rDenom));
+}
+
+template <typename R> std::optional<Fraction<R>> trySqrt(Fraction<R> const &a)
+{
+	if (auto num = trySqrt(a.num()); num)
+		if (auto denom = trySqrt(a.denom()); denom)
+			return Fraction<R>{*std::move(num), *std::move(denom)};
+	return {};
+}
+
+// comparisons
+
 template <typename R>
 bool operator==(Fraction<R> const &a, Fraction<R> const &b)
 {
@@ -170,6 +189,15 @@ bool operator!=(Fraction<R> const &a, Fraction<R> const &b)
 {
 	return a.num() != b.num() || a.denom() != b.denom();
 }
+template <typename R> bool operator<(Fraction<R> const &a, Fraction<R> const &b)
+{
+	return a.num() * b.denom() < b.num() * a.denom();
+}
+template <typename R>
+bool operator<=(Fraction<R> const &a, Fraction<R> const &b)
+{
+	return a.num() * b.denom() <= b.num() * a.denom();
+}
 template <typename R> bool operator==(Fraction<R> const &a, int b)
 {
 	return a.denom() == 1 && a.num() == b;
@@ -178,33 +206,41 @@ template <typename R> bool operator!=(Fraction<R> const &a, int b)
 {
 	return !(a.denom() == 1 && a.num() == b);
 }
+template <typename R> bool operator<(Fraction<R> const &a, int b)
+{
+	return a.num() < b * a.denom();
+}
+template <typename R> bool operator<=(Fraction<R> const &a, int b)
+{
+	return a.num() <= b * a.denom();
+}
 
 template <typename R> struct RingTraits<Fraction<R>>
 {
-	static bool is_zero(Fraction<R> const &value)
+	static bool isZero(Fraction<R> const &value)
 	{
-		return chalk::is_zero(value.num());
+		return chalk::isZero(value.num());
 	}
-	static bool is_one(Fraction<R> const &value)
+	static bool isOne(Fraction<R> const &value)
 	{
-		return chalk::is_one(value.num()) && chalk::is_one(value.denom());
+		return chalk::isOne(value.num()) && chalk::isOne(value.denom());
 	}
-	static bool is_negative(Fraction<R> const &value)
+	static bool isNegative(Fraction<R> const &value)
 	{
-		return chalk::is_negative(value.num());
+		return chalk::isNegative(value.num());
 	}
 
-	static bool need_parens_product(Fraction<R> const &value)
+	static bool needParensProduct(Fraction<R> const &value)
 	{
-		if (chalk::is_one(value.denom()))
-			return chalk::need_parens_product(value.num());
+		if (chalk::isOne(value.denom()))
+			return chalk::needParensProduct(value.num());
 		else
 			return false;
 	}
-	static bool need_parens_power(Fraction<R> const &value)
+	static bool needParensPower(Fraction<R> const &value)
 	{
-		if (chalk::is_one(value.denom()))
-			return chalk::need_parens_power(value.num());
+		if (chalk::isOne(value.denom()))
+			return chalk::needParensPower(value.num());
 		else
 			return true;
 	}
@@ -224,19 +260,19 @@ template <typename R> struct fmt::formatter<chalk::Fraction<R>>
 	template <typename FormatContext>
 	auto format(const chalk::Fraction<R> &x, FormatContext &ctx)
 	{
-		if (chalk::is_one(x.denom()))
+		if (chalk::isOne(x.denom()))
 			return format_to(ctx.out(), "{}", x.num());
 
-		if (chalk::need_parens_product(x.num()))
+		if (chalk::needParensProduct(x.num()))
 		{
-			if (chalk::need_parens_power(x.denom()))
+			if (chalk::needParensPower(x.denom()))
 				return format_to(ctx.out(), "({})/({})", x.num(), x.denom());
 			else
 				return format_to(ctx.out(), "({})/{}", x.num(), x.denom());
 		}
 		else
 		{
-			if (chalk::need_parens_power(x.denom()))
+			if (chalk::needParensPower(x.denom()))
 				return format_to(ctx.out(), "{}/({})", x.num(), x.denom());
 			else
 				return format_to(ctx.out(), "{}/{}", x.num(), x.denom());
