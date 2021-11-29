@@ -6,15 +6,14 @@ find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
 include(GoogleTest)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -g -Wno-type-limits -Wno-unused-function -Wno-deprecated-declarations")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -Wall -Wextra -Wno-shadow -Wnon-virtual-dtor -Werror -fsanitize=address -fno-omit-frame-pointer -static-libasan -g -fPIE -pie")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror -Wno-deprecated-declarations -Wno-unused-function")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # for int128_t
 
-add_subdirectory(util)
-add_subdirectory(abseil-cpp)
-add_subdirectory(googletest)
+add_subdirectory(util EXCLUDE_FROM_ALL)
+add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
+add_subdirectory(googletest EXCLUDE_FROM_ALL)
 
 include_directories(src)
 include_directories(util/src)

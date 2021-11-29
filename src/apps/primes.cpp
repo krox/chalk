@@ -1,5 +1,5 @@
 #include "chalk/numtheory.h"
-#include "chalk/parser.h"
+#include "util/lexer.h"
 #include <cassert>
 #include <fmt/format.h>
 using namespace chalk;
@@ -12,6 +12,6 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	for (auto p : primes(parse_int(argv[1])))
+	for (auto p : primes(util::parse_int(argv[1])))
 		fmt::print("{}\n", p);
 }
