@@ -102,6 +102,7 @@ template <typename T> class Parser
 
 	T parsePower()
 	{
+		bool neg = lexer.tryMatch(Tok::Sub);
 		T r = parsePrimary();
 		if (lexer.tryMatch(Tok::Pow))
 		{
@@ -110,7 +111,7 @@ template <typename T> class Parser
 			else
 				r = pow(r, util::parse_int(lexer.match(Tok::Int).value));
 		}
-		return r;
+		return neg ? -r : r;
 	}
 
 	T parseProduct()

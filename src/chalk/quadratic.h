@@ -81,6 +81,8 @@ template <typename R> std::optional<Quadratic<R>> trySqrt(Quadratic<R> const &a)
 
 	auto x = trySqrt((a.real() + *n) / 2);
 	if (!x)
+		x = trySqrt((a.real() - *n) / 2);
+	if (!x)
 		return {};
 	auto y = a.imag() / (*x * 2);
 	return Quadratic<R>{*std::move(x), std::move(y), a.d()};
