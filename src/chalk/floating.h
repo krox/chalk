@@ -56,6 +56,13 @@ template <mpfr_prec_t M> class Floating
 		mpfr_init2(f_, precision);
 		mpfr_set_str(f_, value.c_str(), 0, MPFR_RNDN);
 	}
+	explicit Floating(std::string_view value)
+	{
+		// sadly, MPFR needs a 0-terminated string, which means we must create
+		// a copy of the string here
+		mpfr_init2(f_, precision);
+		mpfr_set_str(f_, std::string(value).c_str(), 0, MPFR_RNDN);
+	}
 	explicit Floating(Integer const &value)
 	{
 		mpfr_init2(f_, precision);

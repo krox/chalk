@@ -1,15 +1,20 @@
-#include "chalk/symbolic.h"
+#include "chalk/number.h"
+#include "util/lexer.h"
 #include <cassert>
 #include <cctype>
 #include <fmt/format.h>
+#include <iterator>
+#include <map>
 #include <optional>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <string>
 using namespace chalk;
 
-/** trim whitespace from both ends of a string */
-std::string trim_white(std::string_view s)
+static char historyFile[] = ".chalk_history";
+
+// trim whitespace from both ends of a string
+std::string trimWhite(std::string_view s)
 {
 	size_t i = 0, j = s.size();
 	while (i < s.size() && std::isspace(s[i]))
@@ -20,31 +25,151 @@ std::string trim_white(std::string_view s)
 }
 
 /**
- * Get one line of user input from the terminal.
+ * Get one line of user input from the terminal using readline library
  *   - trims whitespace from both ends
  *   - returns std::nullpt on EOF (i.e. CRTL-D), which is different from ""
- *   - supports history using readline library, storing it in '~/.chalk_history'
  */
-std::optional<std::string> get_input()
+std::optional<std::string> getInput()
 {
 	char *s = readline(">> ");
 	if (s == nullptr)
 		return std::nullopt;
-	auto line = trim_white(s);
+	auto line = trimWhite(s);
 	if (!line.empty())
 		add_history(s); // add non-trimmed to history, to preserve indentation
 	free(s);
 	return line;
 }
 
+template <typename T> class Parser
+{
+  public:
+	util::Lexer lexer;
+
+	// NOTE: the 'std::less<>' enables heterogeneous lookup
+	using SymbolTable = std::map<std::string, T, std::less<>>;
+
+	using Tok = util::Tok;
+	using Token = util::Token;
+
+  private:
+	SymbolTable const *symbolTable = nullptr;
+	T parsePrimary()
+	{
+		if (lexer.tryMatch(Tok::OpenParen))
+		{
+			auto r = parseSum();
+			lexer.match(Tok::CloseParen);
+			return r;
+		}
+		else if (auto tok = lexer.tryMatch(Tok::Int); tok)
+		{
+			return T(tok->value);
+		}
+		else if (auto tok = lexer.tryMatch(Tok::Float); tok)
+		{
+			return T(tok->value);
+		}
+		else if (auto tok = lexer.tryMatch(Tok::Ident); tok)
+		{
+			if (lexer.tryMatch(Tok::OpenParen)) // function call
+			{
+				if (tok->value == "sqrt")
+				{
+					auto r = sqrt(parseSum());
+					lexer.match(Tok::CloseParen);
+					return r;
+				}
+				else
+					throw util::ParseError(
+					    fmt::format("unknown function '{}'", tok->value));
+			}
+			else // variable / constant
+			{
+				if (symbolTable != nullptr)
+					if (auto it = symbolTable->find(tok->value);
+					    it != symbolTable->end())
+						return it->second;
+
+				throw util::ParseError(
+				    fmt::format("unknown variable '{}'", tok->value));
+			}
+		}
+		else
+			throw util::ParseError(
+			    fmt::format("unexpected token '{}'", lexer->value));
+	}
+
+	T parseProduct()
+	{
+		T r = parsePrimary();
+		while (true)
+			if (lexer.tryMatch(Tok::Mul))
+				r = r * parsePrimary();
+			else if (lexer.tryMatch(Tok::Div))
+				r = r / parsePrimary();
+			else
+				return r;
+	}
+
+	T parseSum()
+	{
+		T r = parseProduct();
+		while (true)
+			if (lexer.tryMatch(Tok::Add))
+				r = r + parseProduct();
+			else if (lexer.tryMatch(Tok::Sub))
+				r = r - parseProduct();
+			else
+				return r;
+	}
+
+  public:
+	Parser() = default;
+	Parser(std::string_view source, SymbolTable const *symbols)
+	    : lexer(source), symbolTable(symbols){};
+
+	T parseExpression() { return parseSum(); }
+};
+
 int main()
 {
-	while (auto line = get_input())
+	using Real = FloatingOctuple;
+	using_history();
+	read_history(historyFile);
+	Parser<Real>::SymbolTable symbolTable;
+	symbolTable["pi"] = Real::pi();
+
+	while (auto line = getInput())
 	{
-		if (line->empty())
-			continue;
-		auto ex = Expression(*line);
-		fmt::print("{}\n", ex);
+		try
+		{
+			auto parser = Parser<Real>(*line, &symbolTable);
+			while (!parser.lexer.empty())
+			{
+				if (parser.lexer.peek(util::Tok::Ident, util::Tok::Assign))
+				{
+					auto varname = parser.lexer.match(util::Tok::Ident).value;
+					parser.lexer.match(util::Tok::Assign);
+					auto val = parser.parseExpression();
+					symbolTable[std::string(varname)] = val;
+				}
+				else
+				{
+					auto val = parser.parseExpression();
+					fmt::print("{}\n", val.to_double());
+				}
+
+				if (!parser.lexer.tryMatch(util::Tok::Semi))
+					parser.lexer.match(util::Tok::None);
+			}
+		}
+		catch (util::ParseError const &e)
+		{
+			fmt::print("error: {}\n", e.what());
+		}
 	}
-	fmt::print("\n");
+
+	write_history(historyFile);
+	fmt::print("\nquit\n");
 }
