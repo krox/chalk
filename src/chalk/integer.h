@@ -41,6 +41,7 @@ class Integer
 	{
 		mpz_init_set_str(z_, value.c_str(), 0);
 	}
+	explicit Integer(std::string_view value) : Integer(std::string(value)) {}
 	~Integer() { mpz_clear(z_); }
 	Integer(Integer const &other) { mpz_init_set(z_, other.z_); }
 	Integer(Integer &&other)

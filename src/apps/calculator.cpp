@@ -64,11 +64,11 @@ template <typename T> class Parser
 		}
 		else if (auto tok = lexer.tryMatch(Tok::Int); tok)
 		{
-			return T(tok->value);
+			return T(Integer(tok->value));
 		}
 		else if (auto tok = lexer.tryMatch(Tok::Float); tok)
 		{
-			return T(tok->value);
+			return T(FloatingOctuple(tok->value));
 		}
 		else if (auto tok = lexer.tryMatch(Tok::Ident); tok)
 		{
@@ -100,14 +100,27 @@ template <typename T> class Parser
 			    fmt::format("unexpected token '{}'", lexer->value));
 	}
 
-	T parseProduct()
+	T parsePower()
 	{
 		T r = parsePrimary();
+		if (lexer.tryMatch(Tok::Pow))
+		{
+			if (lexer.tryMatch(Tok::Sub))
+				r = pow(r, -util::parse_int(lexer.match(Tok::Int).value));
+			else
+				r = pow(r, util::parse_int(lexer.match(Tok::Int).value));
+		}
+		return r;
+	}
+
+	T parseProduct()
+	{
+		T r = parsePower();
 		while (true)
 			if (lexer.tryMatch(Tok::Mul))
-				r = r * parsePrimary();
+				r = r * parsePower();
 			else if (lexer.tryMatch(Tok::Div))
-				r = r / parsePrimary();
+				r = r / parsePower();
 			else
 				return r;
 	}
@@ -134,7 +147,9 @@ template <typename T> class Parser
 
 int main()
 {
-	using Real = FloatingOctuple;
+	// using Real = FloatingOctuple; // just (high-precision) floating point
+	using Real = Number; // mixed exact/floating point calculations
+
 	using_history();
 	read_history(historyFile);
 	Parser<Real>::SymbolTable symbolTable;
@@ -157,7 +172,7 @@ int main()
 				else
 				{
 					auto val = parser.parseExpression();
-					fmt::print("{}\n", val.to_double());
+					fmt::print("{}\n", val);
 				}
 
 				if (!parser.lexer.tryMatch(util::Tok::Semi))

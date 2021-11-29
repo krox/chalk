@@ -63,40 +63,4 @@ std::vector<std::string_view> lex(std::string_view source)
 	return tokens;
 }
 
-int parse_int(std::string_view s)
-{
-	// to lazy for a tight bound
-	if (s.size() > 9)
-		throw std::runtime_error("number to large to parse into int");
-
-	int r = 0;
-	for (size_t i = 0; i < s.size(); ++i)
-	{
-		if (!('0' <= s[i] && s[i] <= '9'))
-			throw std::runtime_error(
-			    fmt::format("unexpected character '{}' in integer", s[i]));
-		r *= 10;
-		r += s[i] - '0';
-	}
-	return r;
-}
-
-int64_t parse_int64(std::string_view s)
-{
-	// to lazy for a tight bound
-	if (s.size() > 18)
-		throw std::runtime_error("number to large to parse into int");
-
-	int64_t r = 0;
-	for (size_t i = 0; i < s.size(); ++i)
-	{
-		if (!('0' <= s[i] && s[i] <= '9'))
-			throw std::runtime_error(
-			    fmt::format("unexpected character '{}' in integer", s[i]));
-		r *= 10;
-		r += s[i] - '0';
-	}
-	return r;
-}
-
 } // namespace chalk

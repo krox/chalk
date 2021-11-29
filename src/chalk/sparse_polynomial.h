@@ -419,7 +419,7 @@ PolynomialRing<R, rank>::operator()(std::string const &str)
 {
 	auto f = [&](std::string_view token) -> SparsePolynomial<R, rank> {
 		if (std::isdigit(token[0]))
-			return (*this)(parse_int(token));
+			return (*this)(util::parse_int(token));
 		else
 			return generator(token);
 	};

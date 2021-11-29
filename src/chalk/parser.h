@@ -2,11 +2,14 @@
 #define CHALK_PARSER_H
 
 #include "fmt/format.h"
+#include "util/lexer.h"
 #include <cassert>
 #include <cctype>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
+
+// TODO: refactor this whole module based on chalk::Lexer
 
 namespace chalk {
 
@@ -22,10 +25,6 @@ T parse_primary(std::vector<std::string_view> const &, size_t &, F &&);
 } // namespace parser_detail
 
 std::vector<std::string_view> lex(std::string_view source);
-
-/** apparently, std has no clean version of this */
-int parse_int(std::string_view s);
-int64_t parse_int64(std::string_view s);
 
 template <typename T, typename F> T parse(std::string_view source, F &&f)
 {
@@ -113,7 +112,7 @@ T parse_primary(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 			++pos;
 			if (pos == tokens.size() || !std::isdigit(tokens[pos][0]))
 				throw std::runtime_error("missing/invalid exponent after '^'");
-			int b = parse_int(tokens[pos++]);
+			int b = util::parse_int(tokens[pos++]);
 			ex = pow(ex, b);
 		}
 

@@ -106,7 +106,7 @@ inline Expression::Expression(std::string_view s)
 {
 	auto f = [](std::string_view token) -> Expression {
 		if (std::isdigit(token[0]))
-			return make_constant(parse_int(token));
+			return make_constant(util::parse_int(token));
 		else if (std::isalpha(token[0]))
 			return make_variable(token);
 		else

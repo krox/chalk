@@ -28,12 +28,23 @@ template <typename R> class Quadratic
 	    : a_(std::move(a)), b_(std::move(b)), d_(std::move(d))
 	{
 		b_ *= removeSquareFactor(d_);
+		if (d_ == 1)
+		{
+			a_ += b_;
+			b_ = R(0);
+		}
 	}
 
 	// attributes
 	R const &real() const { return a_; }
 	R const &imag() const { return b_; }
 	R const &d() const { return d_; }
+
+	// conversion (to floating point)
+	template <typename T> explicit operator T() const
+	{
+		return (T)a_ + (T)b_ * sqrt((T)d_);
+	}
 };
 
 // unary Quadratic
@@ -74,9 +85,27 @@ template <typename R> std::optional<Quadratic<R>> trySqrt(Quadratic<R> const &a)
 	auto y = a.imag() / (*x * 2);
 	return Quadratic<R>{*std::move(x), std::move(y), a.d()};
 }
+
 template <typename R> Quadratic<R> sqrt(Quadratic<R> const &a)
 {
 	return trySqrt(a).value();
+}
+
+template <typename R> Quadratic<R> pow(Quadratic<R> a, int e)
+{
+	if (e < 0)
+	{
+		assert(e != INT_MIN);
+		e = -e;
+		a = inverse(a);
+	}
+
+	// TODO: this could be optimized (remove a lot of implicit 'd' checks)
+	auto r = Quadratic<R>(1);
+	for (; e != 0; e >>= 1, a *= a)
+		if (e & 1)
+			r *= a;
+	return r;
 }
 
 // binary Quadratic <-> scalar
@@ -117,40 +146,66 @@ template <typename R> Quadratic<R> operator/(Quadratic<R> const &a, int b)
 // binary Quadratic <-> Quadratic
 
 template <typename R>
-Quadratic<R> operator+(Quadratic<R> const &a, Quadratic<R> const &b)
+std::optional<Quadratic<R>> tryAdd(Quadratic<R> const &a, Quadratic<R> const &b)
 {
 	if (a.imag() == 0)
-		return {a.real() + b.real(), b.imag(), b.d()};
+		return Quadratic<R>{a.real() + b.real(), b.imag(), b.d()};
 	if (b.imag() == 0)
-		return {a.real() + b.real(), a.imag(), a.d()};
-	assert(a.d() == b.d());
-	return {a.real() + b.real(), a.imag() + b.imag(), a.d()};
+		return Quadratic<R>{a.real() + b.real(), a.imag(), a.d()};
+	if (!(a.d() == b.d()))
+		return std::nullopt;
+	return Quadratic<R>{a.real() + b.real(), a.imag() + b.imag(), a.d()};
 }
 template <typename R>
-Quadratic<R> operator-(Quadratic<R> const &a, Quadratic<R> const &b)
+std::optional<Quadratic<R>> trySub(Quadratic<R> const &a, Quadratic<R> const &b)
 {
 	if (a.imag() == 0)
-		return {a.real() - b.real(), -b.imag(), b.d()};
+		return Quadratic<R>{a.real() - b.real(), -b.imag(), b.d()};
 	if (b.imag() == 0)
-		return {a.real() - b.real(), a.imag(), a.d()};
-	assert(a.d() == b.d());
-	return {a.real() - b.real(), a.imag() - b.imag(), a.d()};
+		return Quadratic<R>{a.real() - b.real(), a.imag(), a.d()};
+	if (!(a.d() == b.d()))
+		return std::nullopt;
+	return Quadratic<R>{a.real() - b.real(), a.imag() - b.imag(), a.d()};
 }
 template <typename R>
-Quadratic<R> operator*(Quadratic<R> const &a, Quadratic<R> const &b)
+std::optional<Quadratic<R>> tryMul(Quadratic<R> const &a, Quadratic<R> const &b)
 {
 	if (a.imag() == 0)
-		return {a.real() * b.real(), a.real() * b.imag(), b.d()};
+		return Quadratic<R>{a.real() * b.real(), a.real() * b.imag(), b.d()};
 	if (b.imag() == 0)
-		return {a.real() * b.real(), a.imag() * b.real(), a.d()};
-	assert(a.d() == b.d());
-	return {a.real() * b.real() + a.d() * a.imag() * b.imag(),
-	        a.real() * b.imag() + a.imag() * b.real(), a.d()};
+		return Quadratic<R>{a.real() * b.real(), a.imag() * b.real(), a.d()};
+	if (!(a.d() == b.d()))
+		return std::nullopt;
+	return Quadratic<R>{a.real() * b.real() + a.d() * a.imag() * b.imag(),
+	                    a.real() * b.imag() + a.imag() * b.real(), a.d()};
+}
+
+template <typename R>
+std::optional<Quadratic<R>> tryDiv(Quadratic<R> const &a, Quadratic<R> const &b)
+{
+	return tryMul(a, inverse(b));
+}
+
+// NOTE: .value() in noexcept function will std::terminate. this is intentional
+template <typename R>
+Quadratic<R> operator+(Quadratic<R> const &a, Quadratic<R> const &b) noexcept
+{
+	return tryAdd(a, b).value();
 }
 template <typename R>
-Quadratic<R> operator/(Quadratic<R> const &a, Quadratic<R> const &b)
+Quadratic<R> operator-(Quadratic<R> const &a, Quadratic<R> const &b) noexcept
 {
-	return a * inverse(b);
+	return trySub(a, b).value();
+}
+template <typename R>
+Quadratic<R> operator*(Quadratic<R> const &a, Quadratic<R> const &b) noexcept
+{
+	return tryMul(a, b).value();
+}
+template <typename R>
+Quadratic<R> operator/(Quadratic<R> const &a, Quadratic<R> const &b) noexcept
+{
+	return tryDiv(a, b).value();
 }
 
 // op-assigns
@@ -213,6 +268,8 @@ template <typename R> struct fmt::formatter<chalk::Quadratic<R>>
 	{
 		if (x.imag() == 0)
 			return format_to(ctx.out(), "{}", x.real());
+		else if (x.real() == 0)
+			return format_to(ctx.out(), "{}√{}", x.imag(), x.d());
 		else if (x.imag() < 0)
 			return format_to(ctx.out(), "{} - {}√{}", x.real(), -x.imag(),
 			                 x.d());
