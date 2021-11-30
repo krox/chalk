@@ -357,6 +357,38 @@ template <mpfr_prec_t M> bool operator!=(Floating<M> const &a, double b)
 	return !(a == b);
 }
 
+/** comparison Floating <-> int */
+template <mpfr_prec_t M> bool operator<(Floating<M> const &a, int b)
+{
+	return mpfr_cmp_si(a.f_, b) < 0; // 0 if a is NaN
+}
+template <mpfr_prec_t M> bool operator<=(Floating<M> const &a, int b)
+{
+	if (isnan(a))
+		return false;
+	return mpfr_cmp_si(a.f_, b) <= 0;
+}
+template <mpfr_prec_t M> bool operator==(Floating<M> const &a, int b)
+{
+	if (isnan(a))
+		return false;
+	return mpfr_cmp_si(a.f_, b) == 0;
+}
+template <mpfr_prec_t M> bool operator>=(Floating<M> const &a, int b)
+{
+	if (isnan(a))
+		return false;
+	return mpfr_cmp_si(a.f_, b) >= 0;
+}
+template <mpfr_prec_t M> bool operator>(Floating<M> const &a, int b)
+{
+	return mpfr_cmp_si(a.f_, b) > 0; // 0 if a is NaN
+}
+template <mpfr_prec_t M> bool operator!=(Floating<M> const &a, int b)
+{
+	return !(a == b);
+}
+
 /** comparison double <-> Floating */
 template <mpfr_prec_t M> bool operator<(double a, Floating<M> const &b)
 {

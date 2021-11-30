@@ -47,13 +47,17 @@ template <typename T> class Parser
 	util::Lexer lexer;
 
 	// NOTE: the 'std::less<>' enables heterogeneous lookup
-	using SymbolTable = std::map<std::string, T, std::less<>>;
+	using Function = std::function<T(std::vector<T> const &)>;
+	using VarTable = std::map<std::string, T, std::less<>>;
+	using FunTable = std::map<std::string, Function, std::less<>>;
 
 	using Tok = util::Tok;
 	using Token = util::Token;
 
   private:
-	SymbolTable const *symbolTable = nullptr;
+	VarTable const *varTable = nullptr;
+	FunTable const *funTable = nullptr;
+
 	T parsePrimary()
 	{
 		if (lexer.tryMatch(Tok::OpenParen))
@@ -74,21 +78,28 @@ template <typename T> class Parser
 		{
 			if (lexer.tryMatch(Tok::OpenParen)) // function call
 			{
-				if (tok->value == "sqrt")
-				{
-					auto r = sqrt(parseSum());
-					lexer.match(Tok::CloseParen);
-					return r;
-				}
-				else
-					throw util::ParseError(
-					    fmt::format("unknown function '{}'", tok->value));
+				if (funTable != nullptr)
+					if (auto it = funTable->find(tok->value);
+					    it != funTable->end())
+					{
+						std::vector<T> args;
+						while (!lexer.tryMatch(Tok::CloseParen))
+						{
+							args.push_back(parseSum());
+							if (!lexer.peek(Tok::CloseParen))
+								lexer.match(Tok::Comma);
+						}
+						return it->second(args);
+					}
+
+				throw util::ParseError(
+				    fmt::format("unknown function '{}'", tok->value));
 			}
 			else // variable / constant
 			{
-				if (symbolTable != nullptr)
-					if (auto it = symbolTable->find(tok->value);
-					    it != symbolTable->end())
+				if (varTable != nullptr)
+					if (auto it = varTable->find(tok->value);
+					    it != varTable->end())
 						return it->second;
 
 				throw util::ParseError(
@@ -140,8 +151,9 @@ template <typename T> class Parser
 
   public:
 	Parser() = default;
-	Parser(std::string_view source, SymbolTable const *symbols)
-	    : lexer(source), symbolTable(symbols){};
+	Parser(std::string_view source, VarTable const *vars, FunTable const *funs)
+	    : lexer(source), varTable(vars), funTable(funs)
+	{}
 
 	T parseExpression() { return parseSum(); }
 };
@@ -153,14 +165,30 @@ int main()
 
 	using_history();
 	read_history(historyFile);
-	Parser<Real>::SymbolTable symbolTable;
-	symbolTable["pi"] = Real::pi();
+
+	Parser<Real>::VarTable varTable;
+	varTable["pi"] = Real::pi();
+
+	Parser<Real>::FunTable funTable;
+	funTable["sqrt"] = [](std::vector<Real> const &args) {
+		if (args.size() != 1)
+			throw util::ParseError(
+			    "wrong number of arguments for function sqrt");
+		return sqrt(args[0]);
+	};
+	funTable["polyRoots"] = [](std::vector<Real> const &args) {
+		auto poly = Polynomial<Real>(args);
+		auto r = roots(poly);
+		for (auto const &x : r)
+			fmt::print("x = {}\n", x);
+		return Real(0);
+	};
 
 	while (auto line = getInput())
 	{
 		try
 		{
-			auto parser = Parser<Real>(*line, &symbolTable);
+			auto parser = Parser<Real>(*line, &varTable, &funTable);
 			while (!parser.lexer.empty())
 			{
 				if (parser.lexer.peek(util::Tok::Ident, util::Tok::Assign))
@@ -168,7 +196,7 @@ int main()
 					auto varname = parser.lexer.match(util::Tok::Ident).value;
 					parser.lexer.match(util::Tok::Assign);
 					auto val = parser.parseExpression();
-					symbolTable[std::string(varname)] = val;
+					varTable[std::string(varname)] = val;
 				}
 				else
 				{

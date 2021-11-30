@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fmt/format.h"
+#include "util/complex.h"
 #include <complex>
 
 namespace chalk {
@@ -40,6 +41,15 @@ template <typename T> struct RingTraits<std::complex<T>>
 	static bool isNegative(std::complex<T> const &value) { return false; }
 	static bool needParensProduct(std::complex<T> const &) { return true; }
 	static bool needParensPower(std::complex<T> const &) { return true; }
+};
+
+template <typename T> struct RingTraits<util::complex<T>>
+{
+	static bool isZero(util::complex<T> const &value) { return value == T(0); }
+	static bool isOne(util::complex<T> const &value) { return value == T(1); }
+	static bool isNegative(util::complex<T> const &value) { return false; }
+	static bool needParensProduct(util::complex<T> const &) { return true; }
+	static bool needParensPower(util::complex<T> const &) { return true; }
 };
 
 template <typename T> bool isZero(T const &value)

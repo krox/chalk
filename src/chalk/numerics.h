@@ -1,11 +1,62 @@
-#ifndef CHALK_NUMERICS_H
-#define CHALK_NUMERICS_H
+#pragma once
 
 #include "chalk/polynomial.h"
+#include "util/complex.h"
 #include <vector>
 
 namespace chalk {
 std::vector<double> roots(Polynomial<double> const &poly);
+
+// polynomial root finding using Durand–Kerner method
+// should work for float/double/Floating/...
+template <typename Real>
+std::vector<util::complex<Real>>
+rootsDurandKerner(Polynomial<util::complex<Real>> poly, Real const &eps)
+{
+	using Complex = util::complex<Real>;
+
+	if (poly.degree() == 0)
+		throw std::runtime_error("tried to compute zeros of a 0-polynomial");
+
+	// normalize the polynomial to avoid some weirdnesses
+	poly /= poly.coefficients().back();
+
+	// staring points: distribute over unit circle using golden ratio
+	auto phi = Complex(Real(-0.73736887807831990), Real(0.67549029426152364));
+	std::vector<Complex> r;
+	r.reserve(poly.degree());
+	r.push_back(phi);
+	for (int i = 1; i < poly.degree(); ++i)
+		r.push_back(r.back() * phi);
+
+	// refine using Newton method
+	int last_change = 0;
+	for (int iter = 0; iter <= last_change + 3; ++iter)
+	{
+		if (iter > 100)
+			throw std::runtime_error(
+			    "polynomial root finding did not converge (max iter)");
+
+		for (size_t i = 0; i < r.size(); ++i)
+		{
+			auto tmp = Complex(Real(1.0));
+			for (size_t j = 0; j < r.size(); ++j)
+				if (j != i)
+					tmp *= r[i] - r[j];
+			auto step = poly(r[i]) / tmp;
+			if (abs(step) > eps)
+				last_change = iter;
+			r[i] = r[i] - poly(r[i]) / tmp;
+		}
+	}
+
+	// another sanity check (also catches NaN)
+	for (auto &x : r)
+		if (!(abs(poly(x)) < 1.0e-12))
+			throw std::runtime_error(
+			    "polynomial root finding did not converge (weird result)");
+	return r;
+}
 
 /**
  * jacobi polynomial (d/dx)^k P_n^(α,β)(x)
@@ -79,5 +130,3 @@ struct LegendreRule
 LegendreRule computeLegendreQuadrature(int n);
 
 } // namespace chalk
-
-#endif
