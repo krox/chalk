@@ -130,7 +130,10 @@ std::vector<R> makeOrderConditions(Term const &f, int order = max_order)
 			checkRank(ev);
 		}
 		checkRank(ev, k);
-		ev = ev.mapCoefficients(CHALK_LIFT(wick_contract), "eta", R(2));
+		ev = ev.mapCoefficients(CHALK_LIFT(wick_contract), "eta1", R(2));
+		ev = ev.mapCoefficients(CHALK_LIFT(wick_contract), "eta2", R(2));
+		ev = ev.mapCoefficients(CHALK_LIFT(wick_contract), "eta3", R(2));
+		ev = ev.mapCoefficients(CHALK_LIFT(wick_contract), "eta4", R(2));
 
 		fmt::print("----- <f^{}> -----\n", k);
 		fmt::print("{}\n", ev);
@@ -171,40 +174,57 @@ template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
 int main()
 {
 	std::vector<R> ideal = {};
+	std::vector<R> nlo = {};
 
 	/** second order schemes */
-	if (false)
+	if (true)
 	{
-		ring.generator("k5", 100);
+		// ring.generator("", 100); // cA term first
 
 		/** the forces */
-		auto eta = Term(Covariant<R>(Indexed("eta", 1)));
+		auto eta1 = Term(Covariant<R>(Indexed("eta1", 1)));
+		auto eta2 = Term(Covariant<R>(Indexed("eta2", 1)));
 		auto S0 = Term(Covariant<R>(Indexed("S", 1)));
 
 		fmt::print("---------- Terms of the scheme ----------\n");
 
 		auto f1 = Term(0);
 		add_term(f1, "k1", S0, 2);
-		add_term(f1, "k2", eta, 1);
+		add_term(f1, "k2", eta1, 1);
+		add_term(f1, "k3", eta2, 1);
+		add_term(f1, "k6", comm(eta1, S0), 3);
+		add_term(f1, "k7", comm(eta2, S0), 3);
+		add_term(f1, "k8", eta1 * cA, 3);
+		add_term(f1, "k9", eta2 * cA, 3);
+		add_term(f1, "k10", S0 * cA, 4);
+
 		auto S1 = myTaylor(S0, -f1, 2 * max_order);
 
 		auto f2 = Term(0);
-		add_term(f2, "k3", S0, 2);
-		add_term(f2, "k4", S1, 2);
-		add_term(f2, "k5", S0 * cA, 4); // proportional to [eta,[eta,S0]]
-		add_term(f2, "1", eta, 1);      // scale setting
-		// add_term(f2, "k6", comm(eta, S0), 3);
-		// add_term(f2, "k7", comm(eta, S1), 3);
+		add_term(f2, "k4", S0, 2);
+		add_term(f2, "k5", S1, 2);
+		add_term(f2, "1", eta1, 1); // scale setting
+		add_term(f2, "k11", comm(S0, S1), 4);
+		add_term(f2, "k12", S0 * cA, 4);
+		add_term(f2, "k13", S1 * cA, 4);
 		auto f = f2;
 
 		append(ideal, makeOrderConditions(f, 2));
+		append(nlo, makeOrderConditions(f, 3));
 
-		ideal.push_back(ring("k3")); // Torrero condition
-		// ideal.push_back(ring("k3-1/2")); // BF condition
+		// ideal.push_back(ring("k3")); // no secondary noise
+		// ideal.push_back(ring("k4")); // Torrero condition
+		// ideal.push_back(ring("k1-1")); // BF condition
+
+		ideal.push_back(ring("k1-1"));       // buerger
+		ideal.push_back(ring("k2-5/6"));     // buerger
+		ideal.push_back(ring("k3^2-11/36")); // buerger
+		ideal.push_back(ring("k4-1/4"));     // buerger
+		ideal.push_back(ring("k5-3/4"));     // buerger
 	}
 
 	/** third order schemes */
-	if (true)
+	if (false)
 	{
 		/** the forces */
 		auto eta = Term(Covariant<R>(Indexed("eta", 1)));
@@ -306,24 +326,33 @@ int main()
 		append(ideal, makeOrderConditions(f3, 3));
 	}
 
-	fmt::print("\nresulting ideal (saved to ideal.singular)\n");
+	fmt::print("\n===== ideal (saved to ideal.singular) =====\n");
 	reduce(ideal);
 	groebner(ideal);
 	dump(ideal);
 	dump_singular(ideal, "ideal.singular");
 
-	fmt::print(
+	fmt::print("\n===== NLO =====\n");
+	for (auto &f : nlo)
+	{
+		reduce(f, ideal);
+		if (!(f == 0))
+			f /= f.lc();
+	}
+	dump(nlo);
+
+	/*fmt::print(
 	    "---------- Dependence of conditions on coefficients ----------\n");
 	for (int i = 0; i < (int)RANK; ++i)
 	{
-		fmt::print("----- {} -----\n", ring.var_names()[i]);
-		for (size_t j = 0; j < ideal.size(); ++j)
-		{
-			auto tmp = diff(ideal[j], i);
-			if (!(tmp == 0))
-				fmt::print("df{}/d{} = {}\n", j, ring.var_names()[i], tmp);
-		}
-	}
+	    fmt::print("----- {} -----\n", ring.var_names()[i]);
+	    for (size_t j = 0; j < ideal.size(); ++j)
+	    {
+	        auto tmp = diff(ideal[j], i);
+	        if (!(tmp == 0))
+	            fmt::print("df{}/d{} = {}\n", j, ring.var_names()[i], tmp);
+	    }
+	}*/
 
-	analyze_variety(change_ring<double>(ideal), {}, true);
+	// analyze_variety(change_ring<double>(ideal), {}, true);
 }

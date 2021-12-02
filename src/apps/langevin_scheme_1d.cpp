@@ -3,6 +3,7 @@
 #include "chalk/floating.h"
 #include "chalk/fraction.h"
 #include "chalk/ideal.h"
+#include "chalk/quadratic.h"
 #include "chalk/series.h"
 #include "chalk/sparse_polynomial.h"
 #include <cassert>
@@ -69,6 +70,8 @@ Term myTaylor(Term const &S, Term const &force, int degree)
 /** 1D 'wick contract' (just expectation values of normal distributions) */
 Term my_wick_contract(Term const &a, std::string const &eta)
 {
+	ring(eta); // workaroud for non-existent eta...
+
 	// NOTE: we assume Variance==2
 	return mapCoefficientsNested(
 	    [&eta](R const &poly) {
@@ -119,6 +122,8 @@ std::vector<R> makeOrderConditions(Term const &f, int order = max_order)
 			ev *= f;
 		ev = my_wick_contract(ev, "eta1");
 		ev = my_wick_contract(ev, "eta2");
+		ev = my_wick_contract(ev, "eta3");
+		ev = my_wick_contract(ev, "eta4");
 
 		fmt::print("----- <f^{}> -----\n", k);
 		fmt::print("{}\n", ev);
@@ -191,6 +196,28 @@ void analyze(std::vector<R> ideal, bool full = false)
 	}
 }
 
+std::vector<R> simplifyNLO(std::vector<R> const &nlo,
+                           std::vector<R> const &ideal)
+{
+	std::vector<R> r;
+
+	// NOTE: nlo conditions are overconstrained. Therefore, we only remove
+	//       exact duplicates, not linear combinations.
+	for (auto f : nlo)
+	{
+		reduce(f, ideal);
+		if (f == 0)
+			continue;
+		f /= f.lc();
+		for (auto const &g : r)
+			if (g == f)
+				goto next;
+		r.push_back(f);
+	next:;
+	}
+	return r;
+}
+
 int main()
 {
 	/** NOTE:
@@ -198,52 +225,15 @@ int main()
 	 *  the weight of a variable (for term-ordering), to force the gröbner-
 	 *  algorithm to solve for that variable first.
 	 */
-#if 0
-
-	/** the forces */
-	auto eta1 = ring("eta1");
-	auto eta2 = ring("eta2");
-	auto S0 = Term(Covariant<R>(Indexed("S'")));
-
-	fmt::print("---------- Terms of the scheme ----------\n");
-
-	auto f1 = Term(0);
-	add_term(f1, "a1", S0, 2);
-	add_term(f1, "b1", Term(Covariant<R>(eta1)), 1);
-	add_term(f1, "b2", Term(Covariant<R>(eta2)), 1);
-	auto S1 = myTaylor(S0, -f1, 2 * max_order);
-
-	auto f2 = Term(0);
-	add_term(f2, "a2", S0, 2);
-	add_term(f2, "a3", S1, 2);
-	add_term(f2, "1", Term(Covariant<R>(eta1)), 1);
-	// add_term(f2, "0", Term(Covariant<R>(eta2)), 1);
-	auto S2 = myTaylor(S0, -f2, 2 * max_order);
-
-	auto f3 = Term(0);
-	add_term(f3, "a4", S0, 2);
-	add_term(f3, "k7", S1, 2);
-	add_term(f3, "k8", S2, 2);
-	add_term(f3, "1", Term(Covariant<R>(eta1)), 1);
-	// add_term(f3, "b6", Term(Covariant<R>(eta2)), 1);
-	auto S3 = myTaylor(S0, -f3, 2 * max_order);
-
-	auto f4 = Term(0);
-	add_term(f4, "a7", S0, 2);
-	add_term(f4, "a8", S1, 2);
-	add_term(f4, "a9", S2, 2);
-	add_term(f4, "a10", S3, 2);
-	add_term(f4, "1", Term(Covariant<R>(eta1)), 1);
-	// add_term(f4, "b7", Term(Covariant<R>(eta2)), 1);
-#endif
 
 	// full order 2 (two noise terms)
-	if (true)
+	if (false)
 	{
 		// cleanest result (especially for NLO) for buerger2
 		ring.generator("k4", 1000);
 		ring.generator("k3", 900);
 		ring.generator("k2", 800);
+		ring.generator("k5", 700);
 
 		auto eta1 = ring("eta1");
 		auto eta2 = ring("eta2");
@@ -266,15 +256,43 @@ int main()
 		std::vector<R> ideal = {};
 		append(ideal, makeOrderConditions(f2, 2));
 
-		// generally, we have 2 dimensions left, and 3 independent NLO terms
+		// generally, we have 2 dimensions left, and 5 different NLO terms:
+		std::vector<R> errs;
+		errs.push_back(ring("0")); // 1-based indexing...
+		errs.push_back(ring("k2 - 1/2*k1 - 1/3"));
+		errs.push_back(
+		    ring("k2 - 1/3*k1^2*k5 - 4/3*k1*k5^2 + 4/3*k1*k5 - 1/2*k1 - 1/3"));
+		errs.push_back(
+		    ring("k2 - k1^2*k5 - 4*k1*k5^2 + 4*k1*k5 - 1/2*k1 - 1/3"));
+		errs.push_back(
+		    ring("k2 - 1/3*k1^2*k5 - 8/3*k1*k5^2 + 8/3*k1*k5 - 1/2*k1 - 1/3"));
+		errs.push_back(ring("k1*k5^2 - k1*k5"));
+
+		// possibilites:
+		// * vanish 1,2,3 -> one good solution (k2=0 <=> k3=0)
+		// * vanish 1,4 -> one solution with k1=2 (though no negative)
+		// * vanish 3,4 -> one good solution
+		// * vanish 5 ->
+		//     * either k1=0 -> nothing
+		//     * or k5=1,k4=0 -> still a little freedom left
+		//          -> errors are k1^2+const. minimizing subject to real k3
+		//             gives k3=0 -> torrero (+ one sporadic, with large nlos)
+
+		// ideal.push_back(errs[1]);
+		// ideal.push_back(errs[4]);
+		ideal.push_back(errs[5]);
+		ideal.push_back(ring("k5-1"));
+		ideal.push_back(ring("k3"));
+		// ideal.push_back(errs[4]);
+		// ideal.push_back(errs[5]);
 
 		// torrero: third NLO vanishing, second minimized
 		// ideal.push_back(ring("k5-1"));
 		// ideal.push_back(ring("k3"));
 
 		// buerger2: first+second NLO vanishing
-		ideal.push_back(ring("2*k2-k1-2/3"));
-		ideal.push_back(ring("k1-1"));
+		// ideal.push_back(ring("2*k2-k1-2/3"));
+		// ideal.push_back(ring("k1-1"));
 
 		groebner(ideal);
 
@@ -284,35 +302,80 @@ int main()
 		for (auto &f : ideal)
 			fmt::print("{}\n", f);
 		fmt::print("===== NLO =====\n");
-		for (auto &f : nlo)
+		dump(simplifyNLO(nlo, ideal));
+
+		fmt::print("===== nlo error terms =====\n");
+		for (int i = 1; i < (int)errs.size(); ++i)
 		{
+			auto &f = errs[i];
 			reduce(f, ideal);
-			fmt::print("{}\n", f);
+			if (!(f == 0))
+				f /= f.lc();
+			fmt::print("e{} = {}\n", i, f);
 		}
 
 		analyze_variety(change_ring<Real>(ideal), {}, true);
 	}
 
-#if 0
-	// order 3 buerger
-	if (false)
+	// order 3, three noises
+	if (true)
 	{
-		// only main condition: 1D variety, does not imply torrero
-		// with torrero: still 1D
-		// with 1st-order consistent f1: still 1D
-		// with both:  0 dimensions, which also imply 2nd order f2
+		ring.generator("k9", 1000);
+
+		auto eta1 = ring("eta1");
+		auto eta2 = ring("eta2");
+		auto eta3 = ring("eta3");
+		auto S0 = Term(Covariant<R>(Indexed("S'")));
+
+		fmt::print("---------- Terms of the scheme ----------\n");
+
+		auto f1 = Term(0);
+		add_term(f1, "k1", S0, 2);
+		add_term(f1, "k2", Term(Covariant<R>(eta1)), 1);
+		add_term(f1, "k3", Term(Covariant<R>(eta2)), 1);
+		add_term(f1, "k4", Term(Covariant<R>(eta3)), 1);
+		auto S1 = myTaylor(S0, -f1, 2 * max_order);
+
+		auto f2 = Term(0);
+		add_term(f2, "k5", S0, 2);
+		add_term(f2, "k6", S1, 2);
+		add_term(f2, "k7", Term(Covariant<R>(eta1)), 1);
+		add_term(f2, "k8", Term(Covariant<R>(eta2)), 1);
+		auto S2 = myTaylor(S0, -f2, 2 * max_order);
+
+		auto f3 = Term(0);
+		add_term(f3, "k9", S0, 2);
+		add_term(f3, "k10", S1, 2);
+		add_term(f3, "k11", S2, 2);
+		add_term(f3, "1", Term(Covariant<R>(eta1)), 1);
+		auto S3 = myTaylor(S0, -f3, 2 * max_order);
+
 		std::vector<R> ideal = {};
-		append(ideal, makeOrderConditions(f1, 1));
-		append(ideal, makeOrderConditions(f2, 1));
 		append(ideal, makeOrderConditions(f3, 3));
-		// ideal.push_back(ring("a4+a5+a6-1")); // scale setting
-		// ideal.push_back(ring("a5"));         // torrero condition
-		// ideal.push_back(ring("b2"));         // no secondary noise
-		// ideal.push_back(ring("b4"));         // ditto
-		// ideal.push_back(ring("b6"));         // ditto
-		analyze(ideal);
+
+		// some constraints for non-zero coeffs (purely an optimization)
+		// ideal.push_back(ring("k1*k1inv-1"));
+		// ideal.push_back(ring("k11*k11inv-1"));
+
+		// 5 dimensions left. with k11!= 0 only 4 dim !?
+
+		reduce(ideal);
+
+		auto nlo = makeOrderConditions(f2, 4);
+
+		fmt::print("===== order conditions =====\n");
+		dump(ideal);
+		dump_singular(ideal, "ideal.singular");
+		dump_maple(ideal, "ideal.maple");
+
+		fmt::print("===== NLO =====\n");
+
+		dump(nlo);
+
+		// analyze_variety(change_ring<Real>(ideal), {}, true);
 	}
 
+#if 0
 	// order 4 buerger
 	if (false)
 	{
