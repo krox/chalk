@@ -21,18 +21,6 @@ auto high = Real(9.0); // only ~2^-64 of pdf is outside of 9-sigma
 
 int main()
 {
-	/**
-	NOTES:
-	This uses a simple Newton algorithm (with some stabilization) to make all
-	areas equal size. Therefore eventual convergence is quick, but overall it
-	is still quite slow because:
-	    * the starting values (equal spacing) are kinda bad
-	    * we ask Eigen for a dense matrix decomposition, even though the
-	      matrix has a narrow band-structure
-	    * we do everything in MPFR, even before we converged at all
-	All of these points could be improved, but do we actually care?
-	*/
-
 	// first guess: equal spacing (x(0) and x(n) will stay fixed of course)
 	Vector x = Vector::Zero(n + 1);
 	for (int i = 0; i <= n; ++i)
@@ -76,12 +64,21 @@ int main()
 		Vector x_new = x;
 		x_new.segment(1, n - 1) -= M.colPivHouseholderQr().solve(v);
 
-		// for stability, clamp new values proportional to old
+		// For stability, clamp new values do old neighboring values.
+		// This forces the x to stay well ordered as x(0) < x(1) < ... < x(n)
+		// This step is cruciual to get right because
+		//     * without clamping, the solution will diverge for equally-spaced
+		//       starting values
+		//     * with naive (overly strict) clamping, convergence will be
+		//       painfully slow (at least for large n)
 		for (int i = 1; i < n; ++i)
-			x(i) = min(max(x_new(i), (x(i - 1) + 2 * x(i)) / 3),
-			           (x(i + 1) + 2 * x(i)) / 3);
+			x(i) = min(max(x_new(i), (99. * x(i - 1) + x(i + 1)) / 100.),
+			           (99. * x(i + 1) + x(i - 1)) / 100.);
+		for (int i = n - 1; i > 0; --i)
+			x(i) = min(max(x_new(i), (99. * x(i - 1) + x(i + 1)) / 100.),
+			           (99. * x(i + 1) + x(i - 1)) / 100.);
 
-		if (error < 1.0e-12)
+		if (error < 1.0e-40)
 			break;
 	}
 
