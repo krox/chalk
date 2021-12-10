@@ -14,7 +14,8 @@ static constexpr size_t RANK = 36;
 using R = SparsePolynomial<Rational, RANK>;
 auto ring = PolynomialRing<Rational, RANK>();
 
-// terms of the transition operator */
+// terms of the transition operator
+bool abelian = false; // if true, set cA and structure constant to zero
 static constexpr int max_order = 3;
 using Term = Series<Covariant<R>, max_order * 2>;
 auto seps = Term::generator(); // sqrt(epsilon)
@@ -158,11 +159,45 @@ std::vector<R> makeOrderConditions(Term const &f, int order = max_order)
 	for (int k = 0; k <= order; ++k)
 	{
 		fmt::print("---------- T^({})e^-S ----------\n", k);
-		dump_summary(full_condition[2 * k]);
+		// dump_summary(full_condition[2 * k]);
 		for (auto term : full_condition[2 * k].terms())
+		{
+			bool skip = false;
+			if (abelian)
+				for (auto const &atom : term.index.atoms())
+					if (atom.symbol == "f" || atom.symbol == "cA")
+						skip = true;
+			if (skip)
+				continue;
+
 			ideal.push_back(term.coefficient);
+			fmt::print("{} :: {} + ... ( {} terms total )\n", term.index,
+			           term.coefficient.lm(), term.coefficient.terms().size());
+		}
 	}
 	return ideal;
+}
+
+std::vector<R> simplifyNLO(std::vector<R> const &nlo,
+                           std::vector<R> const &ideal)
+{
+	std::vector<R> r;
+
+	// NOTE: nlo conditions are overconstrained. Therefore, we only remove
+	//       exact duplicates, not linear combinations.
+	for (auto f : nlo)
+	{
+		reduce(f, ideal);
+		if (f == 0)
+			continue;
+		f /= f.lc();
+		for (auto const &g : r)
+			if (g == f)
+				goto next;
+		r.push_back(f);
+	next:;
+	}
+	return r;
 }
 
 template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
@@ -173,30 +208,61 @@ template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
 
 int main()
 {
+	int order = 2;
+	abelian = false;
+
 	std::vector<R> ideal = {};
 	std::vector<R> nlo = {};
+	std::vector<R> errs = {};
 
-	/** second order schemes */
-	if (true)
+	// second order, two noises
+	if (order == 2)
 	{
-		// ring.generator("", 100); // cA term first
+		// NOTE: abelian and 1D are only equivalent to second order.
+		//       (so it even breaks for two-step NLO)
 
-		/** the forces */
+		// general abalian constraints:
+		// f0 = k2^2 + k3^2 - k1         // eliminates k2 (only exists squared)
+		// f1 = k2*k5 - 1/2*k5*k1 - 1/4  // eliminates ???
+		// f2 = k4 + k5 - 1              // eliminates k4
+
+		// abelian NLO:
+		// E0 = k2 - 1/2*k1 - 1/3
+		// E1 = k5^2*k1 - 3/4*k2 + 1/4*k5*k1^2 - k5*k1 + 3/8*k1 + 1/4
+		// E2 = k5^2*k1 - k5*k1
+		// E3 = k5^2*k1 - 1/2*k2 + 1/2*k5*k1^2 - k5*k1 + 1/4*k1 + 1/6
+
+		// rewritten
+		// E0 = k2 - 1/2*k1 - 1/3
+		// E1 = E2 - 3/4*E0 + 1/4*k5*k1^2
+		// E2 = k5*(k5-1)*k1
+		// E3 = E2 - 1/2*E0 + 1/2*k5*k1^2
+
+		// cleanest result (especially for NLO)
+		ring.generator("k4", 100);
+		ring.generator("k3", 90);
+		ring.generator("k2", 80);
+		ring.generator("k5", 70);
+		ring.generator("k1", 10);
+
+		// the basic building blocks
 		auto eta1 = Term(Covariant<R>(Indexed("eta1", 1)));
 		auto eta2 = Term(Covariant<R>(Indexed("eta2", 1)));
 		auto S0 = Term(Covariant<R>(Indexed("S", 1)));
 
 		fmt::print("---------- Terms of the scheme ----------\n");
 
+		// NOTE: * for second order, we dont need explicit commutators,
+		//         so we dont even consider them
+		//       * also, we dont consider terms that contribute just to NLO
+		//       * finally, take the S0/S1 terms in the same proportion as
+		//         S0*cA / S1*cA. This makes the non-abelian stuff unique
+		//         for all cases
+
 		auto f1 = Term(0);
 		add_term(f1, "k1", S0, 2);
 		add_term(f1, "k2", eta1, 1);
 		add_term(f1, "k3", eta2, 1);
-		add_term(f1, "k6", comm(eta1, S0), 3);
-		add_term(f1, "k7", comm(eta2, S0), 3);
-		add_term(f1, "k8", eta1 * cA, 3);
-		add_term(f1, "k9", eta2 * cA, 3);
-		add_term(f1, "k10", S0 * cA, 4);
 
 		auto S1 = myTaylor(S0, -f1, 2 * max_order);
 
@@ -204,142 +270,117 @@ int main()
 		add_term(f2, "k4", S0, 2);
 		add_term(f2, "k5", S1, 2);
 		add_term(f2, "1", eta1, 1); // scale setting
-		add_term(f2, "k11", comm(S0, S1), 4);
-		add_term(f2, "k12", S0 * cA, 4);
-		add_term(f2, "k13", S1 * cA, 4);
-		auto f = f2;
+		add_term(f2, "k4*k6", S0 * cA, 4);
+		add_term(f2, "k5*k6", S1 * cA, 4);
 
-		append(ideal, makeOrderConditions(f, 2));
-		append(nlo, makeOrderConditions(f, 3));
+		append(ideal, makeOrderConditions(f2, 2));
+		append(nlo, makeOrderConditions(f2, 3));
 
-		// ideal.push_back(ring("k3")); // no secondary noise
-		// ideal.push_back(ring("k4")); // Torrero condition
-		// ideal.push_back(ring("k1-1")); // BF condition
+		// make "k1 != 0" explicit. this removes some spurious imaginary-noise
+		// solutions and might make groebner faster...
 
-		ideal.push_back(ring("k1-1"));       // buerger
-		ideal.push_back(ring("k2-5/6"));     // buerger
-		ideal.push_back(ring("k3^2-11/36")); // buerger
-		ideal.push_back(ring("k4-1/4"));     // buerger
-		ideal.push_back(ring("k5-3/4"));     // buerger
+		ideal.push_back(ring("k1*k1inv-1"));
+
+		errs.push_back(ring("k2 - 1/2*k1 - 1/3"));
+		errs.push_back(
+		    ring("k5^2*k1 - 3/4*k2 + 1/4*k5*k1^2 - k5*k1 + 3/8*k1 + 1/4"));
+		errs.push_back(ring("k5^2*k1 - k5*k1"));
+		errs.push_back(
+		    ring("k5^2*k1 - 1/2*k2 + 1/2*k5*k1^2 - k5*k1 + 1/4*k1 + 1/6"));
+
+		// abelian schemes:
+		//   * set e2=0 -> no other vanishing possible
+		//              -> other errors are of the form k1^2 + const
+		//              -> minimized by k3=k4=0
+		//              -> torrero (0.086 | 0 + 1)
+		//              -> (also one weird real but >1 solution...)
+		//   * B2a: set e0=0, e1=0 -> one solution (1.0 | 0.25 + 0.75)
+		//   * B2b: set e0=0, e3=0 -> one solution (0.5 | 0.25 + 0.75)
+		//   * B2c: set e1=0, e3=0 -> one solution (0.183 | 0.183 + 0.817)
+
+		// torrero
+		// ideal.push_back(errs[2]);
+		// ideal.push_back(ring("k3"));
+
+		// B2a
+		// ideal.push_back(errs[0]);
+		// ideal.push_back(errs[1]);
+
+		// B2b
+		// ideal.push_back(errs[0]);
+		// ideal.push_back(errs[3]);
+
+		// B2c
+		// ideal.push_back(errs[1]);
+		// ideal.push_back(errs[3]);
 	}
 
-	/** third order schemes */
-	if (false)
+	else if (order == 3)
 	{
-		/** the forces */
-		auto eta = Term(Covariant<R>(Indexed("eta", 1)));
+		// NOTE:
+		// * single noise implies first-order condition for aux steps,
+		//   multi-noise does not
+		// * abelian single-noise is 1D
+		// * abelian multi-noise can be done by Singular, 5 dims left
+		//    - weird, because it only has 3 more vars than single-noise
+		//    - somehow, removing k2 removes 2 dims
+
+		auto eta1 = Term(Covariant<R>(Indexed("eta1", 1)));
+		auto eta2 = Term(Covariant<R>(Indexed("eta2", 1)));
+		auto eta3 = Term(Covariant<R>(Indexed("eta3", 1)));
 		auto S0 = Term(Covariant<R>(Indexed("S", 1)));
 
 		fmt::print("---------- Terms of the scheme ----------\n");
 
 		auto f1 = Term(0);
 		add_term(f1, "k1", S0, 2);
-		// add_term(f1, "k2", comm(eta, eta, S0), 4);
-		add_term(f1, "k3", eta, 1);
-		// add_term(f1, "k4", comm(eta, S0), 3);
+		add_term(f1, "k2", eta1, 1);
+		// add_term(f1, "k3", eta2, 1);
+		// add_term(f1, "k4", eta3, 1);
 		auto S1 = myTaylor(S0, -f1, 2 * max_order);
 
 		auto f2 = Term(0);
-		add_term(f2, "k5", S0, 2); // primitive!
+		add_term(f2, "k5", S0, 2);
 		add_term(f2, "k6", S1, 2);
-		add_term(f2, "k7", S0 * cA, 4); // [eta,eta,S0]
-		add_term(f2, "k8", eta, 1);
-		// add_term(f2, "k9", comm(eta, S0), 3);
-		// add_term(f2, "k10", comm(eta, S1), 3);
+		add_term(f2, "k7", eta1, 1);
+		// add_term(f2, "k8", eta2, 1);
 		auto S2 = myTaylor(S0, -f2, 2 * max_order);
 
 		// even terms
 		auto f3 = Term(0);
-		add_term(f3, "k11", S0, 2);
-		// add_term(f3, "k12", S1, 2); // torrero
-		add_term(f3, "k13", S2, 2);
-		// add_term(f3, "k14", comm(S0, S1), 4);
+		add_term(f3, "k9", S0, 2);
+		add_term(f3, "k10", S1, 2); // torrero
+		add_term(f3, "k11", S2, 2);
+		add_term(f3, "1", eta1, 1); // scale setting
 
-		// add_term(f3, "k16", comm(S1, S2), 4);
-		add_term(f3, "k17", cA * S0, 4); // [eta,eta,S0]
-		// add_term(f3, "k18", cA * S1, 4);        // [eta,eta,S1]
-		add_term(f3, "k19", S2 * cA, 4);        // [eta,eta,S2]
-		add_term(f3, "k20", S0 * (cA * cA), 6); // [eta,eta,eta,eta,S0]
-		add_term(f3, "1", eta, 1);              // scale setting
-
-		// add_term(f3, "k22", comm(eta, S1), 3);
-
-		// add_term(f3, "k24", comm(eta, eta, eta, S0), 5);
-		// add_term(f3, "k25", comm(eta, eta, eta, S1), 5);
-		// add_term(f3, "k26", comm(eta, eta, eta, S2), 5);
-		// add_term(f3, "k27", comm(S0, eta, S1), 5);
-		// add_term(f3, "k28", comm(S0, eta, S2), 5);
-		// add_term(f3, "k29", comm(S1, eta, S2), 5);
-
-		// add_term(f3, "k31", comm(S1, eta, S1), 5);
-		// add_term(f3, "k32", comm(S2, eta, S2), 5);
-		// add_term(f3, "k33", comm(eta, S0, S1), 5);
-		// add_term(f3, "k34", comm(eta, S0, S2), 5);
-		// add_term(f3, "k35", comm(eta, S1, S2), 5);
-
-		// add_term(f3, "k15", comm(S0, S2), 4);
-		// add_term(f3, "k21", comm(S0, eta), 3);
-		// add_term(f3, "k23", comm(eta, S2), 3);
-		add_term(f3, "k30", comm(S0, S0, eta), 5);
-
-		// MORE MISSING eps^5/2 TERMS. (probabaly some duplicates/linear
-		// combinations)
-
-		// discussion:
-		// we impose the commutative solution (torrero + local consistency)
-		// remove k14,16,18,22,25,27,29,31,33,35 as 'generalized torrero'
-		// - k7,17,18,19,20 are proportional to cA/cA^2
-		// - k24 does not contribute (this is general actually)
-		// - k2,4 do not contribute
-		// - k28,30 are the same
-		// now still 7 dims left
-		// - remove commutators from intermediate steps (9,10,32,34)
-		// now 3 dims left
-		// - 4 terms with commutators left (15,21,23,30), three can be removed
-		//    * keeping k23 leads to negative and complex coeffs
-		//    * the other three seem to work and even coincide in other coeffs
-		//    * keeping k30 is the scheme we chose in the past
-
-		// old notes:
-		//   - k27 = k28 = k30 (exactly)
-		//   - k29 = k31 = k32 (k31/29 with 'k3', and k32 with 'k8' factor)
-		//   - k33 = k34 = k35 (with k3,k8,(-k3-k8) respectively)
-		//   - k30 = k31 = k33 (with '1','-k3+1','k3' factors respectively)
-		//   - k4 = k9 = k14 (with k12+2*k22, k13+2*k23, -1 respectively)
-		//   - k14 = k30 (with k3, 2 as factors)
-		//   - In the commutative case, the torrero-style exists uniquely,
-		//     so we set here k12=0 as well
-		//   - k10 contributes as combination of k7 an k30, so remove it
-		//   - k20 is the 'cA^2' term we expect from dimensional analysis.
-		//   - k14/15/16 are essentially equivalent (appear with k3, k8, k3+k8
-		//     respectively). So only one is enough.
-		//   - k24 does not contribute at all, and k25/26 are equivalent, so one
-		//   is
-		//     enough. Furthermore, it only contributes as
-		//     'eps^3*cA^2*{k3,k8}*S0' term in <f> (and not in <f^2> at all). So
-		//     it can be removed completely by rescaling rescaling epsilon as s'
-		//     = s + # cA^2 s^5.
-		//   - k31/32 are equivalent (appear with k3/k8 respectively)
-
-		append(ideal, makeOrderConditions(f1, 1));
-		append(ideal, makeOrderConditions(f2, 2));
+		// append(ideal, makeOrderConditions(f1, 1));
+		// append(ideal, makeOrderConditions(f2, 2));
 		append(ideal, makeOrderConditions(f3, 3));
+	}
+
+	else
+	{
+		fmt::print("ERROR: invalid order = {}\n", order);
+		return -1;
 	}
 
 	fmt::print("\n===== ideal (saved to ideal.singular) =====\n");
 	reduce(ideal);
+	dump_singular(ideal, "ideal.singular");
 	groebner(ideal);
 	dump(ideal);
-	dump_singular(ideal, "ideal.singular");
 
 	fmt::print("\n===== NLO =====\n");
-	for (auto &f : nlo)
-	{
-		reduce(f, ideal);
-		if (!(f == 0))
-			f /= f.lc();
-	}
+	nlo = simplifyNLO(nlo, ideal);
 	dump(nlo);
+
+	fmt::print("\n===== errors =====\n");
+	for (size_t i = 0; i < errs.size(); ++i)
+	{
+		auto e = errs[i];
+		reduce(e, ideal);
+		fmt::print("e{} = {}\n", i, e);
+	}
 
 	/*fmt::print(
 	    "---------- Dependence of conditions on coefficients ----------\n");
@@ -354,5 +395,5 @@ int main()
 	    }
 	}*/
 
-	// analyze_variety(change_ring<double>(ideal), {}, true);
+	analyze_variety(change_ring<double>(ideal), {}, true);
 }
