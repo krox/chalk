@@ -19,18 +19,7 @@ template <typename R> class Fraction
 
 	void reduce()
 	{
-		R g = gcd(num_, denom_);
-		num_ /= g;
-		denom_ /= g;
-		if (isNegative(denom_))
-		{
-			num_ = -num_;
-			denom_ = -denom_;
-		}
-
-		// makes sure that Fraction<int128_t> does not overflow
-		// assert(INT64_MIN < num_ && num_ < INT64_MAX);
-		// assert(INT64_MIN < denom_ && denom_ < INT64_MAX);
+		removeCommonFactor(denom_, num_); // also makes denom_ positive
 	}
 
   public:

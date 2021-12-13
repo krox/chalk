@@ -16,7 +16,7 @@ auto ring = PolynomialRing<Rational, RANK>();
 
 // terms of the transition operator
 bool abelian = false; // if true, set cA and structure constant to zero
-static constexpr int max_order = 3;
+static constexpr int max_order = 4;
 using Term = Series<Covariant<R>, max_order * 2>;
 auto seps = Term::generator(); // sqrt(epsilon)
 auto eps = seps * seps;
@@ -208,8 +208,8 @@ template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
 
 int main()
 {
-	int order = 2;
-	abelian = false;
+	int order = 3;
+	abelian = true;
 
 	std::vector<R> ideal = {};
 	std::vector<R> nlo = {};
@@ -313,17 +313,20 @@ int main()
 		// B2c
 		// ideal.push_back(errs[1]);
 		// ideal.push_back(errs[3]);
+
+		reduce(ideal);
+		groebner(ideal);
 	}
 
 	else if (order == 3)
 	{
-		// NOTE:
-		// * single noise implies first-order condition for aux steps,
-		//   multi-noise does not
-		// * abelian single-noise is 1D
-		// * abelian multi-noise can be done by Singular, 5 dims left
-		//    - weird, because it only has 3 more vars than single-noise
-		//    - somehow, removing k2 removes 2 dims
+		// NOTE on abelian case
+		// * single noise:
+		//     - implies first-order condition for aux steps, 1D left
+		// * three noises:
+		//     - 5D left, (example independent set k3,5,6,7,8)
+		//     - does NOT imply first-order for aux steps
+		//     - dimension is weird because it has 3 more vars than single-noise
 
 		auto eta1 = Term(Covariant<R>(Indexed("eta1", 1)));
 		auto eta2 = Term(Covariant<R>(Indexed("eta2", 1)));
@@ -335,27 +338,81 @@ int main()
 		auto f1 = Term(0);
 		add_term(f1, "k1", S0, 2);
 		add_term(f1, "k2", eta1, 1);
-		// add_term(f1, "k3", eta2, 1);
-		// add_term(f1, "k4", eta3, 1);
+		add_term(f1, "k3", eta2, 1);
+		add_term(f1, "k4", eta3, 1);
 		auto S1 = myTaylor(S0, -f1, 2 * max_order);
 
 		auto f2 = Term(0);
 		add_term(f2, "k5", S0, 2);
 		add_term(f2, "k6", S1, 2);
 		add_term(f2, "k7", eta1, 1);
-		// add_term(f2, "k8", eta2, 1);
+		add_term(f2, "k8", eta2, 1);
 		auto S2 = myTaylor(S0, -f2, 2 * max_order);
 
 		// even terms
 		auto f3 = Term(0);
 		add_term(f3, "k9", S0, 2);
-		add_term(f3, "k10", S1, 2); // torrero
+		add_term(f3, "k10", S1, 2); // torrero-like
 		add_term(f3, "k11", S2, 2);
 		add_term(f3, "1", eta1, 1); // scale setting
 
 		// append(ideal, makeOrderConditions(f1, 1));
 		// append(ideal, makeOrderConditions(f2, 2));
 		append(ideal, makeOrderConditions(f3, 3));
+
+		reduce(ideal);
+		// groebner(ideal); // too slow, use Singular/Maple instead
+	}
+
+	else if (order == 4)
+	{
+		// NOTE on abelian case:
+		// * 4 steps with 4 noises have no solution at all
+		//   (the old numerival solution must have been a 1D fluke)
+
+		auto eta1 = Term(Covariant<R>(Indexed("eta1", 1)));
+		auto eta2 = Term(Covariant<R>(Indexed("eta2", 1)));
+		auto eta3 = Term(Covariant<R>(Indexed("eta3", 1)));
+		auto eta4 = Term(Covariant<R>(Indexed("eta3", 1)));
+		auto S0 = Term(Covariant<R>(Indexed("S", 1)));
+
+		fmt::print("---------- Terms of the scheme ----------\n");
+
+		auto f1 = Term(0);
+		add_term(f1, "k1", S0, 2);
+		add_term(f1, "k2", eta1, 1);
+		add_term(f1, "k3", eta2, 1);
+		add_term(f1, "k4", eta3, 1);
+		add_term(f1, "k5", eta4, 1);
+		auto S1 = myTaylor(S0, -f1, 2 * max_order);
+
+		auto f2 = Term(0);
+		add_term(f2, "k6", S0, 2);
+		add_term(f2, "k7", S1, 2);
+		add_term(f2, "k8", eta1, 1);
+		add_term(f2, "k9", eta2, 1);
+		add_term(f2, "k10", eta3, 1);
+		auto S2 = myTaylor(S0, -f2, 2 * max_order);
+
+		auto f3 = Term(0);
+		add_term(f3, "k11", S0, 2);
+		add_term(f3, "k12", S1, 2);
+		add_term(f3, "k13", S2, 2);
+		add_term(f3, "k14", eta1, 1);
+		add_term(f3, "k15", eta2, 1);
+		auto S3 = myTaylor(S0, -f3, 2 * max_order);
+
+		auto f4 = Term(0);
+		add_term(f4, "k16", S0, 2);
+		add_term(f4, "k17", S1, 2);
+		add_term(f4, "k18", S2, 2);
+		add_term(f4, "k19", S3, 2);
+		add_term(f4, "1", eta1, 1);
+
+		append(ideal, makeOrderConditions(f4, 4));
+
+		reduce(ideal);
+		groebner(ideal);
 	}
 
 	else
@@ -365,9 +422,8 @@ int main()
 	}
 
 	fmt::print("\n===== ideal (saved to ideal.singular) =====\n");
-	reduce(ideal);
 	dump_singular(ideal, "ideal.singular");
-	groebner(ideal);
+	dump_maple(ideal, "ideal.maple");
 	dump(ideal);
 
 	fmt::print("\n===== NLO =====\n");
@@ -381,19 +437,6 @@ int main()
 		reduce(e, ideal);
 		fmt::print("e{} = {}\n", i, e);
 	}
-
-	/*fmt::print(
-	    "---------- Dependence of conditions on coefficients ----------\n");
-	for (int i = 0; i < (int)RANK; ++i)
-	{
-	    fmt::print("----- {} -----\n", ring.var_names()[i]);
-	    for (size_t j = 0; j < ideal.size(); ++j)
-	    {
-	        auto tmp = diff(ideal[j], i);
-	        if (!(tmp == 0))
-	            fmt::print("df{}/d{} = {}\n", j, ring.var_names()[i], tmp);
-	    }
-	}*/
 
 	analyze_variety(change_ring<double>(ideal), {}, true);
 }
