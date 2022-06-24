@@ -1,3 +1,5 @@
+#if 0
+
 #include "chalk/symbolic.h"
 
 namespace chalk {
@@ -249,3 +251,5 @@ ExpressionPtr make_function(std::string_view name,
 }
 
 } // namespace chalk
+
+#endif

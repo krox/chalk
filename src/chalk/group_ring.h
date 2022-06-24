@@ -3,6 +3,7 @@
 #include "chalk/free_group.h"
 #include "chalk/rings.h"
 #include "fmt/format.h"
+#include <algorithm>
 #include <vector>
 
 namespace chalk {
@@ -280,10 +281,7 @@ template <typename R, typename G> void dump_summary(Multinomial<R, G> const &a)
 
 template <typename R, typename G> struct RingTraits<Multinomial<R, G>>
 {
-	static bool isZero(Multinomial<R, G> const &a)
-	{
-		return a.terms().empty();
-	}
+	static bool isZero(Multinomial<R, G> const &a) { return a.terms().empty(); }
 	static bool isOne(Multinomial<R, G> const &a) { return a == 1; }
 	static bool isNegative(Multinomial<R, G> const &) { return false; }
 

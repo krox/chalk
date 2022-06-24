@@ -1,3 +1,5 @@
+#if 0
+
 #ifndef CHALK_SYMBOLIC_H
 #define CHALK_SYMBOLIC_H
 
@@ -134,5 +136,7 @@ struct fmt::formatter<chalk::Expression> : fmt::formatter<std::string>
 		return format_to(ctx.out(), ex.to_string());
 	}
 };
+
+#endif
 
 #endif

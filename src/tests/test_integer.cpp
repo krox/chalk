@@ -39,11 +39,11 @@ TEST(NumberTheory, Primes)
 	{
 		if (n == ps[k])
 		{
-			ASSERT_TRUE(isPrime(n));
+			ASSERT_TRUE(is_prime(n));
 			++k;
 		}
 		else
-			ASSERT_FALSE(isPrime(n));
+			ASSERT_FALSE(is_prime(n));
 	}
 }
 
@@ -71,7 +71,7 @@ TEST(NumberTheory, Factorization)
 
 			for (auto f : fs)
 			{
-				assert(isPrime(f));
+				assert(is_prime(f));
 				m *= f;
 			}
 			EXPECT_EQ(m, n);

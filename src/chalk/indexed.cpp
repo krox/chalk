@@ -1,5 +1,7 @@
 #include "chalk/indexed.h"
 
+#include "util/hash_map.h"
+
 namespace chalk {
 
 bool operator==(IndexedAtom const &a, IndexedAtom const &b)
@@ -152,8 +154,8 @@ void sort_atoms(std::vector<IndexedAtom> &atoms)
 int rename_indices(std::vector<IndexedAtom> &atoms)
 {
 	// in which atoms (1 or 2) does each index occur?
-	absl::flat_hash_map<int, absl::InlinedVector<int, 2>> occs;
-	absl::flat_hash_map<int, int> global_pos;
+	util::hash_map<int, util::small_vector<int, 2>> occs;
+	util::hash_map<int, int> global_pos;
 	int pos = 0;
 	for (size_t i = 0; i < atoms.size(); ++i)
 		for (int k : atoms[i].indices)
@@ -164,8 +166,8 @@ int rename_indices(std::vector<IndexedAtom> &atoms)
 		}
 
 	// list variables by (first atom, second atom, global pos, old name)
-	absl::InlinedVector<int, 4> open_indices;
-	absl::InlinedVector<std::tuple<int, int, int, int>, 4> inner_indices;
+	util::small_vector<int, 4> open_indices;
+	util::small_vector<std::tuple<int, int, int, int>, 4> inner_indices;
 	for (auto &[k, occ] : occs)
 	{
 		if (occ.size() == 1)
@@ -180,7 +182,7 @@ int rename_indices(std::vector<IndexedAtom> &atoms)
 
 	// translate all indices
 	int counter = 0;
-	absl::flat_hash_map<int, int> trans;
+	util::hash_map<int, int> trans;
 	for (int k : open_indices)
 		trans[k] = counter++;
 	for (auto &[first, second, global, old] : inner_indices)

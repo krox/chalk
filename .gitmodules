@@ -1,9 +1,6 @@
 [submodule "util"]
 	path = util
 	url = git@github.com:krox/util
-[submodule "abseil-cpp"]
-	path = abseil-cpp
-	url = git@github.com:abseil/abseil-cpp
 [submodule "googletest"]
 	path = googletest
 	url = git@github.com:google/googletest.git

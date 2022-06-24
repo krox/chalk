@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 
 		bool composite = false;
 		for (auto base : bases)
-			if (!isSPRP(base, n))
+			if (!is_sprp(base, n))
 			{
 				composite = true;
 				break;

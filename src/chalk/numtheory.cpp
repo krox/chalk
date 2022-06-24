@@ -53,6 +53,30 @@ int128_t lcm(int128_t a, int128_t b)
 		return a / gcd(a, b) * b;
 }
 
+void removeCommonFactor(int64_t &a, int64_t &b)
+{
+	auto d = gcd(a, b);
+	a /= d;
+	b /= d;
+	if (a < 0)
+	{
+		a = -a;
+		b = -b;
+	}
+}
+
+void removeCommonFactor(int128_t &a, int128_t &b)
+{
+	auto d = gcd(a, b);
+	a /= d;
+	b /= d;
+	if (a < 0)
+	{
+		a = -a;
+		b = -b;
+	}
+}
+
 std::vector<int64_t> primes(int64_t n)
 {
 	// Idea: Sieve of Eratosthenes with multiples of 2 and 3 excluded
@@ -121,7 +145,7 @@ std::vector<int64_t> primes(int64_t n)
 	return primes;
 }
 
-bool isSPRP(int64_t a, int64_t n)
+bool is_sprp(int64_t a, int64_t n)
 {
 	assert(a >= 0);
 	assert(n > 1 && n % 2 == 1);
@@ -155,7 +179,7 @@ bool isSPRP(int64_t a, int64_t n)
 	return false;
 }
 
-bool isPrime(int64_t n)
+bool is_prime(int64_t n)
 {
 	// Idea: use SPRP with fixed bases for which the smalles composite pseudo-
 	// prime is known. This gives a fast deterministic primality test for
@@ -181,46 +205,49 @@ bool isPrime(int64_t n)
 		return true;
 
 	if (n < 291831L)
-		return isSPRP(126401071349994536L, n);
+		return is_sprp(126401071349994536L, n);
 
 	if (n < 1050535501L)
-		return isSPRP(336781006125L, n) && isSPRP(9639812373923155L, n);
+		return is_sprp(336781006125L, n) && is_sprp(9639812373923155L, n);
 
 	if (n < 273919523041L)
-		return isSPRP(15L, n) && isSPRP(7363882082L, n) &&
-		       isSPRP(992620450144556L, n);
+		return is_sprp(15L, n) && is_sprp(7363882082L, n) &&
+		       is_sprp(992620450144556L, n);
 
 	if (n < 47636622961201L)
-		return isSPRP(2L, n) && isSPRP(2570940L, n) && isSPRP(211991001L, n) &&
-		       isSPRP(3749873356L, n);
+		return is_sprp(2L, n) && is_sprp(2570940L, n) &&
+		       is_sprp(211991001L, n) && is_sprp(3749873356L, n);
 
 	if (n < 3770579582154547L)
-		return isSPRP(2L, n) && isSPRP(880937L, n) && isSPRP(2570940L, n) &&
-		       isSPRP(610386380L, n) && isSPRP(4130785767L, n);
+		return is_sprp(2L, n) && is_sprp(880937L, n) && is_sprp(2570940L, n) &&
+		       is_sprp(610386380L, n) && is_sprp(4130785767L, n);
 
 	if (n < 585226005592931977L)
-		return isSPRP(2L, n) && isSPRP(123635709730000L, n) &&
-		       isSPRP(9233062284813009L, n) && isSPRP(43835965440333360L, n) &&
-		       isSPRP(761179012939631437L, n) &&
-		       isSPRP(1263739024124850375L, n);
+		return is_sprp(2L, n) && is_sprp(123635709730000L, n) &&
+		       is_sprp(9233062284813009L, n) &&
+		       is_sprp(43835965440333360L, n) &&
+		       is_sprp(761179012939631437L, n) &&
+		       is_sprp(1263739024124850375L, n);
 
 	// if (n < UINT64_MAX) // should work for all n < 2^64
-	return isSPRP(2L, n) && isSPRP(325L, n) && isSPRP(9375L, n) &&
-	       isSPRP(28178L, n) && isSPRP(450775L, n) && isSPRP(9780504L, n) &&
-	       isSPRP(1795265022L, n);
+	return is_sprp(2L, n) && is_sprp(325L, n) && is_sprp(9375L, n) &&
+	       is_sprp(28178L, n) && is_sprp(450775L, n) && is_sprp(9780504L, n) &&
+	       is_sprp(1795265022L, n);
 
 	// fall back to randomized test for very large numbers
 	/*if (true)
 	{
 	    util::xoshiro256 rng(0);
 	    for (int i = 0; i < 25; ++i)
-	        if (!isSPRP(rng(), n))
+	        if (!is_sprp(rng(), n))
 	            return false;
 	    return true;
 	}*/
 }
 
-int64_t findFactorPollardRho(int64_t n, int64_t c)
+// Returns either a proper factor of n (not necessarily prime itself),
+// or n if none was found. In the latter case try using a different value for c.
+int64_t find_factor_pollard_rho(int64_t n, int64_t c)
 {
 	assert(n > 0);
 	assert(0 < c && c < n);
@@ -246,13 +273,13 @@ int64_t findFactorPollardRho(int64_t n, int64_t c)
 	}
 }
 
-int64_t findFactor(int64_t n)
+int64_t find_factor(int64_t n)
 {
-	assert(n >= 2 && !isPrime(n));
+	assert(n >= 2 && !is_prime(n));
 
 	int64_t d = n;
 	for (int64_t c = 1; d == n; ++c)
-		d = findFactorPollardRho(n, c);
+		d = find_factor_pollard_rho(n, c);
 	return d;
 }
 
@@ -265,9 +292,9 @@ std::vector<int64_t> factor(int64_t n)
 
 	f.push_back(n);
 	for (size_t i = 0; i < f.size(); ++i)
-		while (!isPrime(f[i]))
+		while (!is_prime(f[i]))
 		{
-			int64_t d = findFactor(f[i]);
+			int64_t d = find_factor(f[i]);
 			f[i] /= d;
 			f.push_back(d);
 		}

@@ -235,7 +235,7 @@ inline Integer removeCommonFactor(Integer &a, Integer &b, Integer &c)
 	return d;
 }
 
-inline bool isPrime(Integer const &a)
+inline bool is_prime(Integer const &a)
 {
 	// 2 = definitely prime
 	// 1 = probably prime ( error rate ~ (1/4)^reps )

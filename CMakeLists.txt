@@ -11,7 +11,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # for int128_t
 
 add_subdirectory(util EXCLUDE_FROM_ALL)
-add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 
 include_directories(src)
@@ -20,7 +19,7 @@ include_directories(src)
 file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
 target_compile_features(chalk PUBLIC cxx_std_17)
-target_link_libraries(chalk util fmt::fmt stdc++ absl::flat_hash_map absl::inlined_vector gmp mpfr Eigen3::Eigen readline)
+target_link_libraries(chalk util fmt::fmt stdc++ gmp mpfr Eigen3::Eigen readline)
 
 # executables
 foreach(bin "factor" "primes" "sprp" "calculator" "ziggurat" "exponential_product" "langevin_scheme")

@@ -8,14 +8,14 @@
  *   - simplifications based on algebra of Lie-derivatives
  */
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/inlined_vector.h"
 #include "chalk/group_ring.h"
 #include "chalk/indexed.h"
 #include "fmt/format.h"
+#include "util/vector.h"
 #include <algorithm>
 #include <cassert>
 #include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -171,7 +171,7 @@ Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
 namespace {
 
 /** move double-indices to the front */
-inline void move_double_indices(absl::InlinedVector<int, 4> &inds)
+inline void move_double_indices(util::small_vector<int, 4> &inds)
 {
 	while (true)
 	{
@@ -191,7 +191,7 @@ inline void move_double_indices(absl::InlinedVector<int, 4> &inds)
 }
 
 /** sort indices, returns signum (1,-1,0) of permutation */
-inline int sort_antisym(absl::InlinedVector<int, 4> &inds)
+inline int sort_antisym(util::small_vector<int, 4> &inds)
 {
 	int r = 1;
 	for (int k = (int)inds.size(); k > 1; --k)

@@ -1,9 +1,8 @@
 #ifndef CHALK_INDEXED_H
 #define CHALK_INDEXED_H
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/inlined_vector.h"
 #include "fmt/format.h"
+#include "util/vector.h"
 #include <algorithm>
 #include <cassert>
 #include <map>
@@ -21,7 +20,7 @@ namespace chalk {
 struct IndexedAtom
 {
 	std::string symbol;
-	absl::InlinedVector<int, 4> indices = {};
+	util::small_vector<int, 4> indices = {};
 
 	// temporary helper during sort_atoms()
 	int64_t prio_ = {};
@@ -60,7 +59,7 @@ class Indexed
 		cleanup();
 	}
 	explicit Indexed(std::string const &symbol,
-	                 absl::InlinedVector<int, 4> indices = {})
+	                 util::small_vector<int, 4> indices = {})
 	    : atoms_{IndexedAtom{symbol, std::move(indices)}}
 	{
 		cleanup();

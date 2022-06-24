@@ -44,7 +44,7 @@ Integer findFactorPollardRho(Integer n, int64_t c)
 
 Integer findFactor(Integer n)
 {
-	// assert(!(n < 2) && !isPrime(n));
+	// assert(!(n < 2) && !is_prime(n));
 
 	Integer d = n;
 	for (int64_t c = 1; d == n; ++c)
@@ -83,7 +83,7 @@ std::vector<Integer> factor(Integer n)
 
 	f.push_back(n);
 	for (size_t i = f.size() - 1; i < f.size(); ++i)
-		while (!isPrime(f[i]))
+		while (!is_prime(f[i]))
 		{
 			Integer d = findFactor(f[i]);
 			f[i] /= d;
