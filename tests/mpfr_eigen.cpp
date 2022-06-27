@@ -1,6 +1,7 @@
+#include "catch2/catch_test_macros.hpp"
+
 #include "chalk/floating.h"
 #include "util/random.h"
-#include "gtest/gtest.h"
 #include <Eigen/Dense>
 #include <fmt/format.h>
 
@@ -8,7 +9,7 @@ using namespace chalk;
 
 namespace {
 
-TEST(Numerics, mpfr_eigen)
+TEST_CASE("eigen with mpfr", "[numerics][mpfr][eigen]")
 {
 	// matrix type to use
 	using Matrix =
@@ -30,8 +31,8 @@ TEST(Numerics, mpfr_eigen)
 	// test basic linear algebra
 	Matrix M = A * B;
 	Matrix Minv = M.inverse();
-	EXPECT_TRUE((M * Minv - Matrix::Identity(n, n)).norm() < 1.e-60);
-	EXPECT_TRUE((Minv - B.inverse() * A.inverse()).norm() < 1.e-60);
+	CHECK((M * Minv - Matrix::Identity(n, n)).norm() < 1.e-60);
+	CHECK((Minv - B.inverse() * A.inverse()).norm() < 1.e-60);
 }
 
 } // namespace

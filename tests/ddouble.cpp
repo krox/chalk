@@ -1,8 +1,9 @@
+#include "catch2/catch_test_macros.hpp"
+
 #include "chalk/ddouble.h"
 #include "chalk/floating.h"
 #include "util/random.h"
 #include "util/stopwatch.h"
-#include "gtest/gtest.h"
 #include <Eigen/Dense>
 #include <fmt/format.h>
 using namespace chalk;
@@ -48,7 +49,7 @@ void test_unary([[maybe_unused]] std::string const &label, F f, double min,
 		}
 	}
 	// fmt::print("worst x = {}\n", worst_x.high());
-	EXPECT_LE(worst, eps);
+	CHECK(worst < eps);
 	/*fmt::print("{:8} : max error ({}) = {:5.3e} (at x = {})\n", label,
 	           relative ? "relative" : "absolute", worst, (double)worst_x);*/
 }
@@ -103,7 +104,7 @@ template <typename F> void test_binary(F &&f)
 			worst = std::max(worst, error);
 		}
 	}
-	EXPECT_LE(worst, 1e-28);
+	CHECK(worst < 1e-28);
 	// fmt::print("worst relative error = {}\n", worst);
 }
 
@@ -122,7 +123,7 @@ void print_ddouble(std::string const &name, FloatingOctuple a)
 	    name, high, low);
 }
 
-TEST(Numerics, ddouble)
+TEST_CASE("ddouble arithmetic", "[ddouble][numerics]")
 {
 	test_binary([](auto a, auto b) { return a + b; });
 	test_binary([](auto a, auto b) { return a - b; });
@@ -174,7 +175,7 @@ TEST(Numerics, ddouble)
 	// EXPECT_DOUBLE_EQ(zeros[1], +1.);
 }
 
-TEST(Numerics, ddouble_eigen)
+TEST_CASE("combining ddouble with eigen library", "[ddouble][eigen]")
 {
 	// matrix type to use
 	using Matrix = Eigen::Matrix<ddouble, Eigen::Dynamic, Eigen::Dynamic>;
@@ -195,15 +196,15 @@ TEST(Numerics, ddouble_eigen)
 	// test basic linear algebra
 	Matrix M = A * B;
 	Matrix Minv = M.inverse();
-	EXPECT_LE((double)(M * Minv - Matrix::Identity(n, n)).norm(), 1.e-28);
-	EXPECT_LE((double)(Minv - B.inverse() * A.inverse()).norm(), 1.e-28);
+	CHECK((double)(M * Minv - Matrix::Identity(n, n)).norm() < 1.e-28);
+	CHECK((double)(Minv - B.inverse() * A.inverse()).norm() < 1.e-28);
 }
 
-TEST(Numerics, ddouble_io)
+TEST_CASE("misc stuff", "[ddouble]")
 {
 	// actually, rounding in the last digit is wrong... (TODO)
-	EXPECT_EQ(fmt::format("{:.25e}", ddouble::pi() * 1.e12),
-	          "3.1415926535897932384626433e+12");
+	CHECK(fmt::format("{:.25e}", ddouble::pi() * 1.e12) ==
+	      "3.1415926535897932384626433e+12");
 }
 
 } // namespace

@@ -16,7 +16,7 @@ auto ring = PolynomialRing<Rational, RANK>();
 
 // terms of the transition operator
 bool abelian = false; // if true, set cA and structure constant to zero
-static constexpr int max_order = 4;
+static constexpr int max_order = 3;
 using Term = Series<Covariant<R>, max_order * 2>;
 auto seps = Term::generator(); // sqrt(epsilon)
 auto eps = seps * seps;
@@ -209,7 +209,7 @@ template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
 int main()
 {
 	int order = 3;
-	abelian = true;
+	abelian = false;
 
 	std::vector<R> ideal = {};
 	std::vector<R> nlo = {};
@@ -337,28 +337,42 @@ int main()
 
 		auto f1 = Term(0);
 		add_term(f1, "k1", S0, 2);
+		add_term(f1, "k1*k12", S0 * cA, 4);
 		add_term(f1, "k2", eta1, 1);
-		add_term(f1, "k3", eta2, 1);
-		add_term(f1, "k4", eta3, 1);
+		add_term(f1, "k2*k13", eta1 * cA, 3);
+		// add_term(f1, "k3", eta2, 1);
+		// add_term(f1, "k4", eta3, 1);
 		auto S1 = myTaylor(S0, -f1, 2 * max_order);
 
 		auto f2 = Term(0);
 		add_term(f2, "k5", S0, 2);
+		add_term(f2, "k5*k15", S0 * cA, 4);
 		add_term(f2, "k6", S1, 2);
+		add_term(f2, "k6*k16", S1 * cA, 4);
 		add_term(f2, "k7", eta1, 1);
-		add_term(f2, "k8", eta2, 1);
+		add_term(f2, "k7*k17", eta1 * cA, 3);
+		// add_term(f2, "k8", eta2, 1);
 		auto S2 = myTaylor(S0, -f2, 2 * max_order);
 
 		// even terms
 		auto f3 = Term(0);
 		add_term(f3, "k9", S0, 2);
-		add_term(f3, "k10", S1, 2); // torrero-like
+		add_term(f3, "k9*k18", S0 * cA, 4);
+		add_term(f3, "k9*k19", S0 * cA * cA, 6);
+		add_term(f3, "k10", S1, 2);               // torrero-like
+		add_term(f3, "k10*k22", S1 * cA, 4);      // torrero-like
+		add_term(f3, "k10*k23", S1 * cA * cA, 6); // torrero-like
 		add_term(f3, "k11", S2, 2);
+		add_term(f3, "k11*k20", S2 * cA, 4);
+		add_term(f3, "k11*k21", S2 * cA * cA, 6);
 		add_term(f3, "1", eta1, 1); // scale setting
 
-		// append(ideal, makeOrderConditions(f1, 1));
-		// append(ideal, makeOrderConditions(f2, 2));
+		// ideal.push_back(ring("k11*k11inv-1"));
+
+		append(ideal, makeOrderConditions(f1, 1)); // implied with single noise
+		append(ideal, makeOrderConditions(f2, 1)); // implied with single noise
 		append(ideal, makeOrderConditions(f3, 3));
+		// append(nlo, makeOrderConditions(f2, 4));
 
 		reduce(ideal);
 		// groebner(ideal); // too slow, use Singular/Maple instead

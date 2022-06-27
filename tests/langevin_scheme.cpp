@@ -1,3 +1,5 @@
+#include "catch2/catch_approx.hpp"
+#include "catch2/catch_test_macros.hpp"
 
 #include "chalk/bch.h"
 #include "chalk/covariant.h"
@@ -8,7 +10,6 @@
 #include "chalk/sparse_polynomial.h"
 #include <cassert>
 #include <fmt/format.h>
-#include <gtest/gtest.h>
 using namespace chalk;
 
 namespace {
@@ -163,7 +164,7 @@ template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
 }
 } // namespace
 
-TEST(Langevin, Torrero)
+TEST_CASE("langevin schemes (1D)", "[langevin][polynomial][covariant]")
 {
 	std::vector<R> ideal = {};
 
@@ -196,7 +197,7 @@ TEST(Langevin, Torrero)
 		// dump(ideal);
 		auto result =
 		    analyze_variety(change_ring<double>(ideal), constraints, false);
-		ASSERT_EQ(result.size(), 0); // no unique solution (variety dimension=2)
+		CHECK(result.size() == 0); // no unique solution (variety dimension=2)
 	}
 
 	{
@@ -207,12 +208,13 @@ TEST(Langevin, Torrero)
 		auto result =
 		    analyze_variety(change_ring<double>(ideal2), constraints, false);
 
-		ASSERT_EQ(result.size(), 1);
-		EXPECT_NEAR(result[0].at("k1"), 1.0, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k2"), 1.0, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k3"), 0.5, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k4"), 0.5, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k5"), 0.16666666666666666, 1.0e-10);
+		REQUIRE(result.size() == 1);
+		CHECK(result[0].at("k1") == Catch::Approx(1.0).epsilon(1.e-10));
+		CHECK(result[0].at("k2") == Catch::Approx(1.0).epsilon(1.e-10));
+		CHECK(result[0].at("k3") == Catch::Approx(0.5).epsilon(1.e-10));
+		CHECK(result[0].at("k4") == Catch::Approx(0.5).epsilon(1.e-10));
+		CHECK(result[0].at("k5") ==
+		      Catch::Approx(0.16666666666666666).epsilon(1.e-10));
 	}
 
 	{
@@ -223,11 +225,14 @@ TEST(Langevin, Torrero)
 		auto result =
 		    analyze_variety(change_ring<double>(ideal2), constraints, false);
 
-		ASSERT_EQ(result.size(), 1);
-		EXPECT_NEAR(result[0].at("k1"), 0.08578643762690494, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k2"), 0.2928932188134524, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k3"), 0.0, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k4"), 1.0, 1.0e-10);
-		EXPECT_NEAR(result[0].at("k5"), 0.0631132760733929, 1.0e-10);
+		REQUIRE(result.size() == 1);
+		CHECK(result[0].at("k1") ==
+		      Catch::Approx(0.08578643762690494).epsilon(1.e-10));
+		CHECK(result[0].at("k2") ==
+		      Catch::Approx(0.2928932188134524).epsilon(1.e-10));
+		CHECK(result[0].at("k3") == Catch::Approx(0.0).margin(1.e-10));
+		CHECK(result[0].at("k4") == Catch::Approx(1.0).epsilon(1.e-10));
+		CHECK(result[0].at("k5") ==
+		      Catch::Approx(0.0631132760733929).epsilon(1.e-10));
 	}
 }

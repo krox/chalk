@@ -1,9 +1,10 @@
+#include "catch2/catch_test_macros.hpp"
+
 #include "chalk/bch.h"
 #include "chalk/fraction.h"
 #include "chalk/free_group.h"
 #include "chalk/group_ring.h"
 #include "chalk/series.h"
-#include "gtest/gtest.h"
 #include <fmt/format.h>
 using namespace chalk;
 
@@ -40,13 +41,13 @@ template <int order> void test()
 	Series<Algebra, order> a = R::generator() * Scalar(Algebra::generator(0));
 	Series<Algebra, order> b = R::generator() * Scalar(Algebra::generator(1));
 	auto error = exp(a) * exp(b) - exp(bch(a, b, order, comm<order>));
-	EXPECT_EQ(fmt::format("{}", error), fmt::format("0 + O(x^{})", order + 1));
+	CHECK(fmt::format("{}", error) == fmt::format("0 + O(x^{})", order + 1));
 	// fmt::print("{}\n", exp(a) * exp(b));
 }
 
 } // namespace
 
-TEST(FreeGroup, BCH)
+TEST_CASE("bch formula", "[BCH]")
 {
 	test<1>();
 	test<2>();

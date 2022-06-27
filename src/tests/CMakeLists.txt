@@ -1,6 +1,0 @@
-cmake_minimum_required(VERSION 3.10)
-include(GoogleTest)
-file(GLOB files_test_cpp "test_*.cpp")
-add_executable(chalk_test ${files_test_cpp})
-target_link_libraries(chalk_test PUBLIC gtest_main chalk)
-gtest_discover_tests(chalk_test)

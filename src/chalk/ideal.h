@@ -203,7 +203,11 @@ Ideal<R2, rank> change_ring(Ideal<R, rank> const &fs)
 	auto convert = [](R const &a) -> R2 { return R2(a); };
 
 	// this leaks memory. in the future all rings should be stored globally
-	auto ring2 = new PolynomialRing<R2, rank>(fs[0].ring()->var_names());
+	// (the global unique_ptr is for silencing asan)
+	static std::vector<std::unique_ptr<PolynomialRing<R2, rank>>> tbd;
+	tbd.push_back(
+	    std::make_unique<PolynomialRing<R2, rank>>(fs[0].ring()->var_names()));
+	auto ring2 = tbd.back().get();
 
 	Ideal<R2, rank> r;
 	r.reserve(fs.size());

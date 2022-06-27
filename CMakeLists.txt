@@ -4,14 +4,11 @@ project (chalk)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
-include(GoogleTest)
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror -Wno-deprecated-declarations -Wno-unused-function")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # for int128_t
 
 add_subdirectory(util EXCLUDE_FROM_ALL)
-add_subdirectory(googletest EXCLUDE_FROM_ALL)
 
 include_directories(src)
 
@@ -19,7 +16,7 @@ include_directories(src)
 file(GLOB files_cpp "src/chalk/*.cpp")
 add_library(chalk STATIC ${files_cpp})
 target_compile_features(chalk PUBLIC cxx_std_17)
-target_link_libraries(chalk util fmt::fmt stdc++ gmp mpfr Eigen3::Eigen readline)
+target_link_libraries(chalk util stdc++ gmp mpfr Eigen3::Eigen readline)
 
 # executables
 foreach(bin "factor" "primes" "sprp" "calculator" "ziggurat" "exponential_product" "langevin_scheme")
@@ -28,6 +25,24 @@ foreach(bin "factor" "primes" "sprp" "calculator" "ziggurat" "exponential_produc
 	target_link_libraries(${bin} chalk)
 endforeach(bin)
 
-# tests
-enable_testing()
-add_subdirectory(src/tests)
+# unittests
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+	include(FetchContent)
+
+	FetchContent_Declare(
+	  Catch2
+	  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+	  GIT_TAG        v3.0.1
+	)
+
+	FetchContent_MakeAvailable(Catch2)
+
+	add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+	add_link_options(-fsanitize=address)
+
+	add_executable(tests tests/bch.cpp tests/ddouble.cpp tests/integer.cpp tests/langevin_scheme.cpp tests/mpfr_eigen.cpp tests/numerics.cpp tests/rings.cpp)
+	target_compile_features(tests PRIVATE cxx_std_17)
+	target_link_libraries(tests PRIVATE Catch2::Catch2WithMain chalk)
+	target_compile_options(tests PRIVATE -Wall -Wextra -Werror -g -Wno-parentheses -Wno-stringop-overflow)
+
+endif()
