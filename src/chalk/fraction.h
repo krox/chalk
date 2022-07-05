@@ -19,7 +19,7 @@ template <typename R> class Fraction
 
 	void reduce()
 	{
-		removeCommonFactor(denom_, num_); // also makes denom_ positive
+		remove_common_factor(denom_, num_); // also makes denom_ positive
 	}
 
   public:

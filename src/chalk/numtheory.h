@@ -1,17 +1,165 @@
 #pragma once
 
-// Fast number theory for 64 bit integers.
-// Also some combinatorics for convenience.
+// Modular arithmetic, some number theory and some combinatorics for "small"
+// (i.e. non GMP) numbers. Mostly (signed) 64 bit.
 
-#include "chalk/modular.h"
+#include "fmt/format.h"
+#include "util/linalg.h"
+#include <cassert>
 #include <cstdint>
 #include <vector>
 
 namespace chalk {
 
-// cancel common factors and make a non-negative
-void removeCommonFactor(int64_t &a, int64_t &b);
-void removeCommonFactor(int128_t &a, int128_t &b);
+using int128_t = __int128;
+using uint128_t = unsigned __int128;
+
+// basic arithmetic operations
+//   - overflow safe
+//   - plenty of asserts
+//   - might be faster than naive expressions
+//     (turns out a branch can be faster than a '%' at times)
+inline constexpr int64_t negmod(int64_t a, int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	return a ? m - a : 0;
+}
+
+inline constexpr int64_t invmod(int64_t a, int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+
+	int64_t a0 = m;
+	int64_t a1 = a;
+	int64_t b0 = 0;
+	int64_t b1 = 1;
+
+	while (a1 > 1)
+	{
+		int64_t q = a0 / a1;
+		int64_t a2 = a0 - q * a1;
+		int64_t b2 = b0 - q * b1;
+
+		a0 = a1;
+		a1 = a2;
+		b0 = b1;
+		b1 = b2;
+	}
+
+	if (b1 < 0)
+		b1 += m;
+	assert(0 <= b1 && b1 < m);
+	return b1;
+}
+
+inline constexpr int64_t addmod(int64_t a, int64_t b, int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	assert(0 <= b && b < m);
+	return b < m - a ? a + b : a + (b - m);
+}
+
+inline constexpr int64_t submod(int64_t a, int64_t b, int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	assert(0 <= b && b < m);
+	return a >= b ? a - b : a - b + m;
+}
+
+inline constexpr int64_t mulmod(int64_t a, int64_t b, int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	assert(0 <= b && b < m);
+	return (int128_t)a * (int128_t)b % m;
+}
+
+inline constexpr int64_t fmamod(int64_t a, int64_t b, int64_t c,
+                                int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	assert(0 <= b && b < m);
+	assert(0 <= c && c < m);
+	return ((int128_t)a * b + c) % m;
+}
+
+inline constexpr int64_t fmmamod(int64_t a, int64_t b, int64_t c, int64_t d,
+                                 int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	assert(0 <= b && b < m);
+	assert(0 <= c && c < m);
+	assert(0 <= d && d < m);
+	return ((int128_t)a * b + (int128_t)c * d) % m;
+}
+
+inline constexpr int64_t divmod(int64_t a, int64_t b, int64_t m) noexcept
+{
+	return mulmod(a, invmod(b, m), m);
+}
+
+inline constexpr int64_t powmod(int64_t a, int64_t b, int64_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+
+	if (b < 0)
+	{
+		a = invmod(a, m);
+		b = -b;
+	}
+
+	int64_t r = 1;
+	for (; b != 0; b >>= 1, a = mulmod(a, a, m))
+		if (b & 1)
+			r = mulmod(r, a, m);
+	return r;
+}
+
+// Greatest common divisor and least common multiple.
+// Sign of a and b is ignored, result is always >= 0.
+// Convention: gcd(0,x) = gcd(x,0) = abs(x)
+//             lcm(0,x) = lcm(x,0) = 0
+
+inline constexpr int64_t gcd(int64_t a, int64_t b) noexcept
+{
+	while (true)
+	{
+		if (a == 0)
+			return b >= 0 ? b : -b;
+		b %= a;
+
+		if (b == 0)
+			return a >= 0 ? a : -a;
+		a %= b;
+	}
+}
+
+inline constexpr int64_t lcm(int64_t a, int64_t b) noexcept
+{
+	if (a == 0 || b == 0)
+		return 0;
+	else
+		return a / gcd(a, b) * b;
+}
+
+inline constexpr void remove_common_factor(int64_t &a, int64_t &b) noexcept
+{
+	auto d = gcd(a, b);
+	a /= d;
+	b /= d;
+	if (a < 0)
+	{
+		a = -a;
+		b = -b;
+	}
+}
 
 // compute all primes up to n (inclusive)
 std::vector<int64_t> primes(int64_t n);
@@ -43,4 +191,108 @@ int64_t factorial(int64_t n);
 // binomial(n,k) = (n choose k) = n! / (k! * (n-k)!)
 int64_t binomial(int64_t n, int64_t k);
 
+// Residual classes [a] = a + mℤ with a,m ∈ ℤ, m > 0
+//   - is a field iff m is prime
+//   - might be refactored into general quotient-ring-class
+class IntMod
+{
+	int64_t a_ = 0, m_ = 0; // m_=0 corresponds to NaN state
+
+  public:
+	/** constructors */
+	IntMod() = default;
+	explicit IntMod(int64_t a, int64_t m) : a_(a), m_(m)
+	{
+		assert(m_ > 0);
+		assert(0 <= a_ && a_ < m_);
+	}
+
+	int64_t a() const { return a_; }
+	int64_t m() const { return m_; }
+
+	static IntMod make(int64_t a, int64_t b)
+	{
+		if (b < 0)
+			b = -b;
+		assert(b != 0);
+		a %= b;
+		if (a < 0)
+			a += b;
+		return IntMod(a, b);
+	}
+};
+
+// properties of elements
+inline bool invertible(IntMod a) { return gcd(a.a(), a.m()) == 1; }
+inline bool regular(IntMod a) { return gcd(a.a(), a.m()) == 1; }
+
+// unary operations
+inline IntMod operator-(IntMod a)
+{
+	return IntMod(negmod(a.a(), a.m()), a.m());
+}
+inline IntMod inverse(IntMod a) { return IntMod(invmod(a.a(), a.m()), a.m()); }
+
+// binary operations
+inline IntMod operator+(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(addmod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod operator-(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(submod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod operator*(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(mulmod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod operator/(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return IntMod(divmod(a.a(), b.a(), a.m()), a.m());
+}
+inline IntMod pow(IntMod a, int b)
+{
+	return IntMod(powmod(a.a(), b, a.m()), a.m());
+}
+
+// binary assigns
+inline void operator+=(IntMod &a, IntMod b) { a = a + b; }
+inline void operator-=(IntMod &a, IntMod b) { a = a - b; }
+inline void operator*=(IntMod &a, IntMod b) { a = a * b; }
+inline void operator/=(IntMod &a, IntMod b) { a = a / b; }
+
+// comparisons
+inline bool operator==(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return a.a() == b.a();
+}
+inline bool operator!=(IntMod a, IntMod b)
+{
+	assert(a.m() == b.m());
+	return a.a() == b.a();
+}
+inline bool operator==(IntMod a, int b) { return a == IntMod::make(b, a.m()); }
+inline bool operator!=(IntMod a, int b) { return a != IntMod::make(b, a.m()); }
+
 } // namespace chalk
+
+namespace fmt {
+
+template <> struct formatter<chalk::IntMod>
+{
+	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+
+	template <typename FormatContext>
+	auto format(const chalk::IntMod &a, FormatContext &ctx)
+	    -> decltype(ctx.out())
+	{
+		return format_to(ctx.out(), "[{}]", a.a());
+	}
+};
+
+} // namespace fmt

@@ -214,7 +214,7 @@ inline bool divisible(Integer const &n, Integer const &d)
 }
 
 // divide a,b by their greatest common divisor. Also makes a non-negative.
-inline Integer removeCommonFactor(Integer &a, Integer &b)
+inline Integer remove_common_factor(Integer &a, Integer &b)
 {
 	auto d = gcd(a, b);
 	if (sign(a) < 0)
@@ -224,7 +224,7 @@ inline Integer removeCommonFactor(Integer &a, Integer &b)
 	return d;
 }
 
-inline Integer removeCommonFactor(Integer &a, Integer &b, Integer &c)
+inline Integer remove_common_factor(Integer &a, Integer &b, Integer &c)
 {
 	auto d = gcd(a, b, c);
 	if (sign(a) < 0)
