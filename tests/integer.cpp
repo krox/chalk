@@ -48,7 +48,7 @@ TEST_CASE("primes", "[numtheory][integer]")
 	}
 }
 
-TEST_CASE("factoization", "[numtheory][integer]")
+TEST_CASE("factorization", "[numtheory][integer]")
 {
 	{
 		auto fs = factor(2L * 2 * 2 * 3 * 5 * 13);
@@ -78,6 +78,69 @@ TEST_CASE("factoization", "[numtheory][integer]")
 			CHECK(m == n);
 		}
 	}
+}
+
+TEST_CASE("square numbers", "[numtheory][integer]")
+{
+	auto check = [](int64_t n) {
+		auto s = isqrt(n);
+		CHECK(s * s <= n);
+		CHECK(s * s > n - 1 - 2 * s);
+	};
+
+	CHECK(!is_square(-1));
+	CHECK(is_square(0));
+	CHECK(is_square(1));
+	CHECK(!is_square(2));
+	CHECK(!is_square(3));
+	CHECK(is_square(4));
+	CHECK(!is_square(5));
+	for (int i = 0; i < 1000; ++i)
+	{
+		check(i);
+		check(INT64_MAX - i);
+		check(i * i);
+		if (i)
+			check(i * i - 1);
+		check((3037000499 - i) * (3037000499 - i));
+		check((3037000499 - i) * (3037000499 - i) - 1);
+	}
+
+	xoshiro256 rng;
+	for (int i = 0; i < 1000; ++i)
+	{
+		check(rng.uniform<int64_t>(0, INT64_MAX));
+		auto x = rng.uniform<int64_t>(0, 3037000499);
+		check(x * x);
+		check(x * x - 1);
+	}
+}
+
+TEST_CASE("ipow, iroot, is_power", "[numtheory][integer][power]")
+{
+	CHECK(ipow(0, 1) == 0);
+	CHECK(ipow(1, 0) == 1);
+	CHECK(ipow(2, 0) == 1);
+	CHECK(ipow(3, 5) == 3 * 3 * 3 * 3 * 3);
+	CHECK(is_power(0));
+	CHECK(is_power(1));
+	CHECK(!is_power(2));
+	CHECK(!is_power(3));
+	CHECK(is_power(4));
+	CHECK(!is_power(5));
+	CHECK(!is_power(6));
+	CHECK(!is_power(7));
+	CHECK(is_power(8));
+
+	for (int64_t base = 2; base < 100; ++base)
+		for (int64_t x = base * base, e = 2; x <= INT64_MAX / base;
+		     x *= base, e += 1)
+		{
+			CHECK(ipow(base, e) == x);
+			CHECK(iroot(x, e) == base);
+			CHECK(iroot(x - 1, e) == base - 1);
+			CHECK(is_power(x));
+		}
 }
 
 TEST_CASE("modular arithmetic", "[numtheory][integer]")

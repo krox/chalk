@@ -161,6 +161,105 @@ inline constexpr void remove_common_factor(int64_t &a, int64_t &b) noexcept
 	}
 }
 
+// returns (s, a-s*s) with s = floor(sqrt(a)), or s=0 for negative a
+inline constexpr std::pair<int64_t, int64_t> sqrt_rem(int64_t a) noexcept
+{
+	if (a <= 0)
+		return {0, a};
+
+	// fp approximation + 1 newton step. careful testing required to avoid
+	// off-by-1 errors (newton can oscillate +-1 instead of converging exactly)
+	auto s = (int64_t)std::sqrt((double)a + 1);
+	s = (s + a / s) / 2;
+	return {s, a - s * s};
+}
+
+inline constexpr int64_t isqrt(int64_t a) noexcept { return sqrt_rem(a).first; }
+
+// tests if a is the square of an integer
+// (both 0 and 1 are considered square, same as GMP's definition)
+inline constexpr bool is_square(int64_t a) noexcept
+{
+	// there are only 12 squares mod 64, so this cheap check
+	// catches ~81% of all numbers
+	if ((18302063659313855980u >> (a & 63)) & 1)
+		return false;
+	return sqrt_rem(a).second == 0;
+}
+
+inline constexpr int64_t ipow(int64_t a, int n) noexcept
+{
+	assert(n >= 0);
+	int64_t r = 1;
+	while (n--)
+		r *= a;
+	return r;
+}
+
+inline constexpr std::pair<int64_t, int64_t> root_rem(int64_t a, int n) noexcept
+{
+	assert(n >= 1);
+	assert(a >= 0);
+	if (n == 1)
+		return {a, 0};
+	if (n == 2)
+		return sqrt_rem(a);
+	if (a < n)
+		return {0, a};
+
+	int64_t x = a / n;
+	while (true)
+	{
+		int64_t axn1 = a; // = a / ipow(x, n - 1), but that expression overflows
+		for (int i = 0; i < n - 1; ++i)
+			axn1 /= x;
+		auto y = ((n - 1) * x + axn1) / n;
+		if (y >= x)
+			break;
+		x = y;
+	}
+	return {x, a - ipow(x, n)};
+}
+
+inline constexpr int64_t iroot(int64_t a, int n) noexcept
+{
+	return root_rem(a, n).first;
+}
+
+// true if a can be written as b^e with e>1
+// (0 and 1 are considered powers, just as in GMP, negatives not supported)
+inline constexpr bool is_power(int64_t a) noexcept
+{
+	assert(a >= 0);
+
+	// 0, 1, 4, 8, 16, ...
+	if ((a & (a - 1)) == 0)
+		return a != 2;
+	if (is_square(a))
+		return true;
+	for (auto n : {3, 5, 7, 11, 13, 17})
+		if (root_rem(a, n).second == 0)
+			return true;
+
+	switch (a)
+	{
+	case ipow(3LL, 19):
+	case ipow(5LL, 19):
+	case ipow(6LL, 19):
+	case ipow(7LL, 19):
+	case ipow(8LL, 19):
+	case ipow(3LL, 23):
+	case ipow(5LL, 23):
+	case ipow(6LL, 23):
+	case ipow(3LL, 29):
+	case ipow(3LL, 31):
+	case ipow(3LL, 37):
+		return true;
+	default:
+		return false;
+	}
+}
+
 // compute all primes up to n (inclusive)
 std::vector<int64_t> primes(int64_t n);
 
