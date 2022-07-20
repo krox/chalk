@@ -77,6 +77,15 @@ std::vector<int64_t> primes(int64_t n)
 	return primes;
 }
 
+bool is_prp2(int64_t n)
+{
+	assert(n > 1 && n % 2 == 1);
+	if (n <= INT32_MAX)
+		return powmod(int32_t(2), int32_t(n - 1), int32_t(n)) == 1;
+	else
+		return powmod(int64_t(2), n - 1, n) == 1;
+}
+
 bool is_sprp(int64_t a, int64_t n)
 {
 	assert(a >= 0);

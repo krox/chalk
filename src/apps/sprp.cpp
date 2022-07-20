@@ -1,47 +1,30 @@
+#include "CLI/CLI.hpp"
 #include "chalk/numtheory.h"
 #include "chalk/parser.h"
+#include "fmt/format.h"
 #include "util/lexer.h"
+#include <algorithm>
 #include <cassert>
-#include <fmt/format.h>
 using namespace chalk;
 
 int main(int argc, char *argv[])
 {
-	int64_t limit = 1100000000;
+	int64_t base = 2;
+	uint64_t limit = INT64_MAX;
 
-	if (argc <= 1)
+	CLI::App app{"check probable primes"};
+	app.add_option("--base", base, "base to check");
+	app.add_option("--limit", limit, "only check candidates <= limit");
+
+	CLI11_PARSE(app, argc, argv);
+
+	for (uint64_t n = 3; n <= limit; n += 2)
 	{
-		fmt::print("usage: sprp <base(s)>\n");
-		return -1;
-	}
-
-	std::vector<int64_t> bases;
-	for (int i = 1; i < argc; ++i)
-		bases.push_back(util::parse_int64(argv[i]));
-
-	auto ps = primes(limit);
-	size_t k = 0;
-	int nFound = 0;
-	for (int64_t n = 3; n <= limit; n += 2)
-	{
-
-		while (k < ps.size() - 1 && ps[k] < n)
-			++k;
-		if (ps[k] == n)
+		if (!is_prp2(n))
+			continue;
+		if (is_prime(n))
 			continue;
 
-		bool composite = false;
-		for (auto base : bases)
-			if (!is_sprp(base, n))
-			{
-				composite = true;
-				break;
-			}
-
-		if (!composite)
-		{
-			fmt::print("{}\n", n);
-			nFound += 1;
-		}
+		fmt::print("{}\n", n);
 	}
 }

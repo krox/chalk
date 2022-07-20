@@ -1,6 +1,14 @@
-cmake_minimum_required (VERSION 3.10.0)
+cmake_minimum_required (VERSION 3.14.0)
 project (chalk)
 
+include(FetchContent)
+
+FetchContent_Declare(
+  cli11
+  GIT_REPOSITORY https://github.com/CLIUtils/CLI11
+  GIT_TAG        b9be5b9444772324459989177108a6a65b8b2769 # v2.2.0
+)
+FetchContent_MakeAvailable(cli11)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
@@ -22,12 +30,11 @@ target_link_libraries(chalk util stdc++ gmp mpfr Eigen3::Eigen readline)
 foreach(bin "factor" "primes" "sprp" "calculator" "ziggurat" "exponential_product" "langevin_scheme")
 	add_executable(${bin} src/apps/${bin}.cpp)
 	target_compile_features(${bin} PUBLIC cxx_std_17)
-	target_link_libraries(${bin} chalk)
+	target_link_libraries(${bin} chalk CLI11::CLI11)
 endforeach(bin)
 
 # unittests
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-	include(FetchContent)
 
 	FetchContent_Declare(
 	  Catch2

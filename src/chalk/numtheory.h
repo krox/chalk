@@ -70,6 +70,14 @@ inline constexpr int64_t submod(int64_t a, int64_t b, int64_t m) noexcept
 	return a >= b ? a - b : a - b + m;
 }
 
+inline constexpr int32_t mulmod(int32_t a, int32_t b, int32_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+	assert(0 <= b && b < m);
+	return (int64_t)a * (int64_t)b % m;
+}
+
 inline constexpr int64_t mulmod(int64_t a, int64_t b, int64_t m) noexcept
 {
 	assert(m > 0);
@@ -102,6 +110,24 @@ inline constexpr int64_t fmmamod(int64_t a, int64_t b, int64_t c, int64_t d,
 inline constexpr int64_t divmod(int64_t a, int64_t b, int64_t m) noexcept
 {
 	return mulmod(a, invmod(b, m), m);
+}
+
+inline constexpr int32_t powmod(int32_t a, int32_t b, int32_t m) noexcept
+{
+	assert(m > 0);
+	assert(0 <= a && a < m);
+
+	if (b < 0)
+	{
+		a = invmod(a, m);
+		b = -b;
+	}
+
+	int32_t r = 1;
+	for (; b != 0; b >>= 1, a = mulmod(a, a, m))
+		if (b & 1)
+			r = mulmod(r, a, m);
+	return r;
 }
 
 inline constexpr int64_t powmod(int64_t a, int64_t b, int64_t m) noexcept
@@ -263,6 +289,9 @@ inline constexpr bool is_power(int64_t a) noexcept
 // compute all primes up to n (inclusive)
 std::vector<int64_t> primes(int64_t n);
 
+// tests if n (odd, >= 3) is a (fermat) probable prime to base 2
+bool is_prp2(int64_t n);
+
 // tests if n (>= 3 ) is a strong probable prime to base a (>= 0)
 bool is_sprp(int64_t a, int64_t n);
 
@@ -355,7 +384,7 @@ inline IntMod operator/(IntMod a, IntMod b)
 }
 inline IntMod pow(IntMod a, int b)
 {
-	return IntMod(powmod(a.a(), b, a.m()), a.m());
+	return IntMod(powmod(a.a(), int64_t(b), a.m()), a.m());
 }
 
 // binary assigns

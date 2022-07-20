@@ -8,6 +8,7 @@
 
 #include "chalk/rings.h"
 #include "fmt/format.h"
+#include "util/span.h"
 #include <cassert>
 #include <gmp.h>
 #include <optional>
@@ -16,12 +17,9 @@
 namespace chalk {
 
 /**
- * As far as possible a drop-in replacement for 'int' (or int128_t).
- * Differences include:
- *   - no overflows, no undefined behaviour (thats the whole point of this)
+ * As far as possible a drop-in replacement for 'int' with arbitrary precision
  *   - always initialized to 0 (even local variables)
- *   - expensive to copy (even after default-initialization)
- *   - 'a % b' ignores the sign of b, result is always non-negative
+ *   - expensive to copy (even the default constructor allocates)
  */
 class Integer
 {
@@ -36,12 +34,13 @@ class Integer
 	// constructors / destructor / moves
 
 	Integer() { mpz_init(z_); }
-	explicit Integer(int value) { mpz_init_set_si(z_, value); }
+	Integer(int value) { mpz_init_set_si(z_, value); }
 	explicit Integer(std::string const &value)
 	{
 		mpz_init_set_str(z_, value.c_str(), 0);
 	}
 	explicit Integer(std::string_view value) : Integer(std::string(value)) {}
+	explicit Integer(char const *value) : Integer(std::string(value)) {}
 	~Integer() { mpz_clear(z_); }
 	Integer(Integer const &other) { mpz_init_set(z_, other.z_); }
 	Integer(Integer &&other)
@@ -52,6 +51,9 @@ class Integer
 	void operator=(Integer const &other) { mpz_set(z_, other.z_); }
 	void operator=(Integer &&other) { mpz_swap(z_, other.z_); }
 	void operator=(int value) { mpz_set_si(z_, value); }
+
+	void swap(Integer &other) noexcept { mpz_swap(z_, other.z_); }
+	friend void swap(Integer &a, Integer &b) noexcept { a.swap(b); }
 
 	// convert to int/double/string
 
@@ -73,6 +75,49 @@ class Integer
 	}
 	explicit operator int() const { return to_int(); }
 	explicit operator double() const { return to_double(); }
+	explicit operator bool() const { return mpz_sgn(z_); }
+
+	// low-level access to the data
+	//     * sign is stored separately, raw data is positive
+	//     * returns empty slice for zero, otherwise highest limb is non-zero
+	util::span<const mp_limb_t> limbs() const
+	{
+		return util::span(mpz_limbs_read(z_), mpz_size(z_));
+	}
+
+	// uniform random integr in [0, m]
+	// (GMP has its rng function, but I like to use my own generators)
+	template <class Rng> static Integer uniform(Integer const &m, Rng &rng)
+	{
+		// only need the simple case when the rng already produces limbs
+		static_assert(sizeof(typename Rng::result_type) == 8 &&
+		              Rng::min() == 0 && Rng::max() == UINT64_MAX);
+		static_assert(sizeof(mp_limb_t) == 8 && GMP_LIMB_BITS == 64 &&
+		              GMP_NUMB_BITS == 64);
+
+		if (mpz_sgn(m.z_) <= 0)
+			return Integer(0);
+
+		auto s = mpz_size(m.z_);
+		Integer r;
+		auto ptr = mpz_limbs_write(r.z_, s);
+		auto m_ptr = mpz_limbs_read(m.z_);
+
+		// Acceptance probability > 50%. Worst case (m is a power 2^64 or
+		// slightly above) could be optimized as most rejections happen in the
+		// second limb before generating eveything.
+		while (true)
+		{
+			ptr[s - 1] = rng.uniform(m_ptr[s - 1]);
+			for (size_t i = 0; i < s - 1; ++i)
+				ptr[i] = rng();
+			if (mpn_cmp(ptr, m_ptr, s) <= 0)
+				break;
+		}
+
+		mpz_limbs_finish(r.z_, s);
+		return r;
+	}
 };
 
 // functions that are missing from GMP to make the interface more uniform
@@ -100,10 +145,15 @@ inline void mpz_divexact_si(mpz_ptr r, mpz_srcptr a, long b)
 	assert(b >= 0);
 	mpz_mod_ui(r, a, (unsigned long)b);
 }
-inline void mpz_cdiv_q_si(mpz_ptr r, mpz_srcptr a, long b)
+inline void mpz_tdiv_q_si(mpz_ptr r, mpz_srcptr a, long b)
 {
 	assert(b >= 0);
-	mpz_cdiv_q_ui(r, a, (unsigned long)b);
+	mpz_tdiv_q_ui(r, a, (unsigned long)b);
+}
+inline void mpz_tdiv_r_si(mpz_ptr r, mpz_srcptr a, long b)
+{
+	assert(b >= 0);
+	mpz_tdiv_r_ui(r, a, (unsigned long)b);
 }
 
 // basic arithmetic
@@ -114,6 +164,11 @@ inline void mpz_cdiv_q_si(mpz_ptr r, mpz_srcptr a, long b)
 		Integer r;                                                             \
 		gmp_fun(r.z_, a.z_);                                                   \
 		return r;                                                              \
+	}                                                                          \
+	inline Integer fun(Integer &&a)                                            \
+	{                                                                          \
+		gmp_fun(a.z_, a.z_);                                                   \
+		return std::move(a);                                                   \
 	}
 
 #define CHALK_DEFINE_INTEGER_BINARY(fun, funInplace, gmp_fun)                  \
@@ -123,11 +178,31 @@ inline void mpz_cdiv_q_si(mpz_ptr r, mpz_srcptr a, long b)
 		gmp_fun(r.z_, a.z_, b.z_);                                             \
 		return r;                                                              \
 	}                                                                          \
+	inline Integer fun(Integer &&a, Integer const &b)                          \
+	{                                                                          \
+		gmp_fun(a.z_, a.z_, b.z_);                                             \
+		return std::move(a);                                                   \
+	}                                                                          \
+	inline Integer fun(Integer const &a, Integer &&b)                          \
+	{                                                                          \
+		gmp_fun(b.z_, a.z_, b.z_);                                             \
+		return std::move(b);                                                   \
+	}                                                                          \
+	inline Integer fun(Integer &&a, Integer &&b)                               \
+	{                                                                          \
+		gmp_fun(a.z_, a.z_, b.z_);                                             \
+		return std::move(a);                                                   \
+	}                                                                          \
 	inline Integer fun(Integer const &a, int b)                                \
 	{                                                                          \
 		Integer r;                                                             \
 		gmp_fun##_si(r.z_, a.z_, b);                                           \
 		return r;                                                              \
+	}                                                                          \
+	inline Integer fun(Integer &&a, int b)                                     \
+	{                                                                          \
+		gmp_fun##_si(a.z_, a.z_, b);                                           \
+		return std::move(a);                                                   \
 	}                                                                          \
 	inline Integer &funInplace(Integer &a, Integer const &b)                   \
 	{                                                                          \
@@ -141,14 +216,15 @@ inline void mpz_cdiv_q_si(mpz_ptr r, mpz_srcptr a, long b)
 	}
 
 CHALK_DEFINE_INTEGER_UNARY(operator-, mpz_neg)
-CHALK_DEFINE_INTEGER_UNARY(nextPrime, mpz_nextprime)
+CHALK_DEFINE_INTEGER_UNARY(next_prime, mpz_nextprime)
 
 CHALK_DEFINE_INTEGER_BINARY(operator+, operator+=, mpz_add)
 CHALK_DEFINE_INTEGER_BINARY(operator-, operator-=, mpz_sub)
 CHALK_DEFINE_INTEGER_BINARY(operator*, operator*=, mpz_mul)
-CHALK_DEFINE_INTEGER_BINARY(operator/, operator/=, mpz_cdiv_q)
-CHALK_DEFINE_INTEGER_BINARY(operator%, operator%=, mpz_mod)
-CHALK_DEFINE_INTEGER_BINARY(divExact, divExactInplace, mpz_divexact)
+CHALK_DEFINE_INTEGER_BINARY(operator/, operator/=, mpz_tdiv_q)
+CHALK_DEFINE_INTEGER_BINARY(div_exact, div_exact_assign, mpz_divexact)
+CHALK_DEFINE_INTEGER_BINARY(operator%, operator%=, mpz_tdiv_r)
+CHALK_DEFINE_INTEGER_BINARY(mod, mod_assign, mpz_mod)
 
 #undef CHALK_DEFINE_INTEGER_UNARY
 #undef CHALK_DEFINE_INTEGER_BINARY
@@ -175,6 +251,10 @@ inline bool operator<(int a, Integer const &b)
 {
 	return mpz_cmp_si(b.z_, a) > 0;
 }
+
+inline bool operator<=(Integer const &a, Integer const &b) { return !(b < a); }
+inline bool operator>(Integer const &a, Integer const &b) { return b < a; }
+inline bool operator>=(Integer const &a, Integer const &b) { return !(a < b); }
 
 inline int sign(Integer const &a) { return mpz_sgn(a.z_); } // 1 / -1 / 0
 
@@ -247,13 +327,38 @@ inline bool is_prime(Integer const &a)
 inline Integer removeSquareFactor(Integer &a)
 {
 	auto r = Integer(1);
-	for (auto p = Integer(2); !(a < p * p); p = nextPrime(p))
+	for (auto p = Integer(2); !(a < p * p); p = next_prime(p))
 		if (divisible(a, p * p))
 		{
-			a = divExact(a, p * p);
+			div_exact_assign(a, p * p);
 			r *= p;
 			p -= 1;
 		}
+	return r;
+}
+
+inline Integer powmod(Integer const &b, Integer const &e, Integer const &m)
+{
+	Integer r;
+	mpz_powm(r.z_, b.z_, e.z_, m.z_);
+	return r;
+}
+
+inline Integer powmod(Integer const &b, unsigned long e, Integer const &m)
+{
+	Integer r;
+	mpz_powm_ui(r.z_, b.z_, e, m.z_);
+	return r;
+}
+
+inline Integer invmod(Integer const &a, Integer const &m)
+{
+	// m=1 is supported as inverse(0)=0
+	// m=0 is undefined
+	// returns 0 if inverse does not exist
+	Integer r;
+	[[maybe_unused]] auto success = mpz_invert(r.z_, a.z_, m.z_);
+	assert(success);
 	return r;
 }
 

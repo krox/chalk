@@ -173,3 +173,33 @@ TEST_CASE("misc numtheory", "[numtheory][integer]")
 		for (int64_t a = 0; a < m; ++a)
 			CHECK(ordermod(a, m) == orderNaive(a, m));
 }
+
+TEST_CASE("uniform random integers", "[integer][random]")
+{
+	util::xoshiro256 rng;
+
+	auto test = [&](Integer const &m) {
+		Integer min = m + 1;
+		Integer max = -1;
+		for (size_t i = 0; i < 1000; ++i)
+		{
+			auto u = Integer::uniform(m, rng);
+			if (u < min)
+				min = u;
+			if (u > max)
+				max = u;
+		}
+		CHECK((0 <= min && min <= max && max <= m));
+		if (m)
+		{
+			CHECK(min.to_double() / m.to_double() <= 0.05);
+			CHECK(max.to_double() / m.to_double() >= 0.95);
+		}
+	};
+
+	test(Integer(0));
+	test(Integer(1));
+	test(Integer(2));
+	test(Integer(3));
+	test(Integer("12345678912345678912345678912345678912345678913245678912"));
+}
