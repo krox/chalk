@@ -30,8 +30,16 @@ TEST_CASE("small rational arithmetic", "[integer]")
 	CHECK(-R(3, 8) - R(1, 16) == R(7, -16));
 }
 
-TEST_CASE("primes", "[numtheory][integer]")
+TEST_CASE("primes", "[numtheory][integer][primes]")
 {
+	REQUIRE(primes(0).size() == 0);
+	REQUIRE(primes(1).size() == 0);
+	REQUIRE(primes(2).size() == 1);
+	REQUIRE(primes(3).size() == 2);
+	REQUIRE(primes(4).size() == 2);
+	REQUIRE(primes(5).size() == 3);
+	REQUIRE(primes(100).size() == 25);
+
 	auto ps = primes(10000);
 	REQUIRE(ps.size() == 1229);
 

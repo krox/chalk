@@ -9,65 +9,104 @@ using namespace util;
 
 namespace chalk {
 
+// note on storage requirements:
+// For all remotely relevant cases, a bit_vector indicating primeness of all odd
+// numbers is more efficint than storing primes directly. For example:
+//     * The ~203M primes below 2^32 take ~775 MiB as a vector<uint32>, but only
+//       256 MiB as a bit_vector.
+//     * The ~4*10^17 primes below 2^64 would take ~3 ZiB as a vector<uint64>,
+//       but "only" 1 ZiB as a bit_vector.
+// Could optimize further by not storing compositness of multiples of some small
+// primes. But this kinda harms usability, so we dont for now.
+
+std::vector<util::bit_vector> prime_table(int64_t n, int64_t w)
+{
+	// fmt::print("init...\n");
+	assert(n >= 0);
+	assert(w >= 2);                // w=1 case would be logical, but is broken
+	assert(n <= int64_t(1) << 56); // just for sanity...
+
+	// round n / n^0.5 / n^0.25 to multiples of w
+	n = (n + w) / w * w;
+	int64_t n2 = (isqrt(n) + w) / w * w;
+	int64_t n4 = (isqrt(n2) + w) / w * w;
+	assert(n4 <= n2 && n2 <= n);
+	assert(n4 * n4 >= n2 && n2 * n2 >= n);
+
+	auto r = std::vector<util::bit_vector>(w);
+	auto inv = std::vector<int64_t>(w);
+	for (int64_t i = 0; i < w; ++i)
+		if (gcd(i, w) == 1)
+		{
+			r[i] = bit_vector(n / w, true);
+			inv[i] = invmod(i, w);
+		}
+	r[1][0] = false; // mark '1' as non-prime
+
+	// step 1: generate primes of to ~ n^0.25
+	for (int64_t k = 0; k < n4 / w; ++k)
+		for (int64_t i = 0; i < w; ++i)
+		{
+			if (!r[i].size())
+				continue;
+			if (!r[i][k])
+				continue;
+			auto p = k * w + i;
+
+			for (int64_t j = 0; j < w; ++j)
+			{
+				if (!r[j].size())
+					continue;
+				int64_t f = submod(mulmod(j, inv[i], w), i, w);
+				int64_t start = p * (p + f) / w;
+				for (int64_t s = start; s < n / w; s += p)
+					r[j][s] = false;
+			}
+		}
+
+	// step 2: generate primes up to ~ n^0.5
+	// (same operations, just better loop order)
+	for (int64_t i = 0; i < w; ++i)
+		for (int64_t j = 0; j < w; ++j)
+		{
+			if (!r[i].size())
+				continue;
+			if (!r[j].size())
+				continue;
+			int64_t f = submod(mulmod(j, inv[i], w), i, w);
+
+			for (int64_t k = n4 / w; k < n2 / w; ++k)
+			{
+				if (!r[i][k])
+					continue;
+				auto p = k * w + i;
+
+				int64_t start = p * (p + f) / w;
+				for (int64_t s = start; s < n / w; s += p)
+					r[j][s] = false;
+			}
+		}
+	return r;
+}
+
 std::vector<int64_t> primes(int64_t n)
 {
-	// Idea: Sieve of Eratosthenes with multiples of 2 and 3 excluded
+	constexpr int64_t w = 30;
+	static constexpr int64_t xs[] = {1, 7, 11, 13, 17, 19, 23, 29};
+	auto r = prime_table(n, 30);
+	size_t count = 3;
+	for (auto x : xs)
+		count += r[x].count();
 
-	if (n < 0)
-		n = 0;
-
-	// (exclusive) limit for relevant prime divisors
-	int64_t limit = (int64_t)sqrt((double)n) + 1;
-	assert(limit * limit > n);
-
-	// excluding 2 and 3 as special cases, all primes have the form 6*k +- 1
-	auto b5 = bit_vector(n / 6); // b5[k] represents 6*k+5
-	auto b7 = bit_vector(n / 6); // b7[k] represents 6*k+7
-
-	// mark all non-primes
-	for (int64_t k = 0; k < n / 6; ++k)
-	{
-		if (!b5[k])
-		{
-			int64_t p = 6 * k + 5;
-
-			if (p >= limit)
-				break;
-
-			for (long s = (p * (p + 2) - 5) / 6; s < (int64_t)b5.size(); s += p)
-				b5[s] = true;
-
-			for (long s = (p * p - 7) / 6; s < (int64_t)b7.size(); s += p)
-				b7[s] = true;
-		}
-
-		if (!b7[k])
-		{
-			int64_t p = 6 * k + 7;
-
-			if (p >= limit)
-				break;
-
-			for (long s = (p * (p + 4) - 5) / 6; s < (int64_t)b5.size(); s += p)
-				b5[s] = true;
-
-			for (long s = (p * p - 7) / 6; s < (int64_t)b7.size(); s += p)
-				b7[s] = true;
-		}
-	}
-
-	// collect primes into array
 	std::vector<int64_t> primes;
-	primes.reserve(b5.count(false) + b7.count(false) + 2);
+	primes.reserve(count);
 	primes.push_back(2);
 	primes.push_back(3);
-	for (int64_t k = 0; k < n / 6; ++k)
-	{
-		if (!b5[k])
-			primes.push_back(6 * k + 5);
-		if (!b7[k])
-			primes.push_back(6 * k + 7);
-	}
+	primes.push_back(5);
+	for (int64_t k = 0; k < (int64_t)r[1].size(); ++k)
+		for (auto x : xs)
+			if (r[x][k])
+				primes.push_back(w * k + x);
 
 	// now we might have computed slightly more primes than requested,
 	// so we remove them again (simpler than doing it right in the beginning)
@@ -77,13 +116,11 @@ std::vector<int64_t> primes(int64_t n)
 	return primes;
 }
 
-bool is_prp2(int64_t n)
+bool is_prp(int64_t a, int64_t n)
 {
+	assert(a >= 0);
 	assert(n > 1 && n % 2 == 1);
-	if (n <= INT32_MAX)
-		return powmod(int32_t(2), int32_t(n - 1), int32_t(n)) == 1;
-	else
-		return powmod(int64_t(2), n - 1, n) == 1;
+	return powmod(a, n - 1, n) == 1;
 }
 
 bool is_sprp(int64_t a, int64_t n)

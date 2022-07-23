@@ -4,6 +4,7 @@
 // (i.e. non GMP) numbers. Mostly (signed) 64 bit.
 
 #include "fmt/format.h"
+#include "util/bit_vector.h"
 #include "util/linalg.h"
 #include <cassert>
 #include <cstdint>
@@ -286,11 +287,17 @@ inline constexpr bool is_power(int64_t a) noexcept
 	}
 }
 
+// Eratosthenes sieve with arbitrary wheel size
+//     * result[i][k] indicates that k*w+i is primes
+//     * result[i] is empty if gcd(i,w) != 1
+//     * arrays go at least up to n, possilby a little more due to rounding
+std::vector<util::bit_vector> prime_table(int64_t n, int64_t w);
+
 // compute all primes up to n (inclusive)
 std::vector<int64_t> primes(int64_t n);
 
-// tests if n (odd, >= 3) is a (fermat) probable prime to base 2
-bool is_prp2(int64_t n);
+// tests if n (odd, >= 3) is a (fermat) probable prime to base a (>= 0)
+bool is_prp(int64_t a, int64_t n);
 
 // tests if n (>= 3 ) is a strong probable prime to base a (>= 0)
 bool is_sprp(int64_t a, int64_t n);
