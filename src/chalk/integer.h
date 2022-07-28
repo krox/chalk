@@ -368,6 +368,13 @@ template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
 	static bool isNegative(Integer const &a) { return mpz_sgn(a.z_) < 0; }
 };
 
+// makes Integer usable on the command line using CLI11 library (found by ADL)
+bool lexical_cast(std::string const &input, Integer &v)
+{
+	v = Integer(input);
+	return true;
+}
+
 } // namespace chalk
 
 template <> struct fmt::formatter<chalk::Integer>

@@ -1,3 +1,4 @@
+#include "CLI/CLI.hpp"
 #include "chalk/integer.h"
 #include "chalk/numtheory.h"
 #include <cassert>
@@ -99,55 +100,42 @@ int main(int argc, char *argv[])
 	// testing number: 2044000015922760011571288401882419756046486692
 	// ( three 12-digit prime factors and some small ones )
 
-	// parse command line
 	std::vector<Integer> numbers;
 
-	for (int i = 1; i < argc; ++i)
-	{
-		auto s = std::string(argv[i]);
-		assert(s.size() > 0);
+	CLI::App app{
+	    "Factorizes positive integer(s) into primes. If none are given on "
+	    "the command line, numbers are read from stdin. Usage and "
+	    "output syntax are the same as 'factor' from GNU coreutils."};
+	app.add_option("number", numbers, "number(s) to factorize")
+	    ->check(CLI::PositiveNumber);
+	app.add_flag("--verbose", verbose,
+	             "print some debug infos on the used algorithm");
+	CLI11_PARSE(app, argc, argv);
 
-		// parse option
-		if (s[0] == '-')
-		{
-			if (s == "-v")
-				verbose = true;
-			else
-			{
-				fmt::print("ERROR: unknown option: '{}'\n", s);
-				return -1;
-			}
-		}
-
-		// parse number
-		else
-		{
-			for (size_t j = 0; j < s.size(); ++j)
-				if (!('0' <= s[j] && s[j] <= '9') || (j == 0 && s[j] == '0'))
-				{
-					fmt::print("ERROR: not a positive number: '{}'\n", s);
-					return -1;
-				}
-
-			numbers.emplace_back(s);
-		}
-	}
+	auto process = [](Integer const &n) {
+		fmt::print("{}:", n);
+		for (auto &a : factor(n))
+			fmt::print(" {}", a);
+		fmt::print("\n");
+	};
 
 	if (numbers.empty())
 	{
-		fmt::print("usage: factor [options] <number(s)>\n");
-		return -1;
+		std::string s;
+		while (std::cin >> s)
+		{
+			auto n = Integer(s);
+			if (!(n > 0))
+			{
+				fmt::print("ERROR: invalid number '{}'\n", s);
+				return -1;
+			}
+			process(n);
+		}
 	}
-
-	// factor all numbers given
-	for (auto &n : numbers)
+	else
 	{
-		auto fs = factor(n);
-
-		// same output format as GNU coreutils 'factor' tool
-		fmt::print("{}:", n);
-		for (auto &a : fs)
-			fmt::print(" {}", a);
-		fmt::print("\n");
+		for (auto &n : numbers)
+			process(n);
 	}
 }
