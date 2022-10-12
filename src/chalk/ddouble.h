@@ -1,12 +1,12 @@
 #pragma once
 
 #include "chalk/floating.h"
-#include "util/span.h"
 #include <cassert>
 #include <cfloat>
 #include <cmath>
 #include <ostream>
 #include <random>
+#include <span>
 
 namespace chalk {
 
@@ -142,12 +142,6 @@ class ddouble
 		double low = fma(-high, b, a) / b;
 		return ddouble(high, low);
 	}
-
-	friend std::ostream &operator<<(std::ostream &stream, ddouble value)
-	{
-		stream << fmt::format("{}", value);
-		return stream;
-	}
 };
 
 /** unary operators */
@@ -253,7 +247,7 @@ inline ddouble &operator*=(ddouble &a, ddouble b) { return a = a * b; }
 inline ddouble &operator/=(ddouble &a, ddouble b) { return a = a / b; }
 
 namespace ddouble_detail {
-ddouble taylor(util::span<const ddouble> c, ddouble x)
+ddouble taylor(std::span<const ddouble> c, ddouble x)
 {
 	ddouble r = c[0] + x * c[1];
 	ddouble xi = x;
@@ -531,7 +525,7 @@ template <> struct fmt::formatter<chalk::ddouble>
 {
 	int precision = 30; // digits after decimal point
 
-	auto parse(format_parse_context &ctx)
+	constexpr auto parse(format_parse_context &ctx)
 	{
 		auto it = ctx.begin(), end = ctx.end();
 

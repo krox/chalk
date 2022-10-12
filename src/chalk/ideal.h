@@ -577,7 +577,7 @@ void solve_numerical(Ideal<R, rank> const &ideal,
 start:
 	// random starting points
 	auto x = Vector(rank);
-	auto xs = util::span<const R>(x.data(), (int)x.size());
+	auto xs = std::span<const R>(x.data(), (int)x.size());
 	for (size_t i = 0; i < rank; ++i)
 	{
 		if (startingValues.count(ring->var_names()[i]))

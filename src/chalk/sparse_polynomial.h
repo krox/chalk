@@ -5,13 +5,13 @@
 #include "chalk/polynomial.h"
 #include "chalk/rings.h"
 #include "fmt/format.h"
-#include "util/span.h"
 #include <array>
 #include <bitset>
 #include <cassert>
 #include <climits>
 #include <map>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -249,7 +249,7 @@ template <typename R, size_t rank> class SparsePolynomial
 		else
 			return r.terms()[0].coefficient;
 	}
-	R substitute(util::span<const R> vals) const
+	R substitute(std::span<const R> vals) const
 	{
 		assert(vals.size() == rank);
 		auto r = R(0);

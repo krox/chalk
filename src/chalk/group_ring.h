@@ -93,6 +93,11 @@ template <typename R, typename G> class Multinomial
 		return Multinomial({MultinomialTerm<R, G>{R(1), G::generator(k)}});
 	}
 
+	static Multinomial generator(std::string_view s)
+	{
+		return Multinomial({MultinomialTerm<R, G>{R(1), G::generator(s)}});
+	}
+
 	std::vector<MultinomialTerm<R, G>> const &terms() const { return terms_; }
 
 	void operator+=(Multinomial const &b)

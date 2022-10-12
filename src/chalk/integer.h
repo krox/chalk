@@ -8,10 +8,10 @@
 
 #include "chalk/rings.h"
 #include "fmt/format.h"
-#include "util/span.h"
 #include <cassert>
 #include <gmp.h>
 #include <optional>
+#include <span>
 #include <string>
 
 namespace chalk {
@@ -80,9 +80,9 @@ class Integer
 	// low-level access to the data
 	//     * sign is stored separately, raw data is positive
 	//     * returns empty slice for zero, otherwise highest limb is non-zero
-	util::span<const mp_limb_t> limbs() const
+	std::span<const mp_limb_t> limbs() const
 	{
-		return util::span(mpz_limbs_read(z_), mpz_size(z_));
+		return std::span(mpz_limbs_read(z_), mpz_size(z_));
 	}
 
 	// uniform random integr in [0, m]
@@ -369,7 +369,7 @@ template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
 };
 
 // makes Integer usable on the command line using CLI11 library (found by ADL)
-bool lexical_cast(std::string const &input, Integer &v)
+inline bool lexical_cast(std::string const &input, Integer &v)
 {
 	v = Integer(input);
 	return true;

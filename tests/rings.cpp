@@ -1,5 +1,6 @@
 #include "catch2/catch_test_macros.hpp"
 
+#include "chalk/dynamic_polynomial.h"
 #include "chalk/fraction.h"
 #include "chalk/free_group.h"
 #include "chalk/sparse_polynomial.h"
@@ -29,6 +30,14 @@ TEST_CASE("multivariate polys", "[polynomial]")
 
 	auto R2 = PolynomialRing<Fraction<int64_t>, 4>();
 	CHECK(R2("(x+1)^2") == R2("x^2+x*2+5-4"));
+}
+
+TEST_CASE("new multivariate polys", "[polynomial]")
+{
+	using R = DynamicPolynomial<Rational>;
+	auto x = R::generator("x");
+	auto y = R::generator("y");
+	fmt::print("{}\n", (x + y) * (x - y) + R(5));
 }
 
 TEST_CASE("free group", "")
