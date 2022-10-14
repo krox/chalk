@@ -14,13 +14,13 @@ template <typename T> struct RingTraits;
 template <typename T> struct RingTraitsSimple
 {
 	// potentially faster than full comparison
-	static bool isZero(T const &value) { return value == 0; }
-	static bool isOne(T const &value) { return value == 1; }
+	static bool is_zero(T const &value) { return value == 0; }
+	static bool is_one(T const &value) { return value == 1; }
 
 	// hints for nice formatting of compound types
-	static bool isNegative(T const &value) { return value < 0; }
-	static bool needParensProduct(T const &) { return false; }
-	static bool needParensPower(T const &value) { return isNegative(value); }
+	static bool is_negative(T const &value) { return value < 0; }
+	static bool need_parens_product(T const &) { return false; }
+	static bool need_parens_power(T const &value) { return is_negative(value); }
 };
 
 template <> struct RingTraits<int32_t> : RingTraitsSimple<int32_t>
@@ -36,41 +36,41 @@ template <> struct RingTraits<double> : RingTraitsSimple<double>
 
 template <typename T> struct RingTraits<std::complex<T>>
 {
-	static bool isZero(std::complex<T> const &value) { return value == T(0); }
-	static bool isOne(std::complex<T> const &value) { return value == T(1); }
-	static bool isNegative(std::complex<T> const &value) { return false; }
-	static bool needParensProduct(std::complex<T> const &) { return true; }
-	static bool needParensPower(std::complex<T> const &) { return true; }
+	static bool is_zero(std::complex<T> const &value) { return value == T(0); }
+	static bool is_one(std::complex<T> const &value) { return value == T(1); }
+	static bool is_negative(std::complex<T> const &value) { return false; }
+	static bool need_parens_product(std::complex<T> const &) { return true; }
+	static bool need_parens_power(std::complex<T> const &) { return true; }
 };
 
 template <typename T> struct RingTraits<util::complex<T>>
 {
-	static bool isZero(util::complex<T> const &value) { return value == T(0); }
-	static bool isOne(util::complex<T> const &value) { return value == T(1); }
-	static bool isNegative(util::complex<T> const &value) { return false; }
-	static bool needParensProduct(util::complex<T> const &) { return true; }
-	static bool needParensPower(util::complex<T> const &) { return true; }
+	static bool is_zero(util::complex<T> const &value) { return value == T(0); }
+	static bool is_one(util::complex<T> const &value) { return value == T(1); }
+	static bool is_negative(util::complex<T> const &value) { return false; }
+	static bool need_parens_product(util::complex<T> const &) { return true; }
+	static bool need_parens_power(util::complex<T> const &) { return true; }
 };
 
-template <typename T> bool isZero(T const &value)
+template <typename T> bool is_zero(T const &value)
 {
-	return RingTraits<T>::isZero(value);
+	return RingTraits<T>::is_zero(value);
 }
-template <typename T> bool isOne(T const &value)
+template <typename T> bool is_one(T const &value)
 {
-	return RingTraits<T>::isOne(value);
+	return RingTraits<T>::is_one(value);
 }
-template <typename T> bool isNegative(T const &value)
+template <typename T> bool is_negative(T const &value)
 {
-	return RingTraits<T>::isNegative(value);
+	return RingTraits<T>::is_negative(value);
 }
-template <typename T> bool needParensProduct(T const &value)
+template <typename T> bool need_parens_product(T const &value)
 {
-	return RingTraits<T>::needParensProduct(value);
+	return RingTraits<T>::need_parens_product(value);
 }
-template <typename T> bool needParensPower(T const &value)
+template <typename T> bool need_parens_power(T const &value)
 {
-	return RingTraits<T>::needParensPower(value);
+	return RingTraits<T>::need_parens_power(value);
 }
 
 template <typename T> struct Scalar
@@ -83,19 +83,19 @@ template <typename T> struct Scalar
 
 template <typename T> struct RingTraits<Scalar<T>>
 {
-	static bool isZero(Scalar<T> const &value) { return isZero(value.value); }
-	static bool isOne(Scalar<T> const &value) { return isOne(value.value); }
-	static bool isNegative(Scalar<T> const &value)
+	static bool is_zero(Scalar<T> const &value) { return is_zero(value.value); }
+	static bool is_one(Scalar<T> const &value) { return is_one(value.value); }
+	static bool is_negative(Scalar<T> const &value)
 	{
-		return isNegative(value.value);
+		return is_negative(value.value);
 	}
-	static bool needParensProduct(Scalar<T> const &value)
+	static bool need_parens_product(Scalar<T> const &value)
 	{
-		return needParensProduct(value.value);
+		return need_parens_product(value.value);
 	}
-	static bool needParensPower(Scalar<T> const &value)
+	static bool need_parens_power(Scalar<T> const &value)
 	{
-		return needParensPower(value.value);
+		return need_parens_power(value.value);
 	}
 };
 
@@ -105,7 +105,7 @@ using std::sqrt;
 // helper to pass overloaded functions as templated parameters.
 // for details see: https://florianjw.de/en/passing_overloaded_functions.html
 #define CHALK_LIFT(...)                                                        \
-	[](auto &&... args) -> decltype(auto) {                                    \
+	[](auto &&...args) -> decltype(auto) {                                     \
 		return __VA_ARGS__(std::forward<decltype(args)>(args)...);             \
 	}
 

@@ -235,26 +235,31 @@ inline bool operator==(Integer const &a, Integer const &b)
 {
 	return mpz_cmp(a.z_, b.z_) == 0;
 }
-inline bool operator<(Integer const &a, Integer const &b)
+
+inline std::strong_ordering operator<=>(Integer const &a, Integer const &b)
 {
-	return mpz_cmp(a.z_, b.z_) < 0;
+	int r = mpz_cmp(a.z_, b.z_);
+	if (r == 0)
+		return std::strong_ordering::equal;
+	if (r < 0)
+		return std::strong_ordering::less;
+	return std::strong_ordering::greater;
 }
+
 inline bool operator==(Integer const &a, int b)
 {
 	return mpz_cmp_si(a.z_, b) == 0;
 }
-inline bool operator<(Integer const &a, int b)
-{
-	return mpz_cmp_si(a.z_, b) < 0;
-}
-inline bool operator<(int a, Integer const &b)
-{
-	return mpz_cmp_si(b.z_, a) > 0;
-}
 
-inline bool operator<=(Integer const &a, Integer const &b) { return !(b < a); }
-inline bool operator>(Integer const &a, Integer const &b) { return b < a; }
-inline bool operator>=(Integer const &a, Integer const &b) { return !(a < b); }
+inline std::strong_ordering operator<=>(Integer const &a, int b)
+{
+	int r = mpz_cmp_si(a.z_, b);
+	if (r == 0)
+		return std::strong_ordering::equal;
+	if (r < 0)
+		return std::strong_ordering::less;
+	return std::strong_ordering::greater;
+}
 
 inline int sign(Integer const &a) { return mpz_sgn(a.z_); } // 1 / -1 / 0
 
@@ -364,8 +369,8 @@ inline Integer invmod(Integer const &a, Integer const &m)
 
 template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
 {
-	static bool isZero(Integer const &a) { return mpz_sgn(a.z_) == 0; }
-	static bool isNegative(Integer const &a) { return mpz_sgn(a.z_) < 0; }
+	static bool is_zero(Integer const &a) { return mpz_sgn(a.z_) == 0; }
+	static bool is_negative(Integer const &a) { return mpz_sgn(a.z_) < 0; }
 };
 
 // makes Integer usable on the command line using CLI11 library (found by ADL)

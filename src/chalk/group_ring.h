@@ -8,25 +8,19 @@
 
 namespace chalk {
 
-template <typename R, typename G> struct MultinomialTerm
+template <class R, class G> struct MultinomialTerm
 {
 	R coefficient;
 	G index;
 
-	bool operator==(MultinomialTerm const &other) const
-	{
-		return coefficient == other.coefficient && index == other.index;
-	}
-
-	bool operator<(MultinomialTerm const &other) const
-	{
-		return index < other.index;
-	}
+	friend bool operator==(MultinomialTerm const &,
+	                       MultinomialTerm const &) = default;
 
 	MultinomialTerm operator*(MultinomialTerm const &b) const
 	{
 		return {coefficient * b.coefficient, index * b.index};
 	}
+
 	void operator*=(MultinomialTerm const &b)
 	{
 		coefficient *= b.coefficient;
@@ -34,13 +28,19 @@ template <typename R, typename G> struct MultinomialTerm
 	}
 };
 
-template <typename R, typename G> class Multinomial
+// If more customization is required, might add a trait-type template parameter
+template <class R, class G> class Multinomial
 {
-	std::vector<MultinomialTerm<R, G>> terms_;
+  public:
+	using Term = MultinomialTerm<R, G>;
+
+  private:
+	std::vector<Term> terms_;
 
 	void cleanup()
 	{
-		std::sort(terms_.begin(), terms_.end());
+		std::sort(terms_.begin(), terms_.end(),
+		          [](auto &a, auto &b) { return a.index < b.index; });
 
 		size_t j = 0;
 		for (size_t i = 0; i < terms_.size(); ++i)
@@ -64,46 +64,47 @@ template <typename R, typename G> class Multinomial
 	}
 
   public:
+	// default constructor initializes to zero (= empty sum)
 	Multinomial() = default;
-	explicit Multinomial(std::vector<MultinomialTerm<R, G>> terms)
-	    : terms_{std::move(terms)}
+
+	explicit Multinomial(std::vector<Term> terms) : terms_{std::move(terms)}
 	{
 		cleanup();
 	}
-	explicit Multinomial(R const &a) : terms_{MultinomialTerm<R, G>{a, G(1)}}
-	{
-		cleanup();
-	}
-	explicit Multinomial(G const &b) : terms_{MultinomialTerm<R, G>{R(1), b}}
-	{
-		cleanup();
-	}
+
+	explicit Multinomial(R const &a) : terms_{Term{a, G(1)}} { cleanup(); }
+
+	explicit Multinomial(G const &b) : terms_{Term{R(1), b}} { cleanup(); }
+
 	explicit Multinomial(R const &a, G const &b)
 	    : terms_{MultinomialTerm<R, G>{a, b}}
 	{
 		cleanup();
 	}
-	explicit Multinomial(int a) : terms_{MultinomialTerm<R, G>{R(a), G(1)}}
-	{
-		cleanup();
-	}
+
+	explicit Multinomial(int a) : terms_{Term{R(a), G(1)}} { cleanup(); }
 
 	static Multinomial generator(int k)
 	{
-		return Multinomial({MultinomialTerm<R, G>{R(1), G::generator(k)}});
+		return Multinomial({Term{R(1), G::generator(k)}});
 	}
 
 	static Multinomial generator(std::string_view s)
 	{
-		return Multinomial({MultinomialTerm<R, G>{R(1), G::generator(s)}});
+		return Multinomial({Term{R(1), G::generator(s)}});
 	}
 
-	std::vector<MultinomialTerm<R, G>> const &terms() const { return terms_; }
+	// direct access to the terms
+	std::vector<Term> const &terms() const { return terms_; }
+
+	// inplace operations that actually gain efficiency by being inplace and
+	// modifying '.terms_' directly
 
 	void operator+=(Multinomial const &b)
 	{
+		// NOTE: simply calling '.reserve(... + ...)' here would not be quite
+		//       correct, efficiency-wise
 		assert(this != &b);
-		terms_.reserve(terms_.size() + b.terms_.size());
 		for (auto &term : b.terms())
 			terms_.push_back(term);
 		cleanup();
@@ -111,7 +112,6 @@ template <typename R, typename G> class Multinomial
 	void operator-=(Multinomial const &b)
 	{
 		assert(this != &b);
-		terms_.reserve(terms_.size() + b.terms_.size());
 		for (auto &term : b.terms())
 			terms_.push_back({-term.coefficient, term.index});
 		cleanup();
@@ -143,28 +143,7 @@ template <typename R, typename G> class Multinomial
 	}
 };
 
-template <typename R, typename G> bool isNegative(Multinomial<R, G> const &)
-{
-	return false;
-}
-
-template <typename R, typename G>
-bool operator==(Multinomial<R, G> const &a, Multinomial<R, G> const &b)
-{
-	return a.terms() == b.terms();
-}
-
-template <typename R, typename G>
-bool operator==(Multinomial<R, G> const &a, int b)
-{
-	if (a.terms().empty())
-		return b == 0;
-	if (a.terms().size() > 1)
-		return false;
-	return a.terms()[0].index == 1 && a.terms()[0].coefficient == b;
-}
-
-template <typename R, typename G>
+template <class R, class G>
 Multinomial<R, G> operator-(Multinomial<R, G> const &a)
 {
 	auto r = a.terms();
@@ -173,33 +152,30 @@ Multinomial<R, G> operator-(Multinomial<R, G> const &a)
 	return Multinomial<R, G>(std::move(r));
 }
 
-template <typename R, typename G>
+template <class R, class G>
 Multinomial<R, G> operator+(Multinomial<R, G> const &a,
                             Multinomial<R, G> const &b)
 {
 	std::vector<MultinomialTerm<R, G>> r;
 	r.reserve(a.terms().size() + b.terms().size());
-	for (auto &term : a.terms())
-		r.push_back(term);
-	for (auto &term : b.terms())
-		r.push_back(term);
+	r.insert(r.end(), a.terms().begin(), a.terms().end());
+	r.insert(r.end(), b.terms().begin(), b.terms().end());
 	return Multinomial<R, G>(std::move(r));
 }
 
-template <typename R, typename G>
+template <class R, class G>
 Multinomial<R, G> operator-(Multinomial<R, G> const &a,
                             Multinomial<R, G> const &b)
 {
 	std::vector<MultinomialTerm<R, G>> r;
 	r.reserve(a.terms().size() + b.terms().size());
-	for (auto &term : a.terms())
-		r.push_back(term);
+	r.insert(r.end(), a.terms().begin(), a.terms().end());
 	for (auto &term : b.terms())
 		r.push_back({-term.coefficient, term.index});
 	return Multinomial<R, G>(std::move(r));
 }
 
-template <typename R, typename G>
+template <class R, class G>
 Multinomial<R, G> operator*(Multinomial<R, G> const &a,
                             Multinomial<R, G> const &b)
 {
@@ -211,55 +187,9 @@ Multinomial<R, G> operator*(Multinomial<R, G> const &a,
 	return Multinomial<R, G>(std::move(r));
 }
 
-template <typename R, typename G>
-Multinomial<R, G> operator*(Multinomial<R, G> const &a, R const &b)
-{
-	auto r = a.terms();
-	for (auto &term : r)
-		term.coefficient *= b;
-	return Multinomial<R, G>(std::move(r));
-}
-template <typename R, typename G>
-Multinomial<R, G> operator/(Multinomial<R, G> const &a, R const &b)
-{
-	auto r = a.terms();
-	for (auto &term : r)
-		term.coefficient /= b;
-	return Multinomial<R, G>(std::move(r));
-}
-template <typename R, typename G>
-Multinomial<R, G> operator*(R const &a, Multinomial<R, G> const &b)
-{
-	auto r = b.terms();
-	for (auto &term : r)
-		term.coefficient = a * term.coefficient;
-	return Multinomial<R, G>(std::move(r));
-}
-template <typename R, typename G>
-Multinomial<R, G> operator*(Multinomial<R, G> const &a, int b)
-{
-	auto r = a.terms();
-	for (auto &term : r)
-		term.coefficient *= b;
-	return Multinomial<R, G>(std::move(r));
-}
-template <typename R, typename G>
-Multinomial<R, G> operator/(Multinomial<R, G> const &a, int b)
-{
-	auto r = a.terms();
-	for (auto &term : r)
-		term.coefficient /= b;
-	return Multinomial<R, G>(std::move(r));
-}
-template <typename R, typename G>
-void operator*=(Multinomial<R, G> &a, Multinomial<R, G> const &b)
-{
-	a = a * b;
-}
-
-/** apply a function to all coefficients */
-template <typename R, typename G, typename F>
-Multinomial<R, G> mapCoefficients(F f, Multinomial<R, G> const &a)
+// apply a function to all coefficients
+template <class R, class G, class F>
+Multinomial<R, G> map_coefficients(F f, Multinomial<R, G> const &a)
 {
 	// TODO: this function should be able to change the coefficient type
 
@@ -269,38 +199,86 @@ Multinomial<R, G> mapCoefficients(F f, Multinomial<R, G> const &a)
 	return Multinomial<R, G>(std::move(terms));
 }
 
+template <class R, class G>
+Multinomial<R, G> operator*(Multinomial<R, G> const &a, R const &b)
+{
+	return map_coefficients([&b](auto &x) { return x * b; }, a);
+}
+template <class R, class G>
+Multinomial<R, G> operator/(Multinomial<R, G> const &a, R const &b)
+{
+	return map_coefficients([&b](auto &x) { return x / b; }, a);
+}
+template <class R, class G>
+Multinomial<R, G> operator*(R const &a, Multinomial<R, G> const &b)
+{
+	return map_coefficients([&a](auto &x) { return a * x; }, b);
+}
+template <class R, class G>
+Multinomial<R, G> operator*(Multinomial<R, G> const &a, int b)
+{
+	return map_coefficients([b](auto &x) { return x * b; }, a);
+}
+template <class R, class G>
+Multinomial<R, G> operator/(Multinomial<R, G> const &a, int b)
+{
+	return map_coefficients([b](auto &x) { return x / b; }, a);
+}
+template <class R, class G>
+void operator*=(Multinomial<R, G> &a, Multinomial<R, G> const &b)
+{
+	a = a * b;
+}
+
+template <class R, class G>
+bool operator==(Multinomial<R, G> const &a, Multinomial<R, G> const &b)
+{
+	return a.terms() == b.terms();
+}
+
+template <class R, class G> bool operator==(Multinomial<R, G> const &a, int b)
+{
+	if (a.terms().empty())
+		return b == 0;
+	if (a.terms().size() > 1)
+		return false;
+	return a.terms()[0].index == 1 && a.terms()[0].coefficient == b;
+}
+
 /** print in multi-line (hopefully more human-readable for huge sums) */
-template <typename R, typename G> void dump(Multinomial<R, G> const &a)
+template <class R, class G> void dump(Multinomial<R, G> const &a)
 {
 	for (auto &term : a.terms())
 		fmt::print("{} :: {}\n", term.index, term.coefficient);
 }
 
 /** ditto, but shorter */
-template <typename R, typename G> void dump_summary(Multinomial<R, G> const &a)
+template <class R, class G> void dump_summary(Multinomial<R, G> const &a)
 {
 	for (auto &term : a.terms())
 		fmt::print("{} :: {} + ... ( {} terms total )\n", term.index,
 		           term.coefficient.lm(), term.coefficient.terms().size());
 }
 
-template <typename R, typename G> struct RingTraits<Multinomial<R, G>>
+template <class R, class G> struct RingTraits<Multinomial<R, G>>
 {
-	static bool isZero(Multinomial<R, G> const &a) { return a.terms().empty(); }
-	static bool isOne(Multinomial<R, G> const &a) { return a == 1; }
-	static bool isNegative(Multinomial<R, G> const &) { return false; }
+	static bool is_zero(Multinomial<R, G> const &a)
+	{
+		return a.terms().empty();
+	}
+	static bool is_one(Multinomial<R, G> const &a) { return a == 1; }
+	static bool is_negative(Multinomial<R, G> const &) { return false; }
 
 	/** these two are not precisely correct, but at least not wrong */
-	static bool needParensProduct(Multinomial<R, G> const &) { return true; }
-	static bool needParensPower(Multinomial<R, G> const &) { return true; }
+	static bool need_parens_product(Multinomial<R, G> const &) { return true; }
+	static bool need_parens_power(Multinomial<R, G> const &) { return true; }
 };
 
 template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
 } // namespace chalk
 
-template <typename R, typename G>
-struct fmt::formatter<chalk::Multinomial<R, G>>
+template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
@@ -316,19 +294,26 @@ struct fmt::formatter<chalk::Multinomial<R, G>>
 		auto it = ctx.out();
 		for (size_t i = 0; i < a.terms().size(); ++i)
 		{
-			if (i != 0)
-				it = format_to(it, " + ");
 			auto const &term = a.terms()[i];
 
-			if (chalk::isOne(term.coefficient))
+			R coeff = term.coefficient;
+			if (i != 0)
+				if (chalk::is_negative(coeff))
+				{
+					coeff = -coeff;
+					it = format_to(it, " - ");
+				}
+				else
+					it = format_to(it, " + ");
+
+			if (chalk::is_one(coeff))
 				it = format_to(it, "{}", term.index);
 			else if (term.index == 1)
-				it = format_to(it, "{}", term.coefficient);
-			else if (chalk::needParensProduct(term.coefficient))
-				it = format_to(it, "({})*{}", a.terms()[i].coefficient,
-				               term.index);
+				it = format_to(it, "{}", coeff);
+			else if (chalk::need_parens_product(coeff))
+				it = format_to(it, "({})*{}", coeff, term.index);
 			else
-				it = format_to(it, "{}*{}", term.coefficient, term.index);
+				it = format_to(it, "{}*{}", coeff, term.index);
 		}
 		return it;
 	}

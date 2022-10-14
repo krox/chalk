@@ -780,19 +780,19 @@ SparsePolynomial<R, rank> diff(SparsePolynomial<R, rank> const &a,
 
 template <typename R, size_t rank> struct RingTraits<SparsePolynomial<R, rank>>
 {
-	static bool isZero(SparsePolynomial<R, rank> const &a)
+	static bool is_zero(SparsePolynomial<R, rank> const &a)
 	{
 		return a.terms().empty();
 	}
-	static bool isOne(SparsePolynomial<R, rank> const &a) { return a == 1; }
-	static bool isNegative(SparsePolynomial<R, rank> const &) { return false; }
+	static bool is_one(SparsePolynomial<R, rank> const &a) { return a == 1; }
+	static bool is_negative(SparsePolynomial<R, rank> const &) { return false; }
 
 	/** these two are not precisely correct, but at least not wrong */
-	static bool needParensProduct(SparsePolynomial<R, rank> const &)
+	static bool need_parens_product(SparsePolynomial<R, rank> const &)
 	{
 		return true;
 	}
-	static bool needParensPower(SparsePolynomial<R, rank> const &)
+	static bool need_parens_power(SparsePolynomial<R, rank> const &)
 	{
 		return true;
 	}
@@ -822,7 +822,7 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 			R coeff = terms[i].coefficient;
 			auto &exp = terms[i].exponent;
 
-			if (chalk::isNegative(coeff))
+			if (chalk::is_negative(coeff))
 			{
 				if (i == 0)
 					it = format_to(it, "-");

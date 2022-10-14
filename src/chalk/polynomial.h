@@ -29,7 +29,7 @@ template <typename R, char X = 'x'> class Polynomial
 
 	void cleanup()
 	{
-		while (!coefficients_.empty() && isZero(coefficients_.back()))
+		while (!coefficients_.empty() && is_zero(coefficients_.back()))
 			coefficients_.pop_back();
 	}
 
@@ -97,8 +97,8 @@ bool operator==(Polynomial<R, X> const &a, Polynomial<R, X> const &b)
 template <typename R, char X, typename U>
 bool operator==(Polynomial<R, X> const &a, U const &b)
 {
-	if (isZero(b))
-		return isZero(a);
+	if (is_zero(b))
+		return is_zero(a);
 	return a.degree() == 0 && a[0] == b;
 }
 
@@ -288,24 +288,24 @@ auto map_coefficients(F f, Polynomial<R, X> const &a)
 
 template <typename R, char X> struct RingTraits<Polynomial<R, X>>
 {
-	static bool isZero(Polynomial<R, X> const &poly)
+	static bool is_zero(Polynomial<R, X> const &poly)
 	{
 		return poly.coefficients().empty();
 	}
-	static bool isOne(Polynomial<R, X> const &poly)
+	static bool is_one(Polynomial<R, X> const &poly)
 	{
 		return poly.coefficients().size() == 1 &&
-		       chalk::isOne(poly.coefficients()[0]);
+		       chalk::is_one(poly.coefficients()[0]);
 	}
-	static bool isNegative(Polynomial<R, X> const &poly)
+	static bool is_negative(Polynomial<R, X> const &poly)
 	{
 		return poly.degree() >= 0 &&
-		       chalk::isNegative(poly.coefficients().back());
+		       chalk::is_negative(poly.coefficients().back());
 	}
 
 	/** not exactly correct... */
-	static bool needParensProduct(Polynomial<R, X> const &) { return true; }
-	static bool needParensPower(Polynomial<R, X> const &) { return true; }
+	static bool need_parens_product(Polynomial<R, X> const &) { return true; }
+	static bool need_parens_power(Polynomial<R, X> const &) { return true; }
 };
 
 } // namespace chalk
@@ -333,7 +333,7 @@ template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 			if (c == 0)
 				continue;
 
-			if (isNegative(c))
+			if (chalk::is_negative(c))
 			{
 				if (first)
 					it = format_to(it, "-");

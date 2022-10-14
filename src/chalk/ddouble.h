@@ -505,17 +505,17 @@ inline bool operator!=(double a, ddouble b) { return !(a == b); }
 template <> struct RingTraits<ddouble>
 {
 	/** potentially faster than full comparison */
-	static bool isZero(ddouble const &value) { return value.high() == 0.0; }
-	static bool isOne(ddouble const &value) { return value == 1; }
+	static bool is_zero(ddouble const &value) { return value.high() == 0.0; }
+	static bool is_one(ddouble const &value) { return value == 1; }
 
 	/** just set to false if signs dont make sense for T */
-	static bool isNegative(ddouble const &value) { return value.high() < 0; }
+	static bool is_negative(ddouble const &value) { return value.high() < 0; }
 
 	/** do we need parentheses if T occurs in a product/power? */
-	static bool needParensProduct(ddouble const &) { return false; }
-	static bool needParensPower(ddouble const &value)
+	static bool need_parens_product(ddouble const &) { return false; }
+	static bool need_parens_power(ddouble const &value)
 	{
-		return isNegative(value);
+		return is_negative(value);
 	}
 };
 
