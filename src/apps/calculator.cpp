@@ -60,34 +60,34 @@ template <typename T> class Parser
 
 	T parsePrimary()
 	{
-		if (lexer.tryMatch(Tok::OpenParen))
+		if (lexer.try_match("("))
 		{
 			auto r = parseSum();
-			lexer.match(Tok::CloseParen);
+			lexer.match(")");
 			return r;
 		}
-		else if (auto tok = lexer.tryMatch(Tok::Int); tok)
+		else if (auto tok = lexer.try_match(Tok::integer()); tok)
 		{
 			return T(Integer(tok->value));
 		}
-		else if (auto tok = lexer.tryMatch(Tok::Float); tok)
+		else if (auto tok = lexer.try_match(Tok::floating()); tok)
 		{
 			return T(FloatingOctuple(tok->value));
 		}
-		else if (auto tok = lexer.tryMatch(Tok::Ident); tok)
+		else if (auto tok = lexer.try_match(Tok::ident()); tok)
 		{
-			if (lexer.tryMatch(Tok::OpenParen)) // function call
+			if (lexer.try_match("(")) // function call
 			{
 				if (funTable != nullptr)
 					if (auto it = funTable->find(tok->value);
 					    it != funTable->end())
 					{
 						std::vector<T> args;
-						while (!lexer.tryMatch(Tok::CloseParen))
+						while (!lexer.try_match(")"))
 						{
 							args.push_back(parseSum());
-							if (!lexer.peek(Tok::CloseParen))
-								lexer.match(Tok::Comma);
+							if (!lexer.peek(")"))
+								lexer.match(",");
 						}
 						return it->second(args);
 					}
@@ -113,14 +113,14 @@ template <typename T> class Parser
 
 	T parsePower()
 	{
-		bool neg = lexer.tryMatch(Tok::Sub);
+		bool neg = lexer.try_match("-");
 		T r = parsePrimary();
-		if (lexer.tryMatch(Tok::Pow))
+		if (lexer.try_match("^"))
 		{
-			if (lexer.tryMatch(Tok::Sub))
-				r = pow(r, -util::parse_int(lexer.match(Tok::Int).value));
+			if (lexer.try_match("-"))
+				r = pow(r, -util::parse_int(lexer.match(Tok::integer()).value));
 			else
-				r = pow(r, util::parse_int(lexer.match(Tok::Int).value));
+				r = pow(r, util::parse_int(lexer.match(Tok::integer()).value));
 		}
 		return neg ? -r : r;
 	}
@@ -129,9 +129,9 @@ template <typename T> class Parser
 	{
 		T r = parsePower();
 		while (true)
-			if (lexer.tryMatch(Tok::Mul))
+			if (lexer.try_match("*"))
 				r = r * parsePower();
-			else if (lexer.tryMatch(Tok::Div))
+			else if (lexer.try_match("/"))
 				r = r / parsePower();
 			else
 				return r;
@@ -141,9 +141,9 @@ template <typename T> class Parser
 	{
 		T r = parseProduct();
 		while (true)
-			if (lexer.tryMatch(Tok::Add))
+			if (lexer.try_match("+"))
 				r = r + parseProduct();
-			else if (lexer.tryMatch(Tok::Sub))
+			else if (lexer.try_match("-"))
 				r = r - parseProduct();
 			else
 				return r;
@@ -191,10 +191,10 @@ int main()
 			auto parser = Parser<Real>(*line, &varTable, &funTable);
 			while (!parser.lexer.empty())
 			{
-				if (parser.lexer.peek(util::Tok::Ident, util::Tok::Assign))
+				if (parser.lexer.peek(util::Tok::ident(), "="))
 				{
-					auto varname = parser.lexer.match(util::Tok::Ident).value;
-					parser.lexer.match(util::Tok::Assign);
+					auto varname = parser.lexer.match(util::Tok::ident()).value;
+					parser.lexer.match("=");
 					auto val = parser.parseExpression();
 					varTable[std::string(varname)] = val;
 				}
@@ -204,8 +204,8 @@ int main()
 					fmt::print("{}\n", val);
 				}
 
-				if (!parser.lexer.tryMatch(util::Tok::Semi))
-					parser.lexer.match(util::Tok::None);
+				if (!parser.lexer.try_match(";"))
+					parser.lexer.match(util::Tok::none());
 			}
 		}
 		catch (util::ParseError const &e)

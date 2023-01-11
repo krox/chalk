@@ -250,19 +250,17 @@ template <typename R, size_t rank>
 inline void dump_singular(Ideal<R, rank> const &ideal,
                           std::string const &filename)
 {
-	// 1) define the ring of polynomials (using only the used variables)
 	auto file = fmt::output_file(filename);
+
+	// 1) define the ring of polynomials (using only the used variables)
 	// "QQ" is the field of coefficients, here its rational numbers.
 	// Alternatively, some finite field could be used to speed up computations.
-	file.print("ring r = QQ,(");
-	auto vars = active_variables(ideal);
-	for (size_t i = 0; i < vars.size(); ++i)
-		file.print(i == 0 ? "{}" : ",{}", vars[i]);
 	// "dp" is the monomial ordering , here its "degree reverse lexicographical"
 	// which is the suggested default (usually much better than just
 	// lexicographic). The more advanced orderings (using weights and stuff)
 	// require more knowlege about the variables.
-	file.print("),dp;\n");
+	file.print("ring r = QQ,({}),dp;\n",
+	           fmt::join(active_variables(ideal), ","));
 
 	// 2) define the basis polynomials
 	for (size_t i = 0; i < ideal.size(); ++i)
@@ -271,7 +269,11 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	// 3) define the ideal
 	file.print("ideal I = ");
 	for (size_t i = 0; i < ideal.size(); ++i)
-		file.print(i == 0 ? "f{}" : ",f{}", i);
+	{
+		if (i)
+			file.print(",");
+		file.print("f{}", i);
+	}
 	file.print(";\n");
 
 	// 4) compute groebner basis
@@ -291,16 +293,16 @@ inline void dump_maple(Ideal<R, rank> const &ideal, std::string const &filename)
 	// 3) define the ideal
 	file.print("ideal := [");
 	for (size_t i = 0; i < ideal.size(); ++i)
-		file.print(i == 0 ? "f{}" : ",f{}", i);
+	{
+		if (i)
+			file.print(",");
+		file.print("f{}", i);
+	}
 	file.print("];\n");
 
 	file.print("with(Groebner);\n");
 	file.print("infolevel[GroebnerBasis] := 5;\n");
-	file.print("vars := [");
-	auto vars = active_variables(ideal);
-	for (size_t i = 0; i < vars.size(); ++i)
-		file.print(i == 0 ? "{}" : ",{}", vars[i]);
-	file.print("];\n");
+	file.print("vars := [{}];\n", fmt::join(active_variables(ideal), ","));
 	file.print("mybasis := Basis(ideal, tdeg);\n");
 }
 

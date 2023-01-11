@@ -298,6 +298,7 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 
 			R coeff = term.coefficient;
 			if (i != 0)
+			{
 				if (chalk::is_negative(coeff))
 				{
 					coeff = -coeff;
@@ -305,6 +306,7 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 				}
 				else
 					it = format_to(it, " + ");
+			}
 
 			if (chalk::is_one(coeff))
 				it = format_to(it, "{}", term.index);
