@@ -27,7 +27,7 @@ target_compile_features(chalk PUBLIC cxx_std_17)
 target_link_libraries(chalk util stdc++ gmp mpfr Eigen3::Eigen readline)
 
 # executables
-foreach(bin "factor" "primes" "wieferich" "sprp" "calculator" "ziggurat" "exponential_product" "langevin_scheme")
+foreach(bin "factor" "primes" "wieferich" "psp" "calculator" "ziggurat" "exponential_product" "langevin_scheme")
 	add_executable(${bin} src/apps/${bin}.cpp)
 	target_compile_features(${bin} PUBLIC cxx_std_17)
 	target_link_libraries(${bin} chalk CLI11::CLI11)
