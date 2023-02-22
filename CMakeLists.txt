@@ -1,18 +1,20 @@
 cmake_minimum_required (VERSION 3.14.0)
 project (chalk)
 
+set(FMT_SYSTEM_HEADERS ON) # treat libfmt as system headers, which silences some warnings
+
 include(FetchContent)
 
 FetchContent_Declare(
   cli11
   GIT_REPOSITORY https://github.com/CLIUtils/CLI11
-  GIT_TAG        b9be5b9444772324459989177108a6a65b8b2769 # v2.2.0
+  GIT_TAG        291c58789c031208f08f4f261a858b5b7083e8e2 # v2.3.2
 )
 FetchContent_MakeAvailable(cli11)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror -Wno-deprecated-declarations -Wno-unused-function")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror -Wno-stringop-overflow -Wno-deprecated-declarations  -Wno-unused-function")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # for int128_t
 
@@ -39,7 +41,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 	FetchContent_Declare(
 	  Catch2
 	  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-	  GIT_TAG        v3.0.1
+	  GIT_TAG        2ab20a0e008845e02bd06248e61ca6e5ad1aba33 # v3.3.1
 	)
 
 	FetchContent_MakeAvailable(Catch2)
