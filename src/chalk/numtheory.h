@@ -287,6 +287,14 @@ inline constexpr bool is_power(int64_t a) noexcept
 	}
 }
 
+// Prime sieve for odd numbers
+//     * returns bit_vector of size n
+//     * result[i] indicates that 2*(i+o)+1 is prime
+//     * bigger wheel size (as in prime_table(...)) is more efficient of course,
+//       but this version is quite conveniant, and often fast enough
+util::bit_vector odd_prime_table(uint64_t o, uint64_t n);
+util::bit_vector odd_prime_table(uint64_t n);
+
 // Eratosthenes sieve with arbitrary wheel size
 //     * result[i][k] indicates that k*w+i is primes
 //     * result[i] is empty if gcd(i,w) != 1

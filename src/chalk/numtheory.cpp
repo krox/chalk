@@ -1,6 +1,7 @@
 #include "chalk/numtheory.h"
 
 #include "util/bit_vector.h"
+#include "util/lazy.h"
 #include "util/random.h"
 #include <algorithm>
 #include <cassert>
@@ -10,14 +11,80 @@ using namespace util;
 namespace chalk {
 
 // note on storage requirements:
-// For all remotely relevant cases, a bit_vector indicating primeness of all odd
-// numbers is more efficint than storing primes directly. For example:
+// a bit_vector indicating primeness of all odd numbers is more efficint than
+// storing primes directly:
 //     * The ~203M primes below 2^32 take ~775 MiB as a vector<uint32>, but only
 //       256 MiB as a bit_vector.
 //     * The ~4*10^17 primes below 2^64 would take ~3 ZiB as a vector<uint64>,
 //       but "only" 1 ZiB as a bit_vector.
-// Could optimize further by not storing compositness of multiples of some small
-// primes. But this kinda harms usability, so we dont for now.
+//     * Due to Pi(n)~n/log(n), this ~3:1 ratio holds true at all bit widths.
+//     * With a larger wheel size, this advantage only grows.
+//       For example with a (2,3,5,7) wheel, it is ~6.5:1
+
+namespace {
+auto odd_prime_table_19 = util::synchronized_lazy(
+    []() { return odd_prime_table(1LL << 19); }); // 64 KiB
+auto odd_prime_table_23 = util::synchronized_lazy(
+    []() { return odd_prime_table(1LL << 23); }); // 1 MiB
+auto odd_prime_table_27 = util::synchronized_lazy(
+    []() { return odd_prime_table(1LL << 27); }); // 16 MiB
+auto odd_prime_table_31 = util::synchronized_lazy(
+    []() { return odd_prime_table(1LL << 31); }); // 256 MiB
+
+util::bit_vector const &get_odd_prime_table(uint64_t n)
+{
+	if (n <= 1LL << 19)
+		return *odd_prime_table_19;
+	if (n <= 1LL << 23)
+		return *odd_prime_table_23;
+	if (n <= 1LL << 27)
+		return *odd_prime_table_27;
+	if (n <= 1LL << 31)
+		return *odd_prime_table_31;
+	assert(false);
+}
+} // namespace
+
+util::bit_vector odd_prime_table(uint64_t o, uint64_t n)
+{
+	assert(o <= uint64_t(1) << 62);
+	assert(n <= uint64_t(1) << 48);
+
+	if (!o || !n)
+		return odd_prime_table(n);
+
+	uint64_t limit = isqrt((o + n) * 2) / 2 + 1;
+	auto &base_table = get_odd_prime_table(limit);
+
+	auto table = util::bit_vector(n, true);
+	for (uint64_t k = 1; k < limit; ++k)
+		if (base_table[k])
+		{
+			uint64_t p = 2 * k + 1;
+			uint64_t start = p * p / 2;
+			if (start < o)
+				start += (o - start + p - 1) / p * p;
+			for (uint64_t s = start; s < o + n; s += p)
+				table[s - o] = false;
+		}
+	return table;
+}
+
+util::bit_vector odd_prime_table(uint64_t n)
+{
+	assert(n <= uint64_t(1) << 48);
+	if (!n)
+		return {};
+
+	// completely standard odds-only Erathostenes sieve
+	auto table = util::bit_vector(n, true);
+	table[0] = false; // mark '1' as non-prime
+	for (uint64_t k = 1; k * k + k < (n + 1) / 2; ++k)
+		if (table[k])
+			for (uint64_t s = 2 * k * (k + 1); s < n; s += 2 * k + 1)
+				table[s] = false;
+	return table;
+}
 
 std::vector<util::bit_vector> prime_table(int64_t n, int64_t w)
 {

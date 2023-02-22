@@ -56,6 +56,32 @@ TEST_CASE("primes", "[numtheory][integer][primes]")
 	}
 }
 
+TEST_CASE("prime_table", "[numtheory][integer][primes]")
+{
+	// chances for off-by-one errors in prime_tables() and friends are kinda
+	// big, so thorough tests are in order.
+
+	for (uint64_t n = 0; n <= 10; ++n)
+	{
+		util::bit_vector table = odd_prime_table(n);
+		REQUIRE(table.size() == n);
+		for (uint64_t k = 0; k < n; ++k)
+			CHECK(is_prime(2 * k + 1) == table[k]);
+	}
+
+	auto rng = xoshiro256();
+	for (int iter = 0; iter < 100; ++iter)
+	{
+		auto n = rng.uniform(uint64_t(1000));
+		auto o = rng.uniform(uint64_t(1) << 35);
+
+		util::bit_vector table = odd_prime_table(o, n);
+		REQUIRE(table.size() == n);
+		for (uint64_t k = 0; k < n; ++k)
+			CHECK(is_prime(2 * (k + o) + 1) == table[k]);
+	}
+}
+
 TEST_CASE("factorization", "[numtheory][integer]")
 {
 	{
