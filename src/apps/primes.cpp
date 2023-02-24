@@ -1,5 +1,6 @@
 #include "CLI/CLI.hpp"
 #include "chalk/numtheory.h"
+#include <algorithm>
 #include <cassert>
 #include <fmt/format.h>
 using namespace chalk;
@@ -18,32 +19,30 @@ int main(int argc, char *argv[])
 	// 10^9  ->  50'847'534
 	// 10^10 -> 455'052'511
 
-	int64_t max = 1'000'000'000;
-	CLI::App app{"list all prime numbers in [2, max]"};
-	app.add_option("--max", max);
+	uint64_t min = 2;
+	uint64_t max = uint64_t(1) << 60;
+	CLI::App app{"list all prime numbers in [max, max]"};
+	app.add_option("--min", min, "lower bound (default=2)");
+	app.add_option("--max", max, "upper bound (default=2^60)");
 	CLI11_PARSE(app, argc, argv);
-	if (max < 2)
+	if (min > max)
 		return 0;
 
-	// NOTE:
-	//     * the bit_vectors returned by prime_table take a lot less space than
-	//       a std::vector<int64_t> would, so the latter one is never created
-	// TODO:
-	//     - segmented sieve (and set default max = INT64_MAX)
-	//     - '--min' parameter
+	if (min <= 2 && 2 <= max)
+		fmt::print("2\n");
 
-	auto table = chalk::prime_table(max, 30);
-	for (auto p : {2, 3, 5})
-		if (p <= max)
-			fmt::print("{}\n", p);
+	for (uint64_t n = min / 2; n != (max + 1) / 2;)
+	{
+		// chunk_size must be at least ~sqrt(n) in order for the prime sieve to
+		// run at full speed
+		uint64_t chunk_size = 100 * isqrt(n);
+		chunk_size = std::max(chunk_size, uint64_t(1) << 16);
+		chunk_size = std::min(chunk_size, (max + 1) / 2 - n);
+		auto table = odd_prime_table(n, chunk_size);
 
-	for (int64_t k = 0; k < (int64_t)table[1].size(); ++k)
-		for (int64_t x : {1, 7, 11, 13, 17, 19, 23, 29})
-			if (table[x][k])
-			{
-				auto p = k * 30 + x;
-				if (p > max)
-					return 0;
-				fmt::print("{}\n", p);
-			}
+		for (uint64_t k = 0; k < chunk_size; ++k)
+			if (table[k])
+				fmt::print("{}\n", 2 * (n + k) + 1);
+		n += chunk_size;
+	}
 }
