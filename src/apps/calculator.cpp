@@ -113,7 +113,7 @@ template <typename T> class Parser
 
 	T parsePower()
 	{
-		bool neg = lexer.try_match("-");
+		bool neg = (bool)lexer.try_match("-");
 		T r = parsePrimary();
 		if (lexer.try_match("^"))
 		{

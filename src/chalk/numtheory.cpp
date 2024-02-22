@@ -187,7 +187,7 @@ bool is_prp(int64_t a, int64_t n)
 {
 	assert(a >= 0);
 	assert(n > 1 && n % 2 == 1);
-	return powmod(a, n - 1, n) == 1;
+	return powmod(a % n, n - 1, n) == 1;
 }
 
 bool is_sprp(int64_t a, int64_t n)

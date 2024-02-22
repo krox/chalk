@@ -1,24 +1,31 @@
-cmake_minimum_required (VERSION 3.14.0)
-project (chalk)
+cmake_minimum_required(VERSION 3.16.0)
+project(chalk)
 
-set(FMT_SYSTEM_HEADERS ON) # treat libfmt as system headers, which silences some warnings
+include(cmake/CPM.cmake)
 
-include(FetchContent)
-
-FetchContent_Declare(
-  cli11
-  GIT_REPOSITORY https://github.com/CLIUtils/CLI11
-  GIT_TAG        291c58789c031208f08f4f261a858b5b7083e8e2 # v2.3.2
+CPMAddPackage(
+	NAME util
+	GITHUB_REPOSITORY krox/util
+	GIT_TAG 2ac05de762ba920d08535b950c563e842f1ba55c
 )
-FetchContent_MakeAvailable(cli11)
 
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+CPMAddPackage(
+	NAME cli11
+	GITHUB_REPOSITORY CLIUtils/CLI11
+	GIT_TAG f4d0731cebb123ff0ace712c099dffbcd2c58e5a # v2.4.1
+)
+
+CPMAddPackage(
+	NAME Catch2
+	GITHUB_REPOSITORY catchorg/Catch2
+	GIT_TAG 2ab20a0e008845e02bd06248e61ca6e5ad1aba33 # v3.3.1
+)
+
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror -Wno-stringop-overflow -Wno-deprecated-declarations  -Wno-unused-function")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # for int128_t
-
-add_subdirectory(util EXCLUDE_FROM_ALL)
 
 include_directories(src)
 
@@ -37,15 +44,6 @@ endforeach(bin)
 
 # unittests
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-
-	FetchContent_Declare(
-	  Catch2
-	  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-	  GIT_TAG        2ab20a0e008845e02bd06248e61ca6e5ad1aba33 # v3.3.1
-	)
-
-	FetchContent_MakeAvailable(Catch2)
-
 	add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
 	add_link_options(-fsanitize=address)
 
@@ -53,5 +51,4 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 	target_compile_features(tests PRIVATE cxx_std_17)
 	target_link_libraries(tests PRIVATE Catch2::Catch2WithMain chalk)
 	target_compile_options(tests PRIVATE -Wall -Wextra -Werror -g -Wno-parentheses -Wno-stringop-overflow)
-
 endif()

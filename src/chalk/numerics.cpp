@@ -48,7 +48,7 @@ std::vector<double> roots(Polynomial<double> const &poly)
 	std::vector<util::complex<double>> coeffs;
 	coeffs.reserve(poly.degree() + 1);
 	for (auto &c : poly.coefficients())
-		coeffs.push_back(c);
+		coeffs.push_back(util::complex<double>(c));
 	double eps = 1e-12;
 	auto rc = rootsDurandKerner(
 	    Polynomial<util::complex<double>>(std::move(coeffs)), eps);

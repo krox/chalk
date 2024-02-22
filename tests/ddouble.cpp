@@ -1,12 +1,13 @@
 #include "catch2/catch_test_macros.hpp"
 
-#include "chalk/ddouble.h"
 #include "chalk/floating.h"
+#include "util/ddouble.h"
 #include "util/random.h"
 #include "util/stopwatch.h"
 #include <Eigen/Dense>
 #include <fmt/format.h>
 using namespace chalk;
+using util::ddouble;
 
 namespace {
 
@@ -112,15 +113,14 @@ void print_ddouble(std::string const &name, FloatingOctuple a)
 {
 	double high = (double)a;
 	double low = (double)(a - high);
-	fmt::print("static constexpr ddouble {}(){{return ddouble({:a}, {:a});}}\n",
-	           name, high, low);
+	fmt::print("CHALK_DDOUBLE_CONST({}, {:a}, {:a}) // {:.4f}...\n", name, high,
+	           low, high);
 
 	a = 1.0 / a;
 	high = (double)a;
 	low = (double)(a - high);
-	fmt::print(
-	    "static constexpr ddouble inv_{}(){{return ddouble({:a}, {:a});}}\n",
-	    name, high, low);
+	fmt::print("CHALK_DDOUBLE_CONST(inv_{}, {:a}, {:a}) // {:.4f}...\n", name,
+	           high, low, high);
 }
 
 TEST_CASE("ddouble arithmetic", "[ddouble][numerics]")
@@ -157,8 +157,7 @@ TEST_CASE("ddouble arithmetic", "[ddouble][numerics]")
 	benchmark_unary(
 	    "cos", [](auto a) { return cos(a); }, -10, 10);*/
 
-	/*
-	print_ddouble("e", exp(FloatingOctuple(1)));
+	/*print_ddouble("e", exp(FloatingOctuple(1)));
 	print_ddouble("egamma", FloatingOctuple::euler());
 	print_ddouble("pi", FloatingOctuple::pi());
 	print_ddouble("sqrt2", sqrt(FloatingOctuple(2)));
@@ -168,7 +167,23 @@ TEST_CASE("ddouble arithmetic", "[ddouble][numerics]")
 	print_ddouble("log10e", 1.0 / log(FloatingOctuple(10)));
 	print_ddouble("log2e", 1.0 / log(FloatingOctuple(2)));
 	print_ddouble("phi", (sqrt(FloatingOctuple(5)) + 1) / 2);
-	*/
+
+	print_ddouble("fac3", FloatingOctuple(2) * 3);
+	print_ddouble("fac4", FloatingOctuple(2) * 3 * 4);
+	print_ddouble("fac5", FloatingOctuple(2) * 3 * 4 * 5);
+	print_ddouble("fac6", FloatingOctuple(2) * 3 * 4 * 5 * 6);
+	print_ddouble("fac7", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7);
+	print_ddouble("fac8", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8);
+	print_ddouble("fac9", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8 * 9);
+	print_ddouble("fac10", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10);
+	print_ddouble("fac11",
+	              FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11);
+	print_ddouble("fac12", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 *
+	                           11 * 12);
+	print_ddouble("fac13", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 *
+	                           11 * 12 * 13);
+	print_ddouble("fac14", FloatingOctuple(2) * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 *
+	                           11 * 12 * 13 * 14);*/
 
 	// ASSERT_EQ(zeros.size(), 2);
 	// EXPECT_DOUBLE_EQ(zeros[0], -1.);
