@@ -58,8 +58,16 @@ std::vector<Integer> factor(Integer n)
 	if (verbose)
 		fmt::print("starting factorization of n = {}\n", n);
 
-	// assert(n > 0);
+	if (n == 0)
+		return {0};
+
 	std::vector<Integer> f;
+
+	if (n < 0)
+	{
+		f.push_back(-1);
+		n = -n;
+	}
 
 	if (n.fits_int())
 	{
@@ -100,19 +108,21 @@ int main(int argc, char *argv[])
 	// testing number: 2044000015922760011571288401882419756046486692
 	// ( three 12-digit prime factors and some small ones )
 
-	std::vector<Integer> numbers;
+	std::vector<std::string> numbers;
 
 	CLI::App app{
-	    "Factorizes positive integer(s) into primes. If none are given on "
-	    "the command line, numbers are read from stdin. Usage and "
-	    "output syntax are the same as 'factor' from GNU coreutils."};
-	app.add_option("number", numbers, "number(s) to factorize")
-	    ->check(CLI::PositiveNumber);
+	    "Factorizes integer(s) into primes.\n"
+	    "If none are given on the command line, numbers are read from stdin. "
+	    "Compatible with 'factor' from GNU coreutils. "
+	    "Supports parsing of simple expressions like '13*2^64-1'."};
+	app.add_option("number", numbers, "number(s) to factorize");
+
 	app.add_flag("--verbose", verbose,
 	             "print some debug infos on the used algorithm");
 	CLI11_PARSE(app, argc, argv);
 
-	auto process = [](Integer const &n) {
+	auto process = [](std::string const &s) {
+		auto n = Integer::parse(s);
 		fmt::print("{}:", n);
 		for (auto &a : factor(n))
 			fmt::print(" {}", a);
@@ -123,19 +133,11 @@ int main(int argc, char *argv[])
 	{
 		std::string s;
 		while (std::cin >> s)
-		{
-			auto n = Integer(s);
-			if (!(n > 0))
-			{
-				fmt::print("ERROR: invalid number '{}'\n", s);
-				return -1;
-			}
-			process(n);
-		}
+			process(s);
 	}
 	else
 	{
-		for (auto &n : numbers)
-			process(n);
+		for (auto &s : numbers)
+			process(s);
 	}
 }

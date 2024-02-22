@@ -6,6 +6,7 @@
  * expression-templates.
  */
 
+#include "chalk/parser.h"
 #include "chalk/rings.h"
 #include "fmt/format.h"
 #include <cassert>
@@ -16,11 +17,11 @@
 
 namespace chalk {
 
-/**
- * As far as possible a drop-in replacement for 'int' with arbitrary precision
- *   - always initialized to 0 (even local variables)
- *   - expensive to copy (even the default constructor allocates)
- */
+// As far as possible a drop-in replacement for 'int' with arbitrary precision
+//   - always initialized to 0 (even local variables)
+//   - expensive to copy (even the default constructor allocates)
+//   - most functions are marked 'noexcept' because GMP can not handle
+//     out-of-memory gracefully anyway.
 class Integer
 {
   public:
@@ -33,31 +34,63 @@ class Integer
 
 	// constructors / destructor / moves
 
-	Integer() { mpz_init(z_); }
-	Integer(int value) { mpz_init_set_si(z_, value); }
-	explicit Integer(std::string const &value)
+	// default constructor initializes to zero
+	Integer() noexcept { mpz_init(z_); }
+
+	// construct from integer
+	Integer(int value) noexcept { mpz_init_set_si(z_, value); }
+
+	// takes value as simple string.
+	//     * defaults to decimal, but also supports hex (0x...)
+	//     * throws on ill-formatted strings
+	explicit Integer(char const *s)
 	{
-		mpz_init_set_str(z_, value.c_str(), 0);
+		assert(s);
+		int base = 10;
+		if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+		{
+			base = 16;
+			s += 2;
+		}
+		// NOTE: GMP ignores whitespace, and can also do its own base-detection,
+		// but we dont want to expose that really.
+		int r = mpz_init_set_str(z_, s, base);
+		if (r != 0)
+		{
+			// NOTE: mpz_init_set_str returns -1 on ill-formatted strings, but
+			// still initializes the mpz_t, so we have to clear it manually.
+			mpz_clear(z_);
+			throw std::invalid_argument("invalid integer string");
+		}
 	}
+	explicit Integer(std::string const &value) : Integer(value.c_str()) {}
 	explicit Integer(std::string_view value) : Integer(std::string(value)) {}
-	explicit Integer(char const *value) : Integer(std::string(value)) {}
+
+	// pseudo-constructor that understands basic arithmetic expressions such as
+	// "123+456" or "2^1000"
+	static Integer parse(std::string_view expr)
+	{
+		return chalk::parse<Integer>(
+		    expr, [](std::string_view s) { return Integer(s); });
+	}
+
 	~Integer() { mpz_clear(z_); }
-	Integer(Integer const &other) { mpz_init_set(z_, other.z_); }
-	Integer(Integer &&other)
+	Integer(Integer const &other) noexcept { mpz_init_set(z_, other.z_); }
+	Integer(Integer &&other) noexcept
 	{
 		mpz_init(z_);
 		mpz_swap(z_, other.z_);
 	}
-	void operator=(Integer const &other) { mpz_set(z_, other.z_); }
-	void operator=(Integer &&other) { mpz_swap(z_, other.z_); }
-	void operator=(int value) { mpz_set_si(z_, value); }
+	void operator=(Integer const &other) noexcept { mpz_set(z_, other.z_); }
+	void operator=(Integer &&other) noexcept { mpz_swap(z_, other.z_); }
+	void operator=(int value) noexcept { mpz_set_si(z_, value); }
 
 	void swap(Integer &other) noexcept { mpz_swap(z_, other.z_); }
 	friend void swap(Integer &a, Integer &b) noexcept { a.swap(b); }
 
 	// convert to int/double/string
 
-	bool fits_int() const { return mpz_fits_sint_p(z_); }
+	bool fits_int() const noexcept { return mpz_fits_sint_p(z_); }
 	int to_int() const
 	{
 		assert(mpz_fits_sint_p(z_));
@@ -80,7 +113,7 @@ class Integer
 	// low-level access to the data
 	//     * sign is stored separately, raw data is positive
 	//     * returns empty slice for zero, otherwise highest limb is non-zero
-	std::span<const mp_limb_t> limbs() const
+	std::span<const mp_limb_t> limbs() const noexcept
 	{
 		return std::span(mpz_limbs_read(z_), mpz_size(z_));
 	}
@@ -159,57 +192,57 @@ inline void mpz_tdiv_r_si(mpz_ptr r, mpz_srcptr a, long b)
 // basic arithmetic
 
 #define CHALK_DEFINE_INTEGER_UNARY(fun, gmp_fun)                               \
-	inline Integer fun(Integer const &a)                                       \
+	inline Integer fun(Integer const &a) noexcept                              \
 	{                                                                          \
 		Integer r;                                                             \
 		gmp_fun(r.z_, a.z_);                                                   \
 		return r;                                                              \
 	}                                                                          \
-	inline Integer fun(Integer &&a)                                            \
+	inline Integer fun(Integer &&a) noexcept                                   \
 	{                                                                          \
 		gmp_fun(a.z_, a.z_);                                                   \
 		return std::move(a);                                                   \
 	}
 
 #define CHALK_DEFINE_INTEGER_BINARY(fun, funInplace, gmp_fun)                  \
-	inline Integer fun(Integer const &a, Integer const &b)                     \
+	inline Integer fun(Integer const &a, Integer const &b) noexcept            \
 	{                                                                          \
 		Integer r;                                                             \
 		gmp_fun(r.z_, a.z_, b.z_);                                             \
 		return r;                                                              \
 	}                                                                          \
-	inline Integer fun(Integer &&a, Integer const &b)                          \
+	inline Integer fun(Integer &&a, Integer const &b) noexcept                 \
 	{                                                                          \
 		gmp_fun(a.z_, a.z_, b.z_);                                             \
 		return std::move(a);                                                   \
 	}                                                                          \
-	inline Integer fun(Integer const &a, Integer &&b)                          \
+	inline Integer fun(Integer const &a, Integer &&b) noexcept                 \
 	{                                                                          \
 		gmp_fun(b.z_, a.z_, b.z_);                                             \
 		return std::move(b);                                                   \
 	}                                                                          \
-	inline Integer fun(Integer &&a, Integer &&b)                               \
+	inline Integer fun(Integer &&a, Integer &&b) noexcept                      \
 	{                                                                          \
 		gmp_fun(a.z_, a.z_, b.z_);                                             \
 		return std::move(a);                                                   \
 	}                                                                          \
-	inline Integer fun(Integer const &a, int b)                                \
+	inline Integer fun(Integer const &a, int b) noexcept                       \
 	{                                                                          \
 		Integer r;                                                             \
 		gmp_fun##_si(r.z_, a.z_, b);                                           \
 		return r;                                                              \
 	}                                                                          \
-	inline Integer fun(Integer &&a, int b)                                     \
+	inline Integer fun(Integer &&a, int b) noexcept                            \
 	{                                                                          \
 		gmp_fun##_si(a.z_, a.z_, b);                                           \
 		return std::move(a);                                                   \
 	}                                                                          \
-	inline Integer &funInplace(Integer &a, Integer const &b)                   \
+	inline Integer &funInplace(Integer &a, Integer const &b) noexcept          \
 	{                                                                          \
 		gmp_fun(a.z_, a.z_, b.z_);                                             \
 		return a;                                                              \
 	}                                                                          \
-	inline Integer &funInplace(Integer &a, int b)                              \
+	inline Integer &funInplace(Integer &a, int b) noexcept                     \
 	{                                                                          \
 		gmp_fun##_si(a.z_, a.z_, b);                                           \
 		return a;                                                              \
@@ -229,14 +262,28 @@ CHALK_DEFINE_INTEGER_BINARY(mod, mod_assign, mpz_mod)
 #undef CHALK_DEFINE_INTEGER_UNARY
 #undef CHALK_DEFINE_INTEGER_BINARY
 
+inline Integer pow(Integer const &a, unsigned long b) noexcept
+{
+	Integer r;
+	mpz_pow_ui(r.z_, a.z_, b);
+	return r;
+}
+
+inline Integer pow(Integer const &a, int b) noexcept
+{
+	assert(b >= 0);
+	return pow(a, (unsigned long)b);
+}
+
 // comparisons
 
-inline bool operator==(Integer const &a, Integer const &b)
+inline bool operator==(Integer const &a, Integer const &b) noexcept
 {
 	return mpz_cmp(a.z_, b.z_) == 0;
 }
 
-inline std::strong_ordering operator<=>(Integer const &a, Integer const &b)
+inline std::strong_ordering operator<=>(Integer const &a,
+                                        Integer const &b) noexcept
 {
 	int r = mpz_cmp(a.z_, b.z_);
 	if (r == 0)
@@ -246,12 +293,12 @@ inline std::strong_ordering operator<=>(Integer const &a, Integer const &b)
 	return std::strong_ordering::greater;
 }
 
-inline bool operator==(Integer const &a, int b)
+inline bool operator==(Integer const &a, int b) noexcept
 {
 	return mpz_cmp_si(a.z_, b) == 0;
 }
 
-inline std::strong_ordering operator<=>(Integer const &a, int b)
+inline std::strong_ordering operator<=>(Integer const &a, int b) noexcept
 {
 	int r = mpz_cmp_si(a.z_, b);
 	if (r == 0)
@@ -261,9 +308,12 @@ inline std::strong_ordering operator<=>(Integer const &a, int b)
 	return std::strong_ordering::greater;
 }
 
-inline int sign(Integer const &a) { return mpz_sgn(a.z_); } // 1 / -1 / 0
+inline int sign(Integer const &a) noexcept
+{
+	return mpz_sgn(a.z_);
+} // 1 / -1 / 0
 
-inline std::optional<Integer> trySqrt(Integer const &a)
+inline std::optional<Integer> trySqrt(Integer const &a) noexcept
 {
 	if (!mpz_perfect_square_p(a.z_))
 		return {};
@@ -272,20 +322,21 @@ inline std::optional<Integer> trySqrt(Integer const &a)
 	return r;
 }
 
-inline Integer operator+(int a, Integer const &b) { return b + a; }
-inline Integer operator*(int a, Integer const &b) { return b * a; }
+inline Integer operator+(int a, Integer const &b) noexcept { return b + a; }
+inline Integer operator*(int a, Integer const &b) noexcept { return b * a; }
 
 // greatest common divisor
 //    - signs of input are ignored, result is always non-negative
 //    - convention: gcd(0,x) = abs(x)
-inline Integer gcd(Integer const &a, Integer const &b)
+inline Integer gcd(Integer const &a, Integer const &b) noexcept
 {
 	Integer r;
 	mpz_gcd(r.z_, a.z_, b.z_);
 	return r;
 }
 
-inline Integer gcd(Integer const &a, Integer const &b, Integer const &c)
+inline Integer gcd(Integer const &a, Integer const &b,
+                   Integer const &c) noexcept
 {
 	Integer r;
 	mpz_gcd(r.z_, a.z_, b.z_);
@@ -293,13 +344,13 @@ inline Integer gcd(Integer const &a, Integer const &b, Integer const &c)
 	return r;
 }
 
-inline bool divisible(Integer const &n, Integer const &d)
+inline bool divisible(Integer const &n, Integer const &d) noexcept
 {
 	return mpz_divisible_p(n.z_, d.z_) != 0;
 }
 
 // divide a,b by their greatest common divisor. Also makes a non-negative.
-inline Integer remove_common_factor(Integer &a, Integer &b)
+inline Integer remove_common_factor(Integer &a, Integer &b) noexcept
 {
 	auto d = gcd(a, b);
 	if (sign(a) < 0)
@@ -309,7 +360,7 @@ inline Integer remove_common_factor(Integer &a, Integer &b)
 	return d;
 }
 
-inline Integer remove_common_factor(Integer &a, Integer &b, Integer &c)
+inline Integer remove_common_factor(Integer &a, Integer &b, Integer &c) noexcept
 {
 	auto d = gcd(a, b, c);
 	if (sign(a) < 0)
@@ -320,7 +371,7 @@ inline Integer remove_common_factor(Integer &a, Integer &b, Integer &c)
 	return d;
 }
 
-inline bool is_prime(Integer const &a)
+inline bool is_prime(Integer const &a) noexcept
 {
 	// 2 = definitely prime
 	// 1 = probably prime ( error rate ~ (1/4)^reps )
@@ -329,7 +380,7 @@ inline bool is_prime(Integer const &a)
 	return mpz_probab_prime_p(a.z_, reps) != 0;
 }
 
-inline Integer removeSquareFactor(Integer &a)
+inline Integer removeSquareFactor(Integer &a) noexcept
 {
 	auto r = Integer(1);
 	for (auto p = Integer(2); !(a < p * p); p = next_prime(p))
@@ -342,21 +393,23 @@ inline Integer removeSquareFactor(Integer &a)
 	return r;
 }
 
-inline Integer powmod(Integer const &b, Integer const &e, Integer const &m)
+inline Integer powmod(Integer const &b, Integer const &e,
+                      Integer const &m) noexcept
 {
 	Integer r;
 	mpz_powm(r.z_, b.z_, e.z_, m.z_);
 	return r;
 }
 
-inline Integer powmod(Integer const &b, unsigned long e, Integer const &m)
+inline Integer powmod(Integer const &b, unsigned long e,
+                      Integer const &m) noexcept
 {
 	Integer r;
 	mpz_powm_ui(r.z_, b.z_, e, m.z_);
 	return r;
 }
 
-inline Integer invmod(Integer const &a, Integer const &m)
+inline Integer invmod(Integer const &a, Integer const &m) noexcept
 {
 	// m=1 is supported as inverse(0)=0
 	// m=0 is undefined
@@ -369,8 +422,14 @@ inline Integer invmod(Integer const &a, Integer const &m)
 
 template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
 {
-	static bool is_zero(Integer const &a) { return mpz_sgn(a.z_) == 0; }
-	static bool is_negative(Integer const &a) { return mpz_sgn(a.z_) < 0; }
+	static bool is_zero(Integer const &a) noexcept
+	{
+		return mpz_sgn(a.z_) == 0;
+	}
+	static bool is_negative(Integer const &a) noexcept
+	{
+		return mpz_sgn(a.z_) < 0;
+	}
 };
 
 // makes Integer usable on the command line using CLI11 library (found by ADL)
