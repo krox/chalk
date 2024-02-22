@@ -389,6 +389,6 @@ template <> struct fmt::formatter<chalk::Integer>
 	template <typename FormatContext>
 	auto format(const chalk::Integer &x, FormatContext &ctx)
 	{
-		return format_to(ctx.out(), "{}", x.to_string());
+		return fmt::format_to(ctx.out(), "{}", x.to_string());
 	}
 };

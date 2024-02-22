@@ -491,7 +491,7 @@ template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
 	template <typename FormatContext>
 	auto format(const chalk::Floating<M> &x, FormatContext &ctx)
 	{
-		return format_to(ctx.out(), "{}", x.to_string());
+		return fmt::format_to(ctx.out(), "{}", x.to_string());
 	}
 };
 

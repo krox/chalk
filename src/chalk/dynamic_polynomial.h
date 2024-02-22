@@ -143,17 +143,18 @@ template <> struct fmt::formatter<chalk::SymbolMonoid>
 	{
 		// empty word -> "1"
 		if (word.terms().empty())
-			return format_to(ctx.out(), "1");
+			return fmt::format_to(ctx.out(), "1");
 
 		// otherwise list the terms with " * " inbetween
 		auto it = ctx.out();
 		for (size_t i = 0; i < word.terms().size(); ++i)
 		{
 			if (i != 0)
-				it = format_to(it, "*");
-			it = format_to(it, "{}", chalk::symbol_pool(word.terms()[i].first));
+				it = fmt::format_to(it, "*");
+			it = fmt::format_to(it, "{}",
+			                    chalk::symbol_pool(word.terms()[i].first));
 			if (word.terms()[i].second != 1)
-				it = format_to(it, "^{}", word.terms()[i].second);
+				it = fmt::format_to(it, "^{}", word.terms()[i].second);
 		}
 		return it;
 	}

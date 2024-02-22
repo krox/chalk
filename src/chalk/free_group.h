@@ -131,7 +131,7 @@ template <> struct fmt::formatter<chalk::FreeProduct>
 	{
 		// empty product -> '1'
 		if (prod.empty())
-			return format_to(ctx.out(), "1");
+			return fmt::format_to(ctx.out(), "1");
 
 		// otherwise print the word (uppercase = inverse)
 		auto it = ctx.out();

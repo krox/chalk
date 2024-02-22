@@ -813,7 +813,7 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 
 		// no terms -> output "0"
 		if (terms.empty())
-			return format_to(ctx.out(), "0");
+			return fmt::format_to(ctx.out(), "0");
 
 		// otherwise list the terms with " + " inbetween
 		auto it = ctx.out();
@@ -825,17 +825,17 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 			if (chalk::is_negative(coeff))
 			{
 				if (i == 0)
-					it = format_to(it, "-");
+					it = fmt::format_to(it, "-");
 				else
-					it = format_to(it, " - ");
+					it = fmt::format_to(it, " - ");
 				coeff = -coeff;
 			}
 			else if (i != 0)
-				it = format_to(it, " + ");
+				it = fmt::format_to(it, " + ");
 
 			bool isOne = coeff == 1;
 			if (!isOne || exp == std::array<int, rank>{})
-				it = format_to(it, "{}", coeff);
+				it = fmt::format_to(it, "{}", coeff);
 			bool first = true;
 			for (size_t k = 0; k < rank; ++k)
 			{
@@ -845,10 +845,10 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 					*it++ = '*';
 				first = false;
 				if (exp[k] == 1)
-					it = format_to(it, "{}", poly.ring()->var_names()[k]);
+					it = fmt::format_to(it, "{}", poly.ring()->var_names()[k]);
 				else
-					it = format_to(it, "{}^{}", poly.ring()->var_names()[k],
-					               exp[k]);
+					it = fmt::format_to(it, "{}^{}",
+					                    poly.ring()->var_names()[k], exp[k]);
 			}
 		}
 		return it;

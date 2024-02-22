@@ -288,7 +288,7 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 	{
 		// empty sum -> '0'
 		if (a.terms().empty())
-			return format_to(ctx.out(), "0");
+			return fmt::format_to(ctx.out(), "0");
 
 		// otherwise -> terms with '+' inbetween
 		auto it = ctx.out();
@@ -302,20 +302,20 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 				if (chalk::is_negative(coeff))
 				{
 					coeff = -coeff;
-					it = format_to(it, " - ");
+					it = fmt::format_to(it, " - ");
 				}
 				else
-					it = format_to(it, " + ");
+					it = fmt::format_to(it, " + ");
 			}
 
 			if (chalk::is_one(coeff))
-				it = format_to(it, "{}", term.index);
+				it = fmt::format_to(it, "{}", term.index);
 			else if (term.index == 1)
-				it = format_to(it, "{}", coeff);
+				it = fmt::format_to(it, "{}", coeff);
 			else if (chalk::need_parens_product(coeff))
-				it = format_to(it, "({})*{}", coeff, term.index);
+				it = fmt::format_to(it, "({})*{}", coeff, term.index);
 			else
-				it = format_to(it, "{}*{}", coeff, term.index);
+				it = fmt::format_to(it, "{}*{}", coeff, term.index);
 		}
 		return it;
 	}

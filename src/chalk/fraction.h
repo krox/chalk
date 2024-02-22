@@ -250,21 +250,22 @@ template <typename R> struct fmt::formatter<chalk::Fraction<R>>
 	auto format(const chalk::Fraction<R> &x, FormatContext &ctx)
 	{
 		if (chalk::is_one(x.denom()))
-			return format_to(ctx.out(), "{}", x.num());
+			return fmt::format_to(ctx.out(), "{}", x.num());
 
 		if (chalk::need_parens_product(x.num()))
 		{
 			if (chalk::need_parens_power(x.denom()))
-				return format_to(ctx.out(), "({})/({})", x.num(), x.denom());
+				return fmt::format_to(ctx.out(), "({})/({})", x.num(),
+				                      x.denom());
 			else
-				return format_to(ctx.out(), "({})/{}", x.num(), x.denom());
+				return fmt::format_to(ctx.out(), "({})/{}", x.num(), x.denom());
 		}
 		else
 		{
 			if (chalk::need_parens_power(x.denom()))
-				return format_to(ctx.out(), "{}/({})", x.num(), x.denom());
+				return fmt::format_to(ctx.out(), "{}/({})", x.num(), x.denom());
 			else
-				return format_to(ctx.out(), "{}/{}", x.num(), x.denom());
+				return fmt::format_to(ctx.out(), "{}/{}", x.num(), x.denom());
 		}
 	}
 };

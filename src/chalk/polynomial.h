@@ -322,7 +322,7 @@ template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 
 		// no terms -> output "0"
 		if (poly.coefficients().empty())
-			it = format_to(it, "0");
+			it = fmt::format_to(it, "0");
 
 		// otherwise list the terms with " + " inbetween
 
@@ -336,23 +336,23 @@ template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 			if (chalk::is_negative(c))
 			{
 				if (first)
-					it = format_to(it, "-");
+					it = fmt::format_to(it, "-");
 				else
-					it = format_to(it, " - ");
+					it = fmt::format_to(it, " - ");
 				c = -c;
 			}
 			else if (!first)
-				it = format_to(it, " + ");
+				it = fmt::format_to(it, " + ");
 			first = false;
 			if (i == 0)
-				it = format_to(it, "{}", c);
+				it = fmt::format_to(it, "{}", c);
 			else if (!(c == 1))
-				it = format_to(it, "{}*", c);
+				it = fmt::format_to(it, "{}*", c);
 
 			if (i == 1)
-				it = format_to(it, "{}", X);
+				it = fmt::format_to(it, "{}", X);
 			else if (i >= 2)
-				it = format_to(it, "{}^{}", X, i);
+				it = fmt::format_to(it, "{}^{}", X, i);
 		}
 
 		return it;
