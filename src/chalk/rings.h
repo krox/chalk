@@ -38,7 +38,7 @@ template <typename T> struct RingTraits<std::complex<T>>
 {
 	static bool is_zero(std::complex<T> const &value) { return value == T(0); }
 	static bool is_one(std::complex<T> const &value) { return value == T(1); }
-	static bool is_negative(std::complex<T> const &value) { return false; }
+	static bool is_negative(std::complex<T> const &) { return false; }
 	static bool need_parens_product(std::complex<T> const &) { return true; }
 	static bool need_parens_power(std::complex<T> const &) { return true; }
 };
@@ -47,7 +47,7 @@ template <typename T> struct RingTraits<util::complex<T>>
 {
 	static bool is_zero(util::complex<T> const &value) { return value == T(0); }
 	static bool is_one(util::complex<T> const &value) { return value == T(1); }
-	static bool is_negative(util::complex<T> const &value) { return false; }
+	static bool is_negative(util::complex<T> const &) { return false; }
 	static bool need_parens_product(util::complex<T> const &) { return true; }
 	static bool need_parens_power(util::complex<T> const &) { return true; }
 };

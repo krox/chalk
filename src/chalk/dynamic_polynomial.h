@@ -138,8 +138,8 @@ template <> struct fmt::formatter<chalk::SymbolMonoid>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::SymbolMonoid &word, FormatContext &ctx)
-	    -> decltype(ctx.out())
+	auto format(const chalk::SymbolMonoid &word,
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 		// empty word -> "1"
 		if (word.terms().empty())

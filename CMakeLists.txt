@@ -23,7 +23,7 @@ CPMAddPackage(
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror -Wno-stringop-overflow -Wno-deprecated-declarations  -Wno-unused-function")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -Wall -Wextra -Werror")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON) # for int128_t
 
@@ -50,5 +50,5 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 	add_executable(tests tests/bch.cpp tests/ddouble.cpp tests/integer.cpp tests/langevin_scheme.cpp tests/mpfr_eigen.cpp tests/numerics.cpp tests/rings.cpp)
 	target_compile_features(tests PRIVATE cxx_std_17)
 	target_link_libraries(tests PRIVATE Catch2::Catch2WithMain chalk)
-	target_compile_options(tests PRIVATE -Wall -Wextra -Werror -g -Wno-parentheses -Wno-stringop-overflow)
+	target_compile_options(tests PRIVATE -Wall -Wextra -Werror -g)
 endif()

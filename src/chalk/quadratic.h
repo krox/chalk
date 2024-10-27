@@ -266,7 +266,7 @@ template <typename R> struct fmt::formatter<chalk::Quadratic<R>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Quadratic<R> &x, FormatContext &ctx)
+	auto format(const chalk::Quadratic<R> &x, FormatContext &ctx) const
 	{
 		if (x.imag() == 0)
 			return format_to(ctx.out(), "{}", x.real());

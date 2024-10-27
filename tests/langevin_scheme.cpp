@@ -64,12 +64,13 @@ Term comm(Term const &a, Term const &b)
 	return c;
 }
 /** commutator [a,[b,c]] */
-Term comm(Term const &a, Term const &b, Term const &c)
+[[maybe_unused]] Term comm(Term const &a, Term const &b, Term const &c)
 {
 	return comm(a, comm(b, c));
 }
 /** commutator [a,[b,[c,d]]] */
-Term comm(Term const &a, Term const &b, Term const &c, Term const &d)
+[[maybe_unused]] Term comm(Term const &a, Term const &b, Term const &c,
+                           Term const &d)
 {
 	return comm(a, comm(b, comm(c, d)));
 }

@@ -126,8 +126,8 @@ template <> struct fmt::formatter<chalk::FreeProduct>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::FreeProduct &prod, FormatContext &ctx)
-	    -> decltype(ctx.out())
+	auto format(const chalk::FreeProduct &prod,
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 		// empty product -> '1'
 		if (prod.empty())

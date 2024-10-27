@@ -222,7 +222,7 @@ template <> struct fmt::formatter<chalk::Number>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Number &x, FormatContext &ctx)
+	auto format(const chalk::Number &x, FormatContext &ctx) const
 	{
 		if (x.isExact())
 			return format_to(ctx.out(), "{}", x.exact());

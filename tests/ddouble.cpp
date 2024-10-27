@@ -12,15 +12,21 @@ using util::ddouble;
 namespace {
 
 // prevent optimization while benchmarking
-static void escape(void *p) { asm volatile("" : : "g"(p) : "memory"); }
-static void clobber() { asm volatile("" : : : "memory"); }
+[[maybe_unused]] static void escape(void *p)
+{
+	asm volatile("" : : "g"(p) : "memory");
+}
+[[maybe_unused]] static void clobber() { asm volatile("" : : : "memory"); }
 
 FloatingOctuple to_octuple(ddouble a)
 {
 	return FloatingOctuple(a.high()) + a.low();
 }
-FloatingOctuple to_octuple(double a) { return FloatingOctuple(a); }
-ddouble to_ddouble(FloatingOctuple const &a)
+[[maybe_unused]] FloatingOctuple to_octuple(double a)
+{
+	return FloatingOctuple(a);
+}
+[[maybe_unused]] ddouble to_ddouble(FloatingOctuple const &a)
 {
 	double high = (double)a;
 	double low = (double)(a - high);
@@ -109,7 +115,7 @@ template <typename F> void test_binary(F &&f)
 	// fmt::print("worst relative error = {}\n", worst);
 }
 
-void print_ddouble(std::string const &name, FloatingOctuple a)
+[[maybe_unused]] void print_ddouble(std::string const &name, FloatingOctuple a)
 {
 	double high = (double)a;
 	double low = (double)(a - high);
@@ -142,15 +148,11 @@ TEST_CASE("ddouble arithmetic", "[ddouble][numerics]")
 	test_unary(
 	    "x^-3", [](auto a) { return pow(a, -3); }, 1e-5, 1e5, 1e-29, true);
 
-	test_unary(
-	    "exp", [](auto a) { return exp(a); }, -5.0, 5.0, 1e-29, true);
-	test_unary(
-	    "log", [](auto a) { return log(a); }, 1e-10, 1e10, 1e-29, true);
+	test_unary("exp", [](auto a) { return exp(a); }, -5.0, 5.0, 1e-29, true);
+	test_unary("log", [](auto a) { return log(a); }, 1e-10, 1e10, 1e-29, true);
 
-	test_unary(
-	    "sin", [](auto a) { return sin(a); }, -10, 10, 1e-29, false);
-	test_unary(
-	    "cos", [](auto a) { return cos(a); }, -10, 10, 1e-29, false);
+	test_unary("sin", [](auto a) { return sin(a); }, -10, 10, 1e-29, false);
+	test_unary("cos", [](auto a) { return cos(a); }, -10, 10, 1e-29, false);
 
 	/*benchmark_unary(
 	    "sin", [](auto a) { return sin(a); }, -10, 10);

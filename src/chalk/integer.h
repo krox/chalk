@@ -18,10 +18,16 @@
 namespace chalk {
 
 // As far as possible a drop-in replacement for 'int' with arbitrary precision
-//   - always initialized to 0 (even local variables)
-//   - expensive to copy (even the default constructor allocates)
+//   - implicitly convertible from int
+//   - For compatibility, the division operator '/' has the same rounding
+//     semantics as builin 'int'. If you know that the result is exact, you
+//     should use the faster 'div_exact' instead.
 //   - most functions are marked 'noexcept' because GMP can not handle
 //     out-of-memory gracefully anyway.
+//   - NOTE on GMP internals: the data pointer of mpz_t is always non-null and
+//     some routines read one limb uncontitionally, even if its content is
+//     undefined for 'size'=0. mpz_init thus sets the pointer to some global
+//     dummy value to avoid allocation.
 class Integer
 {
   public:
@@ -29,12 +35,17 @@ class Integer
 	//       (i.e. use int64_t or int128_t as long as possible). After all,
 	//       that was one of the reasons I wrote this wrapper instead of just
 	//       using the 'mpz_class' type of GMP.
+	//       On Second thought, using the underlying 'mpn' functions directly,
+	//       i.e., reimplementing the 'mpz' layer completely could be a cool
+	//       project, and might lead to the most effective
+	//       small-size-optimization.
 
 	mpz_t z_; // semi-private: use with care!
 
 	// constructors / destructor / moves
 
 	// default constructor initializes to zero
+	// (note: does not allocate, though it does some initialization)
 	Integer() noexcept { mpz_init(z_); }
 
 	// construct from integer
@@ -446,7 +457,7 @@ template <> struct fmt::formatter<chalk::Integer>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Integer &x, FormatContext &ctx)
+	auto format(const chalk::Integer &x, FormatContext &ctx) const
 	{
 		return fmt::format_to(ctx.out(), "{}", x.to_string());
 	}

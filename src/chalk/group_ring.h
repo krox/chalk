@@ -283,8 +283,8 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Multinomial<R, G> &a, FormatContext &ctx)
-	    -> decltype(ctx.out())
+	auto format(const chalk::Multinomial<R, G> &a,
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 		// empty sum -> '0'
 		if (a.terms().empty())

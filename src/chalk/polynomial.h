@@ -315,8 +315,8 @@ template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Polynomial<R, X> &poly, FormatContext &ctx)
-	    -> decltype(ctx.out())
+	auto format(const chalk::Polynomial<R, X> &poly,
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 		auto it = ctx.out();
 

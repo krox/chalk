@@ -247,7 +247,7 @@ template <typename R> struct fmt::formatter<chalk::Fraction<R>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Fraction<R> &x, FormatContext &ctx)
+	auto format(const chalk::Fraction<R> &x, FormatContext &ctx) const
 	{
 		if (chalk::is_one(x.denom()))
 			return fmt::format_to(ctx.out(), "{}", x.num());

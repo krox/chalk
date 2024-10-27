@@ -121,8 +121,8 @@ template <> struct fmt::formatter<chalk::IndexedAtom>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::IndexedAtom &atom, FormatContext &ctx)
-	    -> decltype(ctx.out())
+	auto format(const chalk::IndexedAtom &atom,
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 		auto it = ctx.out();
 		it = format_to(it, "{}", atom.symbol);
@@ -139,8 +139,8 @@ template <> struct fmt::formatter<chalk::Indexed>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Indexed &indexed, FormatContext &ctx)
-	    -> decltype(ctx.out())
+	auto format(const chalk::Indexed &indexed,
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 
 		// empty product -> '1'

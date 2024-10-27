@@ -489,7 +489,7 @@ template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::Floating<M> &x, FormatContext &ctx)
+	auto format(const chalk::Floating<M> &x, FormatContext &ctx) const
 	{
 		return fmt::format_to(ctx.out(), "{}", x.to_string());
 	}
@@ -499,7 +499,7 @@ namespace Eigen {
 
 // we prefer not to #include any header of Eigen here. Luckily, some forward
 // declarations suffice for our purposes.
-template <typename T> class NumTraits;
+template <typename T> struct NumTraits;
 
 template <mpfr_prec_t M> struct NumTraits<chalk::Floating<M>>
 {

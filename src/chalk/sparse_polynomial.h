@@ -807,7 +807,7 @@ struct fmt::formatter<chalk::SparsePolynomial<R, rank>>
 
 	template <typename FormatContext>
 	auto format(const chalk::SparsePolynomial<R, rank> &poly,
-	            FormatContext &ctx) -> decltype(ctx.out())
+	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
 		auto const &terms = poly.terms();
 
