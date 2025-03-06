@@ -8,6 +8,15 @@ namespace chalk {
 
 using int128_t = __int128;
 
+// abstract representation of "0" and "1", however that maps to any particular
+// ring
+struct zero_t
+{};
+struct one_t
+{};
+inline static constexpr zero_t zero;
+inline static constexpr one_t one;
+
 template <typename T> struct RingTraits;
 
 // implementation of RingTraits for int/float/Integer/Floating/...

@@ -1,6 +1,7 @@
 #ifndef CHALK_INDEXED_H
 #define CHALK_INDEXED_H
 
+#include "chalk/rings.h"
 #include "fmt/format.h"
 #include "util/vector.h"
 #include <algorithm>
@@ -49,11 +50,7 @@ class Indexed
   public:
 	/** constructors */
 	Indexed() = default;
-	explicit Indexed(int val)
-	{
-		if (val != 1)
-			throw std::runtime_error("invalid use of Indexed(int)");
-	}
+	Indexed(one_t) {}
 	explicit Indexed(std::vector<IndexedAtom> atoms) : atoms_(atoms)
 	{
 		cleanup();
@@ -112,7 +109,7 @@ bool operator==(Indexed const &a, Indexed const &b);
 bool operator<(Indexed const &a, Indexed const &b);
 
 /** only for checking " == 1" */
-bool operator==(Indexed const &a, int b);
+bool operator==(Indexed const &a, one_t);
 
 } // namespace chalk
 

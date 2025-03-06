@@ -38,8 +38,8 @@ template <int order> void test()
 	// test BCH formula by explicitly expanding everything
 
 	using R = Series<Algebra, order>;
-	Series<Algebra, order> a = R::generator() * Scalar(Algebra::generator(0));
-	Series<Algebra, order> b = R::generator() * Scalar(Algebra::generator(1));
+	Series<Algebra, order> a = R::generator() * Scalar(Algebra::generator("a"));
+	Series<Algebra, order> b = R::generator() * Scalar(Algebra::generator("b"));
 	auto error = exp(a) * exp(b) - exp(bch(a, b, order, comm<order>));
 	CHECK(fmt::format("{}", error) == fmt::format("0 + O(x^{})", order + 1));
 	// fmt::print("{}\n", exp(a) * exp(b));

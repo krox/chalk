@@ -44,8 +44,8 @@ int main()
 	auto gamma = Algebra(R.generator("gamma"));
 	auto delta = Algebra(R.generator("delta"));
 
-	auto a = eps * Algebra::generator(0);
-	auto b = eps * Algebra::generator(1);
+	auto a = eps * Algebra::generator("a");
+	auto b = eps * Algebra::generator("b");
 
 	auto error = exp(alpha * a);
 	error *= exp(beta * b);

@@ -1,6 +1,5 @@
 #include "catch2/catch_test_macros.hpp"
 
-#include "chalk/dynamic_polynomial.h"
 #include "chalk/fraction.h"
 #include "chalk/free_group.h"
 #include "chalk/sparse_polynomial.h"
@@ -32,21 +31,21 @@ TEST_CASE("multivariate polys", "[polynomial]")
 	CHECK(R2("(x+1)^2") == R2("x^2+x*2+5-4"));
 }
 
-TEST_CASE("new multivariate polys", "[polynomial]")
-{
-	using R = DynamicPolynomial<Rational>;
-	auto x = R::generator("x");
-	auto y = R::generator("y");
-	fmt::print("{}\n", (x + y) * (x - y) + R(5));
-}
-
 TEST_CASE("free group", "")
 {
-	auto a = chalk::FreeProduct::generator(0);
-	auto b = chalk::FreeProduct::generator(1);
-	auto c = chalk::FreeProduct::generator(2);
-	auto d = chalk::FreeProduct::generator(3);
-	CHECK(fmt::format("{}", a * b * c) == "abc");
-	CHECK(fmt::format("{}", inverse(a * b * c)) == "CBA");
-	CHECK(fmt::format("{}", a * b * c / (d * b * c)) == "aD");
+	auto a = chalk::FreeProduct::generator("a");
+	auto b = chalk::FreeProduct::generator("b");
+	auto c = chalk::FreeProduct::generator("c");
+	auto d = chalk::FreeProduct::generator("d");
+	CHECK(fmt::format("{}", a * b * c) == "a * b * c");
+	CHECK(fmt::format("{}", inverse(a * b * c)) == "c^-1 * b^-1 * a^-1");
+	CHECK(fmt::format("{}", a * b * c / (d * b * c)) == "a * d^-1");
+}
+
+TEST_CASE("free abelian group", "")
+{
+	auto a = chalk::FreeAbelianProduct::generator("a");
+	auto b = chalk::FreeAbelianProduct::generator("b");
+
+	CHECK(fmt::format("{}", a * b * a) == "a^2 * b");
 }

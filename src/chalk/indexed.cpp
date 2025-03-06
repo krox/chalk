@@ -41,12 +41,7 @@ bool operator<(Indexed const &a, Indexed const &b)
 	return a.atoms() < b.atoms();
 }
 
-bool operator==(Indexed const &a, int b)
-{
-	if (b != 1)
-		throw std::runtime_error("invalid use of 'Indexed == int'");
-	return a.atoms().empty();
-}
+bool operator==(Indexed const &a, one_t) { return a.atoms().empty(); }
 
 namespace {
 int count_repeated(IndexedAtom const &a)

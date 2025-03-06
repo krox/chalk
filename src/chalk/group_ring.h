@@ -72,7 +72,7 @@ template <class R, class G> class Multinomial
 		cleanup();
 	}
 
-	explicit Multinomial(R const &a) : terms_{Term{a, G(1)}} { cleanup(); }
+	explicit Multinomial(R const &a) : terms_{Term{a, one}} { cleanup(); }
 
 	explicit Multinomial(G const &b) : terms_{Term{R(1), b}} { cleanup(); }
 
@@ -82,12 +82,7 @@ template <class R, class G> class Multinomial
 		cleanup();
 	}
 
-	explicit Multinomial(int a) : terms_{Term{R(a), G(1)}} { cleanup(); }
-
-	static Multinomial generator(int k)
-	{
-		return Multinomial({Term{R(1), G::generator(k)}});
-	}
+	explicit Multinomial(int a) : terms_{Term{R(a), one}} { cleanup(); }
 
 	static Multinomial generator(std::string_view s)
 	{
@@ -242,7 +237,7 @@ template <class R, class G> bool operator==(Multinomial<R, G> const &a, int b)
 		return b == 0;
 	if (a.terms().size() > 1)
 		return false;
-	return a.terms()[0].index == 1 && a.terms()[0].coefficient == b;
+	return a.terms()[0].index == one && a.terms()[0].coefficient == b;
 }
 
 /** print in multi-line (hopefully more human-readable for huge sums) */
@@ -310,7 +305,7 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 
 			if (chalk::is_one(coeff))
 				it = fmt::format_to(it, "{}", term.index);
-			else if (term.index == 1)
+			else if (term.index == chalk::one)
 				it = fmt::format_to(it, "{}", coeff);
 			else if (chalk::need_parens_product(coeff))
 				it = fmt::format_to(it, "({})*{}", coeff, term.index);
