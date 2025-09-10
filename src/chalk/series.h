@@ -319,27 +319,35 @@ auto mapCoefficientsNested(F f, Series<R, N, X> const &a)
 	return r;
 }
 
-template <typename R, int N, char X> struct RingTraits<Series<R, N, X>>
+template <typename R, int N, char X> bool is_zero(Series<R, N, X> const &s)
 {
-	static bool is_zero(Series<R, N, X> const &s)
-	{
-		for (R const &c : s.coefficients())
-			if (!is_zero(c))
-				return false;
-		return true;
-	}
-	static bool is_one(Series<R, N, X> const &s)
-	{
-		for (int i = 1; i <= N; ++i)
-			if (!is_zero(s[i]))
-				return false;
-		return is_one(s[0]);
-	}
+	for (R const &c : s.coefficients())
+		if (!is_zero(c))
+			return false;
+	return true;
+}
+template <typename R, int N, char X> bool is_one(Series<R, N, X> const &s)
+{
+	for (int i = 1; i <= N; ++i)
+		if (!is_zero(s[i]))
+			return false;
+	return is_one(s[0]);
+}
 
-	static bool is_negative(Series<R, N, X> const &) { return false; }
-	static bool need_parens_product(Series<R, N, X> const &) { return true; }
-	static bool need_parens_power(Series<R, N, X> const &) { return true; }
-};
+template <typename R, int N, char X> bool is_negative(Series<R, N, X> const &)
+{
+	return false;
+}
+template <typename R, int N, char X>
+bool need_parens_product(Series<R, N, X> const &)
+{
+	return true;
+}
+template <typename R, int N, char X>
+bool need_parens_power(Series<R, N, X> const &)
+{
+	return true;
+}
 
 } // namespace chalk
 

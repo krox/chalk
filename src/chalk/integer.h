@@ -431,17 +431,17 @@ inline Integer invmod(Integer const &a, Integer const &m) noexcept
 	return r;
 }
 
-template <> struct RingTraits<Integer> : RingTraitsSimple<Integer>
+inline bool is_zero(Integer const &a) noexcept { return mpz_sgn(a.z_) == 0; }
+inline bool is_one(Integer const &a) noexcept
 {
-	static bool is_zero(Integer const &a) noexcept
-	{
-		return mpz_sgn(a.z_) == 0;
-	}
-	static bool is_negative(Integer const &a) noexcept
-	{
-		return mpz_sgn(a.z_) < 0;
-	}
-};
+	return mpz_cmp_si(a.z_, 1) == 0;
+}
+inline bool is_negative(Integer const &a) noexcept { return mpz_sgn(a.z_) < 0; }
+inline bool need_parens_product(Integer const &) noexcept { return false; }
+inline bool need_parens_power(Integer const &value) noexcept
+{
+	return is_negative(value);
+}
 
 // makes Integer usable on the command line using CLI11 library (found by ADL)
 inline bool lexical_cast(std::string const &input, Integer &v)

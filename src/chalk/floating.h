@@ -478,9 +478,26 @@ template <mpfr_prec_t M> Floating<M> pow(Floating<M> const &a, int b)
 	return r;
 }
 
-template <mpfr_prec_t M>
-struct RingTraits<Floating<M>> : RingTraitsSimple<Floating<M>>
-{};
+template <mpfr_prec_t M> bool is_zero(Floating<M> const &value)
+{
+	return value == 0;
+}
+template <mpfr_prec_t M> bool is_one(Floating<M> const &value)
+{
+	return value == 1;
+}
+template <mpfr_prec_t M> bool is_negative(Floating<M> const &value)
+{
+	return value < 0;
+}
+template <mpfr_prec_t M> bool need_parens_product(Floating<M> const &)
+{
+	return false;
+}
+template <mpfr_prec_t M> bool need_parens_power(Floating<M> const &value)
+{
+	return is_negative(value);
+}
 
 } // namespace chalk
 

@@ -17,69 +17,56 @@ struct one_t
 inline static constexpr zero_t zero;
 inline static constexpr one_t one;
 
-template <typename T> struct RingTraits;
+// concept to capture int{32,64,128}_t, float, double
+template <class T>
+concept builtin_number =
+    std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t> ||
+    std::is_same_v<T, int128_t> || std::is_same_v<T, float> ||
+    std::is_same_v<T, double>;
 
-// implementation of RingTraits for int/float/Integer/Floating/...
-template <typename T> struct RingTraitsSimple
+bool is_zero(builtin_number auto const &value) { return value == 0; }
+bool is_one(builtin_number auto const &value) { return value == 1; }
+bool is_negative(builtin_number auto const &value) { return value < 0; }
+bool need_parens_product(builtin_number auto const &) { return false; }
+bool need_parens_power(builtin_number auto const &value)
 {
-	// potentially faster than full comparison
-	static bool is_zero(T const &value) { return value == 0; }
-	static bool is_one(T const &value) { return value == 1; }
-
-	// hints for nice formatting of compound types
-	static bool is_negative(T const &value) { return value < 0; }
-	static bool need_parens_product(T const &) { return false; }
-	static bool need_parens_power(T const &value) { return is_negative(value); }
-};
-
-template <> struct RingTraits<int32_t> : RingTraitsSimple<int32_t>
-{};
-template <> struct RingTraits<int64_t> : RingTraitsSimple<int64_t>
-{};
-template <> struct RingTraits<int128_t> : RingTraitsSimple<int128_t>
-{};
-template <> struct RingTraits<float> : RingTraitsSimple<float>
-{};
-template <> struct RingTraits<double> : RingTraitsSimple<double>
-{};
-
-template <typename T> struct RingTraits<std::complex<T>>
-{
-	static bool is_zero(std::complex<T> const &value) { return value == T(0); }
-	static bool is_one(std::complex<T> const &value) { return value == T(1); }
-	static bool is_negative(std::complex<T> const &) { return false; }
-	static bool need_parens_product(std::complex<T> const &) { return true; }
-	static bool need_parens_power(std::complex<T> const &) { return true; }
-};
-
-template <typename T> struct RingTraits<util::complex<T>>
-{
-	static bool is_zero(util::complex<T> const &value) { return value == T(0); }
-	static bool is_one(util::complex<T> const &value) { return value == T(1); }
-	static bool is_negative(util::complex<T> const &) { return false; }
-	static bool need_parens_product(util::complex<T> const &) { return true; }
-	static bool need_parens_power(util::complex<T> const &) { return true; }
-};
-
-template <typename T> bool is_zero(T const &value)
-{
-	return RingTraits<T>::is_zero(value);
+	return is_negative(value);
 }
-template <typename T> bool is_one(T const &value)
+
+template <class T> bool is_zero(std::complex<T> const &value)
 {
-	return RingTraits<T>::is_one(value);
+	return value == T(0);
 }
-template <typename T> bool is_negative(T const &value)
+template <class T> bool is_one(std::complex<T> const &value)
 {
-	return RingTraits<T>::is_negative(value);
+	return value == T(1);
 }
-template <typename T> bool need_parens_product(T const &value)
+template <class T> bool is_negative(std::complex<T> const &) { return false; }
+template <class T> bool need_parens_product(std::complex<T> const &)
 {
-	return RingTraits<T>::need_parens_product(value);
+	return true;
 }
-template <typename T> bool need_parens_power(T const &value)
+template <class T> bool need_parens_power(std::complex<T> const &)
 {
-	return RingTraits<T>::need_parens_power(value);
+	return true;
+}
+
+template <class T> bool is_zero(util::complex<T> const &value)
+{
+	return value == T(0);
+}
+template <class T> bool is_one(util::complex<T> const &value)
+{
+	return value == T(1);
+}
+template <class T> bool is_negative(util::complex<T> const &) { return false; }
+template <class T> bool need_parens_product(util::complex<T> const &)
+{
+	return true;
+}
+template <class T> bool need_parens_power(util::complex<T> const &)
+{
+	return true;
 }
 
 template <typename T> struct Scalar
@@ -89,24 +76,24 @@ template <typename T> struct Scalar
 	Scalar() = default;
 	explicit Scalar(T v) : value(std::move(v)) {}
 };
-
+/*
 template <typename T> struct RingTraits<Scalar<T>>
 {
-	static bool is_zero(Scalar<T> const &value) { return is_zero(value.value); }
-	static bool is_one(Scalar<T> const &value) { return is_one(value.value); }
-	static bool is_negative(Scalar<T> const &value)
-	{
-		return is_negative(value.value);
-	}
-	static bool need_parens_product(Scalar<T> const &value)
-	{
-		return need_parens_product(value.value);
-	}
-	static bool need_parens_power(Scalar<T> const &value)
-	{
-		return need_parens_power(value.value);
-	}
-};
+    static bool is_zero(Scalar<T> const &value) { return is_zero(value.value); }
+    static bool is_one(Scalar<T> const &value) { return is_one(value.value); }
+    static bool is_negative(Scalar<T> const &value)
+    {
+        return is_negative(value.value);
+    }
+    static bool need_parens_product(Scalar<T> const &value)
+    {
+        return need_parens_product(value.value);
+    }
+    static bool need_parens_power(Scalar<T> const &value)
+    {
+        return need_parens_power(value.value);
+    }
+};*/
 
 using std::pow;
 using std::sqrt;

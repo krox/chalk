@@ -778,25 +778,33 @@ SparsePolynomial<R, rank> diff(SparsePolynomial<R, rank> const &a,
 	return diff(a, a.ring()->var_id(var));
 }
 
-template <typename R, size_t rank> struct RingTraits<SparsePolynomial<R, rank>>
+template <typename R, size_t rank>
+bool is_zero(SparsePolynomial<R, rank> const &a)
 {
-	static bool is_zero(SparsePolynomial<R, rank> const &a)
-	{
-		return a.terms().empty();
-	}
-	static bool is_one(SparsePolynomial<R, rank> const &a) { return a == 1; }
-	static bool is_negative(SparsePolynomial<R, rank> const &) { return false; }
+	return a.terms().empty();
+}
+template <typename R, size_t rank>
+bool is_one(SparsePolynomial<R, rank> const &a)
+{
+	return a == 1;
+}
+template <typename R, size_t rank>
+bool is_negative(SparsePolynomial<R, rank> const &)
+{
+	return false;
+}
 
-	/** these two are not precisely correct, but at least not wrong */
-	static bool need_parens_product(SparsePolynomial<R, rank> const &)
-	{
-		return true;
-	}
-	static bool need_parens_power(SparsePolynomial<R, rank> const &)
-	{
-		return true;
-	}
-};
+/** these two are not precisely correct, but at least not wrong */
+template <typename R, size_t rank>
+bool need_parens_product(SparsePolynomial<R, rank> const &)
+{
+	return true;
+}
+template <typename R, size_t rank>
+bool need_parens_power(SparsePolynomial<R, rank> const &)
+{
+	return true;
+}
 
 } // namespace chalk
 

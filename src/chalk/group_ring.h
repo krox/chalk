@@ -255,19 +255,28 @@ template <class R, class G> void dump_summary(Multinomial<R, G> const &a)
 		           term.coefficient.lm(), term.coefficient.terms().size());
 }
 
-template <class R, class G> struct RingTraits<Multinomial<R, G>>
+template <class R, class G> bool is_zero(Multinomial<R, G> const &a)
 {
-	static bool is_zero(Multinomial<R, G> const &a)
-	{
-		return a.terms().empty();
-	}
-	static bool is_one(Multinomial<R, G> const &a) { return a == 1; }
-	static bool is_negative(Multinomial<R, G> const &) { return false; }
+	return a.terms().empty();
+}
+template <class R, class G> bool is_one(Multinomial<R, G> const &a)
+{
+	return a == 1;
+}
+template <class R, class G> bool is_negative(Multinomial<R, G> const &)
+{
+	return false;
+}
 
-	/** these two are not precisely correct, but at least not wrong */
-	static bool need_parens_product(Multinomial<R, G> const &) { return true; }
-	static bool need_parens_power(Multinomial<R, G> const &) { return true; }
-};
+/** these two are not precisely correct, but at least not wrong */
+template <class R, class G> bool need_parens_product(Multinomial<R, G> const &)
+{
+	return true;
+}
+template <class R, class G> bool need_parens_power(Multinomial<R, G> const &)
+{
+	return true;
+}
 
 template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
@@ -294,7 +303,7 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 			R coeff = term.coefficient;
 			if (i != 0)
 			{
-				if (chalk::is_negative(coeff))
+				if (is_negative(coeff))
 				{
 					coeff = -coeff;
 					it = fmt::format_to(it, " - ");
@@ -303,11 +312,11 @@ template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 					it = fmt::format_to(it, " + ");
 			}
 
-			if (chalk::is_one(coeff))
+			if (is_one(coeff))
 				it = fmt::format_to(it, "{}", term.index);
 			else if (term.index == chalk::one)
 				it = fmt::format_to(it, "{}", coeff);
-			else if (chalk::need_parens_product(coeff))
+			else if (need_parens_product(coeff))
 				it = fmt::format_to(it, "({})*{}", coeff, term.index);
 			else
 				it = fmt::format_to(it, "{}*{}", coeff, term.index);

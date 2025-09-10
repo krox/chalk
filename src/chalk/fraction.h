@@ -204,36 +204,33 @@ template <typename R> bool operator<=(Fraction<R> const &a, int b)
 	return a.num() <= b * a.denom();
 }
 
-template <typename R> struct RingTraits<Fraction<R>>
+template <class R> bool is_zero(Fraction<R> const &value)
 {
-	static bool is_zero(Fraction<R> const &value)
-	{
-		return chalk::is_zero(value.num());
-	}
-	static bool is_one(Fraction<R> const &value)
-	{
-		return chalk::is_one(value.num()) && chalk::is_one(value.denom());
-	}
-	static bool is_negative(Fraction<R> const &value)
-	{
-		return chalk::is_negative(value.num());
-	}
+	return chalk::is_zero(value.num());
+}
+template <class R> bool is_one(Fraction<R> const &value)
+{
+	return chalk::is_one(value.num()) && chalk::is_one(value.denom());
+}
+template <class R> bool is_negative(Fraction<R> const &value)
+{
+	return chalk::is_negative(value.num());
+}
 
-	static bool need_parens_product(Fraction<R> const &value)
-	{
-		if (chalk::is_one(value.denom()))
-			return chalk::need_parens_product(value.num());
-		else
-			return false;
-	}
-	static bool need_parens_power(Fraction<R> const &value)
-	{
-		if (chalk::is_one(value.denom()))
-			return chalk::need_parens_power(value.num());
-		else
-			return true;
-	}
-};
+template <class R> bool need_parens_product(Fraction<R> const &value)
+{
+	if (chalk::is_one(value.denom()))
+		return chalk::need_parens_product(value.num());
+	else
+		return false;
+}
+template <class R> bool need_parens_power(Fraction<R> const &value)
+{
+	if (chalk::is_one(value.denom()))
+		return chalk::need_parens_power(value.num());
+	else
+		return true;
+}
 
 /** main usecase of fractions are of course rational numbers */
 using Rational = Fraction<Integer>;

@@ -286,27 +286,29 @@ auto map_coefficients(F f, Polynomial<R, X> const &a)
 	return Polynomial<decltype(f(a[0]))>(std::move(coeffs));
 }
 
-template <typename R, char X> struct RingTraits<Polynomial<R, X>>
+template <typename R, char X> bool is_zero(Polynomial<R, X> const &poly)
 {
-	static bool is_zero(Polynomial<R, X> const &poly)
-	{
-		return poly.coefficients().empty();
-	}
-	static bool is_one(Polynomial<R, X> const &poly)
-	{
-		return poly.coefficients().size() == 1 &&
-		       chalk::is_one(poly.coefficients()[0]);
-	}
-	static bool is_negative(Polynomial<R, X> const &poly)
-	{
-		return poly.degree() >= 0 &&
-		       chalk::is_negative(poly.coefficients().back());
-	}
+	return poly.coefficients().empty();
+}
+template <typename R, char X> bool is_one(Polynomial<R, X> const &poly)
+{
+	return poly.coefficients().size() == 1 &&
+	       chalk::is_one(poly.coefficients()[0]);
+}
+template <typename R, char X> bool is_negative(Polynomial<R, X> const &poly)
+{
+	return poly.degree() >= 0 && chalk::is_negative(poly.coefficients().back());
+}
 
-	/** not exactly correct... */
-	static bool need_parens_product(Polynomial<R, X> const &) { return true; }
-	static bool need_parens_power(Polynomial<R, X> const &) { return true; }
-};
+/** not exactly correct... */
+template <typename R, char X> bool need_parens_product(Polynomial<R, X> const &)
+{
+	return true;
+}
+template <typename R, char X> bool need_parens_power(Polynomial<R, X> const &)
+{
+	return true;
+}
 
 } // namespace chalk
 

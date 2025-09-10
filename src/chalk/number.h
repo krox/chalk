@@ -212,8 +212,14 @@ inline std::vector<Number> roots(Polynomial<Number> const &poly)
 	return r;
 }
 
-template <> struct RingTraits<Number> : RingTraitsSimple<Number>
-{};
+inline bool is_zero(Number const &value) { return value == 0; }
+inline bool is_one(Number const &value) { return value == 1; }
+inline bool is_negative(Number const &value) { return value.to_double() < 0; }
+inline bool need_parens_product(Number const &) { return false; }
+inline bool need_parens_power(Number const &value)
+{
+	return is_negative(value);
+}
 
 } // namespace chalk
 
