@@ -253,10 +253,10 @@ Expression Expression::product(std::span<const Expression> terms)
 
 	if (r.size() == 0)
 		return Expression(coeff);
-	else if (terms.size() == 1 && coeff == 1)
+	else if (terms.size() == 1 && is_one(coeff))
 		return terms[0];
-
-	r.insert(r.begin(), Expression(coeff));
+	if (!is_one(coeff))
+		r.insert(r.begin(), Expression(coeff));
 	return Expression(make_expr(ProductExpression{std::move(r)}));
 }
 
@@ -297,4 +297,233 @@ Expression operator/(Expression const &a, Expression const &b)
 {
 	return Expression::product(std::array{a, Expression::power(b, -1)});
 }
+
+Expression pow(Expression const &base, int exp)
+{
+	return Expression::power(base, exp);
+}
+
+bool is_zero(Expression const &a)
+{
+	return a.visit<bool>(
+	    util::overloaded{[](Rational const &x) { return is_zero(x); },
+	                     [](auto const &) { return false; }});
+}
+bool is_one(Expression const &a)
+{
+	return a.visit<bool>(
+	    util::overloaded{[](Rational const &x) { return x == 1; },
+	                     [](auto const &) { return false; }});
+}
+bool is_negative(Expression const &a)
+{
+	return a.visit<bool>(util::overloaded{
+	    [](Rational const &x) { return is_negative(x); },
+	    [](std::string const &) { return false; },
+	    [](PowerExpression const &) { return false; },
+	    [](ProductExpression const &p) {
+		    assert(p.terms.size() >= 2);
+		    if (auto c = std::get_if<Rational>(p.terms[0].data()))
+			    return is_negative(*c);
+		    return false;
+	    },
+	    [](SumExpression const &) { return false; },
+	    [](FunctionExpression const &) { return false; },
+	});
+}
+
+bool need_parens_product(Expression const &a)
+{
+	return a.visit<bool>(util::overloaded{
+	    [](Rational const &) { return false; },
+	    [](std::string const &) { return false; },
+	    [](PowerExpression const &) { return false; },
+	    [](ProductExpression const &) { return false; },
+	    [](SumExpression const &) { return true; },
+	    [](FunctionExpression const &) { return false; },
+	});
+}
+bool need_parens_power(Expression const &a)
+{
+	return a.visit<bool>(util::overloaded{
+	    [](Rational const &b) { return need_parens_power(b); },
+	    [](std::string const &) { return false; },
+	    [](PowerExpression const &) { return true; },
+	    [](ProductExpression const &) { return true; },
+	    [](SumExpression const &) { return true; },
+	    [](FunctionExpression const &) { return false; },
+	});
+}
+
+namespace {
+void print_impl(Rational const &x,
+                util::function_view<void(std::string_view)> sink,
+                format_type format, int)
+{
+	print(x, sink, format);
+}
+
+void print_impl(std::string const &s,
+                util::function_view<void(std::string_view)> sink, format_type,
+                int)
+{
+	sink(s);
+}
+
+void print_impl(SumExpression const &sum,
+                util::function_view<void(std::string_view)> sink,
+                format_type format, int depth)
+{
+	if (format == format_type::debug)
+	{
+		sink("Sum[");
+		bool written = false;
+
+		for (auto const &[coeff, term] : sum.terms)
+		{
+			if (written)
+				sink(", ");
+			written = true;
+			print(coeff, sink, format);
+			sink(", ");
+			print(term, sink, format, depth);
+		}
+		sink("]");
+	}
+	else
+	{
+		bool written = false;
+
+		for (auto const &[coeff, term] : sum.terms)
+		{
+			auto c = coeff;
+			if (is_negative(c))
+			{
+				c = -c;
+				if (written)
+					sink(" - ");
+				else
+					sink("-");
+			}
+			else if (written)
+				sink(" + ");
+			written = true;
+
+			if (is_one(term))
+			{
+				print(c, sink, format);
+			}
+			else
+			{
+				if (!is_one(c))
+				{
+					print(c, sink, format);
+					sink(" * ");
+				}
+				if (need_parens_product(term))
+					sink("(");
+				print(term, sink, format, depth);
+				if (need_parens_product(term))
+					sink(")");
+			}
+		}
+	}
+}
+
+void print_impl(ProductExpression const &prod,
+                util::function_view<void(std::string_view)> sink,
+                format_type format, int depth)
+{
+	if (format == format_type::debug)
+		sink("Product[");
+	bool written = false;
+
+	std::string_view sep = (format == format_type::debug) ? ", " : " * ";
+
+	for (auto const &term : prod.terms)
+	{
+		if (written)
+			sink(sep);
+		written = true;
+
+		if (format != format_type::debug && need_parens_product(term))
+			sink("(");
+		print(term, sink, format, depth);
+		if (format != format_type::debug && need_parens_product(term))
+			sink(")");
+	}
+	if (format == format_type::debug)
+		sink("]");
+}
+void print_impl(PowerExpression const &pow,
+                util::function_view<void(std::string_view)> sink,
+                format_type format, int depth)
+{
+	if (format == format_type::debug)
+	{
+		sink("Power[");
+		print(pow.base, sink, format, depth);
+		sink(", ");
+		sink(std::to_string(pow.exp));
+		sink("]");
+	}
+	else
+	{
+		if (need_parens_power(pow.base))
+			sink("(");
+		print(pow.base, sink, format, depth);
+		if (need_parens_power(pow.base))
+			sink(")");
+		sink("^");
+		sink(std::to_string(pow.exp));
+	}
+}
+
+void print_impl(FunctionExpression const &f,
+                util::function_view<void(std::string_view)> sink,
+                format_type format, int depth)
+{
+	if (format == format_type::debug)
+	{
+		sink("Function[");
+		sink(f.name);
+		sink(", ");
+	}
+	else
+	{
+		sink(f.name);
+		sink("(");
+	}
+
+	if (depth <= 0)
+	{
+		sink("...");
+	}
+	else
+	{
+		bool written = false;
+		for (auto const &arg : f.arguments)
+		{
+			if (written)
+				sink(", ");
+			written = true;
+			print(arg, sink, format, depth - 1);
+		}
+	}
+
+	if (format == format_type::debug)
+		sink("]");
+	else
+		sink(")");
+}
+
+} // namespace
+
+void print(Expression const &a,
+           util::function_view<void(std::string_view)> sink, format_type format,
+           int depth)
+{
+	a.visit([&](auto const &x) { print_impl(x, sink, format, depth); });
+}
+
 } // namespace chalk

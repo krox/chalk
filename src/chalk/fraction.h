@@ -231,6 +231,40 @@ template <class R> bool need_parens_power(Fraction<R> const &value)
 	else
 		return true;
 }
+template <class R>
+void print(Fraction<R> const &x,
+           util::function_view<void(std::string_view)> sink, format_type format)
+{
+	if (chalk::is_one(x.denom()))
+	{
+		chalk::print(x.num(), sink, format);
+		return;
+	}
+
+	if (chalk::need_parens_product(x.num()))
+	{
+		sink("(");
+		chalk::print(x.num(), sink, format);
+		sink(")");
+	}
+	else
+	{
+		chalk::print(x.num(), sink, format);
+	}
+
+	sink("/");
+
+	if (chalk::need_parens_power(x.denom()))
+	{
+		sink("(");
+		chalk::print(x.denom(), sink, format);
+		sink(")");
+	}
+	else
+	{
+		chalk::print(x.denom(), sink, format);
+	}
+}
 
 /** main usecase of fractions are of course rational numbers */
 using Rational = Fraction<Integer>;
@@ -246,23 +280,12 @@ template <typename R> struct fmt::formatter<chalk::Fraction<R>>
 	template <typename FormatContext>
 	auto format(const chalk::Fraction<R> &x, FormatContext &ctx) const
 	{
-		if (chalk::is_one(x.denom()))
-			return fmt::format_to(ctx.out(), "{}", x.num());
-
-		if (chalk::need_parens_product(x.num()))
-		{
-			if (chalk::need_parens_power(x.denom()))
-				return fmt::format_to(ctx.out(), "({})/({})", x.num(),
-				                      x.denom());
-			else
-				return fmt::format_to(ctx.out(), "({})/{}", x.num(), x.denom());
-		}
-		else
-		{
-			if (chalk::need_parens_power(x.denom()))
-				return fmt::format_to(ctx.out(), "{}/({})", x.num(), x.denom());
-			else
-				return fmt::format_to(ctx.out(), "{}/{}", x.num(), x.denom());
-		}
+		auto it = ctx.out();
+		auto sink = [&it](std::string_view s) {
+			for (char c : s)
+				*it++ = c;
+		};
+		chalk::print(x, sink, chalk::format_type::text);
+		return it;
 	}
 };

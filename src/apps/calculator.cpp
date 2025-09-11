@@ -95,13 +95,13 @@ class Parser
 	{
 		bool neg = (bool)lexer.match('-');
 		auto r = parse_primary();
-		/*if (lexer.match('^') || lexer.match("**"))
+		if (lexer.match('^') || lexer.match("**"))
 		{
-		    if (lexer.match('-'))
-		        r = pow(r, -util::parse_int(lexer.match(Tok::integer()).value));
-		    else
-		        r = pow(r, util::parse_int(lexer.match(Tok::integer()).value));
-		}*/
+			if (lexer.match('-'))
+				r = pow(r, -util::parse_int(lexer.expect_integer()));
+			else
+				r = pow(r, util::parse_int(lexer.expect_integer()));
+		}
 		return neg ? -r : r;
 	}
 
@@ -145,10 +145,6 @@ class Parser
 
 int main()
 {
-	// using Real = FloatingOctuple; // just (high-precision) floating point
-
-	auto expr = Expression(5) + Expression::variable("x") + Expression(7);
-	fmt::print("expr = {}\n", expr);
 	using_history();
 	read_history(historyFile);
 

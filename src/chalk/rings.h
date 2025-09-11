@@ -17,6 +17,13 @@ struct one_t
 inline static constexpr zero_t zero;
 inline static constexpr one_t one;
 
+enum class format_type
+{
+	text,
+	debug
+	// TODO: latex
+};
+
 // concept to capture int{32,64,128}_t, float, double
 template <class T>
 concept builtin_number =

@@ -3,6 +3,7 @@
 #include "chalk/fraction.h"
 #include "chalk/parser.h"
 #include "fmt/format.h"
+#include "util/functional.h"
 #include "util/json.h" // for 'overloaded'. should be moved eventually
 #include <memory>
 #include <string>
@@ -84,60 +85,73 @@ Expression operator+(Expression const &a, Expression const &b);
 Expression operator-(Expression const &a, Expression const &b);
 Expression operator*(Expression const &a, Expression const &b);
 Expression operator/(Expression const &a, Expression const &b);
+Expression pow(Expression const &base, int exp);
 
+bool is_zero(Expression const &);
+bool is_one(Expression const &);
+bool is_negative(Expression const &);
+bool need_parens_product(Expression const &);
+bool need_parens_power(Expression const &);
+void print(Expression const &a,
+           util::function_view<void(std::string_view)> sink,
+           format_type format = {}, int depth = INT_MAX);
 } // namespace chalk
 
-template <>
-struct fmt::formatter<chalk::Expression> : fmt::formatter<std::string>
+template <> struct fmt::formatter<chalk::Expression>
 {
-	template <typename FormatContext>
-	auto format(chalk::Expression const &ex,
-	            FormatContext &ctx) const -> decltype(ctx.out())
+  private:
+	chalk::format_type type_ = chalk::format_type::text;
+	int depth_ = INT_MAX;
+
+  public:
+	constexpr auto parse(auto &ctx) -> decltype(ctx.begin())
 	{
-		using namespace chalk;
+		auto it = ctx.begin();
+		auto end = ctx.end();
 
+		if (it != end && '0' <= *it && *it <= '9')
+		{
+			depth_ = 0;
+			while (it != end && '0' <= *it && *it <= '9')
+			{
+				depth_ = depth_ * 10 + (*it - '0');
+				++it;
+			}
+		}
+
+		if (it != end)
+		{
+			if (*it == 't')
+			{
+				type_ = chalk::format_type::text;
+				++it;
+			}
+			else if (*it == 'd')
+			{
+				type_ = chalk::format_type::debug;
+				++it;
+			}
+			/*else if (*it == 'l')
+			{
+			    type_ = format_type::latex;
+			    ++it;
+			}*/
+		}
+		// check that the end is reached
+		if (it != end && *it != '}')
+			throw fmt::format_error("invalid format");
+		return it;
+	}
+
+	auto format(chalk::Expression const &a,
+	            auto &ctx) const -> decltype(ctx.out())
+	{
 		auto it = ctx.out();
-		ex.visit(util::overloaded{
-		    [&it](Rational const &x) { it = fmt::format_to(it, "{}", x); },
-		    [&it](VariableExpression const &s) {
-			    it = fmt::format_to(it, "{}", s);
-		    },
-		    [&it](SumExpression const &sum) {
-			    it = fmt::format_to(it, "(");
-			    for (size_t i = 0; i < sum.terms.size(); ++i)
-			    {
-				    if (i > 0)
-					    it = fmt::format_to(it, " + ");
-				    it = fmt::format_to(it, "{}*{}", sum.terms[i].first,
-				                        sum.terms[i].second);
-			    }
-			    it = fmt::format_to(it, ")");
-		    },
-		    [&it](ProductExpression const &prod) {
-			    it = fmt::format_to(it, "(");
-			    for (size_t i = 0; i < prod.terms.size(); ++i)
-			    {
-				    if (i > 0)
-					    it = fmt::format_to(it, " * ");
-				    it = fmt::format_to(it, "{}", prod.terms[i]);
-			    }
-			    it = fmt::format_to(it, ")");
-		    },
-		    [&it](PowerExpression const &pow) {
-			    it = fmt::format_to(it, "({})^{}", pow.base, pow.exp);
-		    },
-		    [&it](FunctionExpression const &fun) {
-			    it = fmt::format_to(it, "{}(", fun.name);
-			    for (size_t i = 0; i < fun.arguments.size(); ++i)
-			    {
-				    if (i > 0)
-					    it = fmt::format_to(it, ", ");
-				    it = fmt::format_to(it, "{}", fun.arguments[i]);
-			    }
-			    it = fmt::format_to(it, ")");
-		    }
-
-		});
+		auto sink = [&it](std::string_view s) {
+			for (char c : s)
+				*it++ = c;
+		};
+		print(a, sink, type_, depth_);
 		return it;
 	}
 };

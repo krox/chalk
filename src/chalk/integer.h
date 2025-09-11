@@ -9,6 +9,7 @@
 #include "chalk/parser.h"
 #include "chalk/rings.h"
 #include "fmt/format.h"
+#include "util/functional.h"
 #include <cassert>
 #include <gmp.h>
 #include <optional>
@@ -110,6 +111,7 @@ class Integer
 	double to_double() const { return (double)mpz_get_d(z_); }
 	std::string to_string() const
 	{
+		// TODO: this is neither exception-safe nor efficient (allocates twice)
 		char *tmp = mpz_get_str(nullptr, 10, z_);
 		auto s = std::string(tmp);
 		void (*freefunc)(void *, size_t);
@@ -441,6 +443,11 @@ inline bool need_parens_product(Integer const &) noexcept { return false; }
 inline bool need_parens_power(Integer const &value) noexcept
 {
 	return is_negative(value);
+}
+inline void print(Integer const &x,
+                  util::function_view<void(std::string_view)> sink, format_type)
+{
+	sink(x.to_string());
 }
 
 // makes Integer usable on the command line using CLI11 library (found by ADL)
