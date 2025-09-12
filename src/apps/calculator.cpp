@@ -40,6 +40,8 @@ class Parser
 	util::Parser lexer;
 
   private:
+	util::hash_map<std::string, Expression> var_table;
+
 	Expression parse_primary()
 	{
 		if (lexer.match('('))
@@ -60,29 +62,22 @@ class Parser
 		{
 			if (lexer.match('(')) // function call
 			{
-				/*if (funTable != nullptr)
-				    if (auto it = funTable->find(tok->value);
-				        it != funTable->end())
-				    {
-				        std::vector<T> args;
-				        while (!lexer.try_match(")"))
-				        {
-				            args.push_back(parseSum());
-				            if (!lexer.peek(")"))
-				                lexer.match(",");
-				        }
-				        return it->second(args);
-				    }*/
+				std::vector<Expression> args;
+				while (true)
+				{
+					args.push_back(parse_sum());
+					if (lexer.match(')'))
+						break;
+					else
+						lexer.expect(',');
+				}
 
-				throw util::ParseError(
-				    fmt::format("unknown function '{}'", ident));
+				return Expression::function(ident, args);
 			}
 			else // variable / constant
 			{
-				/*if (varTable != nullptr)
-				    if (auto it = varTable->find(tok->value);
-				        it != varTable->end())
-				        return it->second;*/
+				if (auto it = var_table.find(ident); it != var_table.end())
+					return it->second;
 
 				return Expression::variable(ident);
 			}
@@ -135,11 +130,25 @@ class Parser
 	Expression operator()(std::string_view source)
 	{
 		lexer = util::Parser(source);
-		auto r = parse_sum();
+
+		std::string_view id;
+
+		if (lexer.ident("let"))
+		{
+			id = lexer.expect_ident();
+			lexer.expect('=');
+		}
+
+		auto expr = parse_sum();
 		if (!lexer.end())
 			throw util::ParseError("unexpected trailing input");
-		lexer = util::Parser(""); // clear lexer to avoid dangling references
-		return r;
+
+		if (!id.empty())
+			var_table[id] = expr;
+
+		// safety measure: remove (potentially dangling) reference
+		lexer = util::Parser("");
+		return expr;
 	}
 };
 

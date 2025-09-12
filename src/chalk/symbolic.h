@@ -33,6 +33,8 @@ class Expression
 	static Expression sum(std::span<const Expression> terms);
 	static Expression product(std::span<const Expression> terms);
 	static Expression power(Expression const &base, int exp);
+	static Expression function(std::string_view fun,
+	                           std::span<const Expression> args);
 
 	template <class R = void, class Visitor> R visit(Visitor &&vis) const;
 

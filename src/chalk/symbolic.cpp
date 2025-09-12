@@ -270,6 +270,13 @@ Expression Expression::power(Expression const &base, int exp)
 		return Expression(make_expr(PowerExpression{base, exp}));
 }
 
+Expression Expression::function(std::string_view fun,
+                                std::span<const Expression> args)
+{
+	return Expression(make_expr(FunctionExpression{
+	    std::string(fun), std::vector<Expression>(args.begin(), args.end())}));
+}
+
 Expression operator+(Expression const &a) { return a; }
 
 Expression operator-(Expression const &a)
