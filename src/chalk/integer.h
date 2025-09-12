@@ -111,13 +111,15 @@ class Integer
 	double to_double() const { return (double)mpz_get_d(z_); }
 	std::string to_string() const
 	{
-		// TODO: this is neither exception-safe nor efficient (allocates twice)
-		char *tmp = mpz_get_str(nullptr, 10, z_);
-		auto s = std::string(tmp);
-		void (*freefunc)(void *, size_t);
-		mp_get_memory_functions(nullptr, nullptr, &freefunc);
-		freefunc(tmp, s.size() + 1);
-		return s;
+		// NOTE: 'mpz_sizeinbase' does not consider sign and null-terminator,
+		// but might otherwise over-estimate the size slightly. So we allocate
+		// +2 bytes and truncate afterwards to be safe.
+		auto size = mpz_sizeinbase(z_, 10);
+		auto str = std::string(size + 2, '\0');
+		mpz_get_str(str.data(), 10, z_);
+		while (str.back() == '\0')
+			str.pop_back();
+		return str;
 	}
 	explicit operator int() const { return to_int(); }
 	explicit operator double() const { return to_double(); }
