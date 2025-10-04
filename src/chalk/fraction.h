@@ -53,6 +53,20 @@ template <typename R> Fraction<R> inverse(Fraction<R> const &a)
 	return Fraction<R>{a.denom(), a.num()};
 }
 
+template <typename R> Fraction<R> pow(Fraction<R> const &a, int exp)
+{
+	if (exp == 0)
+		return Fraction<R>(1);
+	else if (exp > 0)
+		return Fraction<R>(pow(a.num(), exp), pow(a.denom(), exp));
+	else
+	{
+		if (is_zero(a.num()))
+			throw std::domain_error("division by zero in Fraction::pow");
+		return Fraction<R>(pow(a.denom(), -exp), pow(a.num(), -exp));
+	}
+}
+
 /** binary operators (Fraction <-> Fraction) */
 template <typename R>
 Fraction<R> operator+(Fraction<R> const &a, Fraction<R> const &b)
@@ -174,34 +188,19 @@ bool operator==(Fraction<R> const &a, Fraction<R> const &b)
 	return a.num() == b.num() && a.denom() == b.denom();
 }
 template <typename R>
-bool operator!=(Fraction<R> const &a, Fraction<R> const &b)
+auto operator<=>(Fraction<R> const &a, Fraction<R> const &b)
 {
-	return a.num() != b.num() || a.denom() != b.denom();
+	return a.num() * b.denom() <=> b.num() * a.denom();
 }
-template <typename R> bool operator<(Fraction<R> const &a, Fraction<R> const &b)
-{
-	return a.num() * b.denom() < b.num() * a.denom();
-}
-template <typename R>
-bool operator<=(Fraction<R> const &a, Fraction<R> const &b)
-{
-	return a.num() * b.denom() <= b.num() * a.denom();
-}
+
 template <typename R> bool operator==(Fraction<R> const &a, int b)
 {
 	return a.denom() == 1 && a.num() == b;
 }
-template <typename R> bool operator!=(Fraction<R> const &a, int b)
+
+template <typename R> auto operator<=>(Fraction<R> const &a, int b)
 {
-	return !(a.denom() == 1 && a.num() == b);
-}
-template <typename R> bool operator<(Fraction<R> const &a, int b)
-{
-	return a.num() < b * a.denom();
-}
-template <typename R> bool operator<=(Fraction<R> const &a, int b)
-{
-	return a.num() <= b * a.denom();
+	return a.num() <=> b * a.denom();
 }
 
 template <class R> bool is_zero(Fraction<R> const &value)

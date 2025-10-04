@@ -5,6 +5,7 @@
 #include "fmt/format.h"
 #include "util/functional.h"
 #include "util/json.h" // for 'overloaded'. should be moved eventually
+#include <compare>
 #include <memory>
 #include <string>
 #include <utility>
@@ -13,21 +14,82 @@
 
 namespace chalk {
 
-class ExpressionVariant;
+class Expression;
 
-class Expression
+struct ConstantExpression
 {
-	std::shared_ptr<const ExpressionVariant> ptr_;
+	Rational value;
+
+	std::strong_ordering operator<=>(ConstantExpression const &other) const;
+	bool operator==(ConstantExpression const &other) const;
+};
+
+struct VariableExpression
+{
+	std::string name;
+
+	std::strong_ordering operator<=>(VariableExpression const &other) const;
+	bool operator==(VariableExpression const &other) const;
+};
+
+struct SumExpression
+{
+	std::vector<std::pair<Rational, Expression>> terms;
+
+	std::strong_ordering operator<=>(SumExpression const &other) const;
+	bool operator==(SumExpression const &other) const;
+};
+
+struct ProductExpression
+{
+	std::vector<Expression> terms;
+
+	std::strong_ordering operator<=>(ProductExpression const &other) const;
+	bool operator==(ProductExpression const &other) const;
+};
+
+struct PowerExpression
+{
+	util::value_ptr<Expression> base; // not null
+	int exp;
+
+	std::strong_ordering operator<=>(PowerExpression const &other) const;
+
+	bool operator==(PowerExpression const &other) const;
+
+	PowerExpression(Expression const &base, int exp)
+	    : base(util::make_value<Expression>(base)), exp(exp)
+	{}
+};
+
+struct FunctionExpression
+{
+	std::string name;
+	std::vector<Expression> arguments;
+
+	std::strong_ordering operator<=>(FunctionExpression const &other) const;
+	bool operator==(FunctionExpression const &other) const;
+};
+using ExpressionVariant =
+    std::variant<ConstantExpression, VariableExpression, SumExpression,
+                 ProductExpression, PowerExpression, FunctionExpression>;
+class Expression : public ExpressionVariant
+{
+	Expression(ExpressionVariant const &v) : ExpressionVariant(v) {}
+	Expression(ExpressionVariant &&v) : ExpressionVariant(std::move(v)) {}
 
   public:
-	Expression();
+	// default = ConstantExpression(0)
+	Expression() = default;
 
-	// low-level constructor for internal use
-	explicit Expression(std::shared_ptr<const ExpressionVariant> p);
-
-	// user-facing constructors
+	// convenience conversions
 	explicit Expression(int value);
 	explicit Expression(Rational const &value);
+
+	// constructors of explicit types
+	// note: due to normalization rules, the result might not actually be of
+	// that type. E.g.:
+	//   sum({0, X}) -> X
 	static Expression variable(std::string_view name);
 	static Expression integer(std::string_view s);
 	static Expression sum(std::span<const Expression> terms);
@@ -36,51 +98,20 @@ class Expression
 	static Expression function(std::string_view fun,
 	                           std::span<const Expression> args);
 
-	template <class R = void, class Visitor> R visit(Visitor &&vis) const;
+	// this defines an arbitrary syntactic order on expressions, nothing
+	// mathematically meaningful
+	std::strong_ordering operator<=>(Expression const &other) const;
 
-	ExpressionVariant const *data() const { return ptr_.get(); }
+	// syntactic equality
+	// (i.e. sufficient but not necessary for mathematical equivalence)
+	bool operator==(Expression const &other) const;
 };
 
-// might have dedicated classes later, but for now this is enough
-using ConstantExpression = Rational;
-using VariableExpression = std::string;
+// TODO: move this into 'Rational' itself. should be useful more generally, also
+// related to finally getting a small-size-optimization for 'Integer'.
+// inline const Rational one_rat = Rational(1);
 
-struct SumExpression
-{
-	std::vector<std::pair<Rational, Expression>> terms;
-};
-
-struct ProductExpression
-{
-	std::vector<Expression> terms;
-};
-
-struct PowerExpression
-{
-	Expression base;
-	int exp;
-};
-
-struct FunctionExpression
-{
-	std::string name;
-	std::vector<Expression> arguments;
-};
-
-class ExpressionVariant
-    : public std::variant<Rational, std::string, SumExpression,
-                          ProductExpression, PowerExpression,
-                          FunctionExpression>
-{
-  public:
-	using variant::variant;
-};
-
-template <class R, class Visitor> R Expression::visit(Visitor &&vis) const
-{
-	return std::visit(std::forward<Visitor>(vis), *ptr_);
-}
-
+// basic math operations
 Expression operator+(Expression const &a);
 Expression operator-(Expression const &a);
 Expression operator+(Expression const &a, Expression const &b);
@@ -91,6 +122,8 @@ Expression pow(Expression const &base, int exp);
 
 bool is_zero(Expression const &);
 bool is_one(Expression const &);
+
+// helpers for pretty printing
 bool is_negative(Expression const &);
 bool need_parens_product(Expression const &);
 bool need_parens_power(Expression const &);
