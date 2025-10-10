@@ -47,7 +47,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 	add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
 	add_link_options(-fsanitize=address)
 
-	add_executable(tests tests/bch.cpp tests/ddouble.cpp tests/integer.cpp tests/langevin_scheme.cpp tests/mpfr_eigen.cpp tests/numerics.cpp tests/rings.cpp)
+	add_executable(tests tests/bch.cpp tests/ddouble.cpp tests/integer.cpp tests/langevin_scheme.cpp tests/mpfr_eigen.cpp tests/numerics.cpp tests/rings.cpp tests/symbolic.cpp)
 	target_compile_features(tests PRIVATE cxx_std_17)
 	target_link_libraries(tests PRIVATE Catch2::Catch2WithMain chalk)
 	target_compile_options(tests PRIVATE -Wall -Wextra -Werror -g)
