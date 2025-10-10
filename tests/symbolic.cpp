@@ -17,6 +17,165 @@ TEST_CASE("expression parsing - constants", "[expression]")
 	CHECK(fmt::format("{}", Expression::parse("-17")) == "-17");
 }
 
+TEST_CASE("symbolic context - pattern matching basics",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Simple function patterns
+	ctx("let sin(0) = 0");
+	CHECK(ctx("sin(0)") == Expression(0));
+
+	// Should not affect other expressions
+	auto sin_x = ctx("sin(x)");
+	CHECK(sin_x.is_function());
+	CHECK(sin_x.as_function().name == "sin");
+
+	// Constant patterns
+	ctx("let foo(1) = 42");
+	CHECK(ctx("foo(1)") == Expression(42));
+	CHECK(ctx("foo(2)").is_function()); // Should not match
+}
+
+TEST_CASE("symbolic context - placeholder patterns",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Single placeholder
+	ctx("let square(_x) = _x^2");
+	CHECK(ctx("square(5)") == Expression(25));
+	CHECK(ctx("square(x)") == pow(Expression::variable("x"), 2));
+
+	// Multiple placeholders
+	ctx("let add(_a, _b) = _a + _b");
+	auto result = ctx("add(3, 4)");
+	CHECK(result == Expression(7));
+
+	// Same placeholder used multiple times
+	ctx("let double(_x) = _x + _x");
+	CHECK(ctx("double(5)") == Expression(10));
+}
+
+TEST_CASE("symbolic context - nested patterns",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Nested function patterns
+	ctx("let foo(bar(_x)) = sin(_x)");
+	auto result = ctx("foo(bar(0))");
+	CHECK(result.is_function());
+	CHECK(result.as_function().name == "sin");
+	CHECK(result.as_function().arguments[0] == Expression(0));
+
+	// Pattern with arithmetic
+	ctx("let y = 42");
+	auto simplified = ctx("y + 0");
+	CHECK(simplified == Expression(42));
+}
+
+TEST_CASE("symbolic context - pattern precedence",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Rules are applied in the order they were defined
+	ctx("let f(_x) = _x"); // Generic pattern
+	ctx("let f(0) = 100"); // Specific pattern
+
+	CHECK(ctx("f(0)") ==
+	      Expression(0)); // First rule matches (f(_x) = _x with _x=0)
+	CHECK(ctx("f(5)") ==
+	      Expression(5)); // First rule matches (f(_x) = _x with _x=5)
+
+	// If we want specific patterns to take precedence, define them first
+	SymbolicContext ctx2;
+	ctx2("let g(0) = 100"); // Specific pattern first
+	ctx2("let g(_x) = _x"); // Generic pattern second
+
+	CHECK(ctx2("g(0)") == Expression(100)); // Specific pattern matches
+	CHECK(ctx2("g(5)") == Expression(5));   // Generic pattern matches
+}
+
+TEST_CASE("symbolic context - complex pattern expressions",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Pattern with operations
+	ctx("let derivative(sin(_x)) = cos(_x)");
+	auto result = ctx("derivative(sin(x))");
+	CHECK(result.is_function());
+	CHECK(result.as_function().name == "cos");
+
+	// Pattern with powers
+	ctx("let integrate(_x^2) = _x^3 / 3");
+	ctx("let x = x"); // Define symbolic x
+	auto integral = ctx("integrate(x^2)");
+	// Should be x^3 / 3, which is x^3 * (1/3)^(-1) = x^3 * 3^(-1)
+}
+
+TEST_CASE("symbolic context - pattern matching with variables",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Set up some variables
+	ctx("let a = 5");
+	ctx("let b = 3");
+
+	// Pattern that should work with variables
+	ctx("let max(_x, _x) = _x"); // max(x,x) = x
+	CHECK(ctx("max(a, a)") == Expression(5));
+
+	// This should not match because different values
+	auto max_ab = ctx("max(a, b)");
+	CHECK(max_ab.is_function()); // Should remain as function call
+}
+
+TEST_CASE("symbolic context - rule application order",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Rules should be applied in the order they were defined
+	ctx("let f(_x) = first");
+	ctx("let f(_x) = second");
+
+	// Should use the first rule that matches
+	auto result = ctx("f(anything)");
+	CHECK(result.is_variable());
+	CHECK(result.as_variable().name == "first");
+}
+
+TEST_CASE("symbolic context - mixed variables and patterns",
+          "[expression][context][pattern]")
+{
+	SymbolicContext ctx;
+
+	// Define some variables
+	ctx("let pi = 3");
+	ctx("let e = 2");
+
+	// Define some patterns
+	ctx("let ln(e) = 1"); // This pattern expects literal 'e', not the value 2
+	ctx("let sin(pi/2) = 1"); // This pattern expects literal 'pi/2', not 3/2
+
+	// For patterns to work with literal variable names, we need to define them
+	// before the variables, or create an expression that evaluates to the
+	// literal
+
+	// Test that variable substitution happens before pattern matching
+	auto result1 =
+	    ctx("ln(e)"); // e becomes 2, so this is ln(2), no pattern match
+	CHECK(result1.is_function()); // Should remain as ln(2)
+
+	auto result2 =
+	    ctx("sin(pi/2)"); // pi becomes 3, so this is sin(3/2), no pattern match
+	CHECK(result2.is_function()); // Should remain as sin(3/2)
+}
+
 TEST_CASE("expression parsing - variables", "[expression]")
 {
 	auto x = Expression::parse("x");

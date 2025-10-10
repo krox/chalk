@@ -149,18 +149,31 @@ class Expression
 Expression substitute(Expression const &expr,
                       util::hash_map<std::string, Expression> const &table);
 
+// Pattern matching and substitution for expressions
+// Returns a substitution table if the pattern matches, std::nullopt otherwise
+std::optional<util::hash_map<std::string, Expression>>
+match_pattern(Expression const &pattern, Expression const &expr);
+
+// Apply pattern substitution rules to an expression
+Expression
+apply_rules(Expression const &expr,
+            std::vector<std::pair<Expression, Expression>> const &rules);
+
 // A context for symbolic computation that maintains a symbol table and provides
 // parsing with automatic variable substitution and "let" expression handling.
 class SymbolicContext
 {
   private:
 	util::hash_map<std::string, Expression> symbol_table_;
+	std::vector<std::pair<Expression, Expression>> rules_;
 
   public:
 	SymbolicContext() = default;
 
-	// Parse an expression string and apply variable substitution.
-	// If the expression starts with "let", it defines a new variable.
+	// Parse an expression string and apply variable substitution and pattern
+	// rules. If the expression starts with "let", it defines a new variable or
+	// rule. Format: "let var = expression" or "let pattern = expression" or
+	// just "expression"
 	Expression operator()(std::string_view source);
 
 	// Get the current symbol table (read-only access)
@@ -169,14 +182,30 @@ class SymbolicContext
 		return symbol_table_;
 	}
 
+	// Get the current rule table (read-only access)
+	std::vector<std::pair<Expression, Expression>> const &rules() const
+	{
+		return rules_;
+	}
+
 	// Set a variable in the symbol table
 	void set_variable(std::string const &name, Expression const &expr)
 	{
 		symbol_table_[name] = expr;
 	}
 
-	// Clear the symbol table
-	void clear() { symbol_table_.clear(); }
+	// Add a pattern rule
+	void add_rule(Expression const &pattern, Expression const &replacement)
+	{
+		rules_.emplace_back(pattern, replacement);
+	}
+
+	// Clear the symbol table and rules
+	void clear()
+	{
+		symbol_table_.clear();
+		rules_.clear();
+	}
 
 	// Check if a variable exists in the symbol table
 	bool has_variable(std::string const &name) const

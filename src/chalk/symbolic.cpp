@@ -569,34 +569,207 @@ Expression substitute(Expression const &expr,
 	    }});
 }
 
+std::optional<util::hash_map<std::string, Expression>>
+match_pattern(Expression const &pattern, Expression const &expr)
+{
+	util::hash_map<std::string, Expression> bindings;
+
+	std::function<bool(Expression const &, Expression const &)> match_helper =
+	    [&](Expression const &pat, Expression const &ex) -> bool {
+		// If pattern is a variable starting with underscore, it's a placeholder
+		if (pat.is_variable() && pat.as_variable().name.at(0) == '_')
+		{
+			std::string var_name = pat.as_variable().name;
+			// Check if this placeholder was already bound
+			if (auto it = bindings.find(var_name); it != bindings.end())
+				return it->second == ex; // Must match the previous match
+			else
+			{
+				bindings[var_name] = ex; // Bind this placeholder
+				return true;
+			}
+		}
+
+		return pat.visit<bool>([&](auto const &p) {
+			using T = std::decay_t<decltype(p)>;
+			if (!ex.is<T>())
+				return false;
+			auto const &e = ex.as<T>();
+
+			if constexpr (std::is_same_v<T, ConstantExpression>)
+			{
+				return p.value == e.value;
+			}
+			else if constexpr (std::is_same_v<T, VariableExpression>)
+			{
+				return p.name == e.name;
+			}
+			else if constexpr (std::is_same_v<T, SumExpression>)
+			{
+				if (p.terms.size() != e.terms.size())
+					return false;
+				for (size_t i = 0; i < p.terms.size(); ++i)
+				{
+					if (p.terms[i].first != e.terms[i].first ||
+					    !match_helper(p.terms[i].second, e.terms[i].second))
+						return false;
+				}
+				return true;
+			}
+			else if constexpr (std::is_same_v<T, ProductExpression>)
+			{
+				if (p.terms.size() != e.terms.size())
+					return false;
+				for (size_t i = 0; i < p.terms.size(); ++i)
+				{
+					if (!match_helper(p.terms[i], e.terms[i]))
+						return false;
+				}
+				return true;
+			}
+			else if constexpr (std::is_same_v<T, PowerExpression>)
+			{
+				return p.exp == e.exp && match_helper(*p.base, *e.base);
+			}
+			else if constexpr (std::is_same_v<T, FunctionExpression>)
+			{
+				if (p.name != e.name ||
+				    p.arguments.size() != e.arguments.size())
+					return false;
+				for (size_t i = 0; i < p.arguments.size(); ++i)
+				{
+					if (!match_helper(p.arguments[i], e.arguments[i]))
+						return false;
+				}
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		});
+	};
+
+	if (match_helper(pattern, expr))
+		return bindings;
+	else
+		return std::nullopt;
+}
+
+Expression
+apply_rules(Expression const &expr,
+            std::vector<std::pair<Expression, Expression>> const &rules)
+{
+	// Try to apply rules to the current expression
+	for (auto const &[pattern, replacement] : rules)
+	{
+		if (auto bindings = match_pattern(pattern, expr))
+		{
+			// Apply the substitution to the replacement
+			return substitute(replacement, *bindings);
+		}
+	}
+
+	// Recursively apply rules to subexpressions
+	return expr.visit<Expression>([&](auto const &e) {
+		using T = std::decay_t<decltype(e)>;
+
+		if constexpr (std::is_same_v<T, ConstantExpression> ||
+		              std::is_same_v<T, VariableExpression>)
+		{
+			return expr; // No subexpressions
+		}
+		else if constexpr (std::is_same_v<T, SumExpression>)
+		{
+			std::vector<Expression> new_terms;
+			for (auto const &[coeff, term] : e.terms)
+			{
+				new_terms.push_back(Expression(coeff) *
+				                    apply_rules(term, rules));
+			}
+			return Expression::sum(new_terms);
+		}
+		else if constexpr (std::is_same_v<T, ProductExpression>)
+		{
+			std::vector<Expression> new_terms;
+			for (auto const &term : e.terms)
+			{
+				new_terms.push_back(apply_rules(term, rules));
+			}
+			return Expression::product(new_terms);
+		}
+		else if constexpr (std::is_same_v<T, PowerExpression>)
+		{
+			return Expression::power(apply_rules(*e.base, rules), e.exp);
+		}
+		else if constexpr (std::is_same_v<T, FunctionExpression>)
+		{
+			std::vector<Expression> new_args;
+			for (auto const &arg : e.arguments)
+			{
+				new_args.push_back(apply_rules(arg, rules));
+			}
+			return Expression::function(e.name, new_args);
+		}
+		else
+		{
+			return expr;
+		}
+	});
+}
+
 Expression SymbolicContext::operator()(std::string_view source)
 {
 	auto parser = util::Parser(source);
 
-	std::string_view variable_name;
-
 	// Check for "let" expression
 	if (parser.ident("let"))
 	{
-		variable_name = parser.expect_ident();
+		// Parse the left-hand side (could be a variable or pattern)
+		auto lhs = Expression::parse(parser);
 		parser.expect('=');
+
+		// Parse the right-hand side
+		auto rhs = Expression::parse(parser);
+
+		// Ensure we consumed the entire input
+		if (!parser.end())
+			throw util::ParseError("unexpected trailing input");
+
+		// Apply current variable substitutions to RHS
+		rhs = substitute(rhs, symbol_table_);
+
+		// Check if LHS is just a simple variable
+		if (lhs.is_variable())
+		{
+			// Simple variable assignment
+			symbol_table_[lhs.as_variable().name] = rhs;
+		}
+		else
+		{
+			// Pattern rule
+			rules_.emplace_back(lhs, rhs);
+		}
+
+		return rhs;
 	}
+	else
+	{
+		// Parse the expression
+		auto expr = Expression::parse(parser);
 
-	// Parse the expression
-	auto expr = Expression::parse(parser);
+		// Ensure we consumed the entire input
+		if (!parser.end())
+			throw util::ParseError("unexpected trailing input");
 
-	// Ensure we consumed the entire input
-	if (!parser.end())
-		throw util::ParseError("unexpected trailing input");
+		// Apply variable substitution
+		expr = substitute(expr, symbol_table_);
 
-	// Apply variable substitution
-	expr = substitute(expr, symbol_table_);
+		// Apply pattern rules
+		expr = apply_rules(expr, rules_);
 
-	// If this was a "let" expression, store the variable
-	if (!variable_name.empty())
-		symbol_table_[std::string(variable_name)] = expr;
-
-	return expr;
+		return expr;
+	}
 }
 
 } // namespace chalk
