@@ -149,6 +149,42 @@ class Expression
 Expression substitute(Expression const &expr,
                       util::hash_map<std::string, Expression> const &table);
 
+// A context for symbolic computation that maintains a symbol table and provides
+// parsing with automatic variable substitution and "let" expression handling.
+class SymbolicContext
+{
+  private:
+	util::hash_map<std::string, Expression> symbol_table_;
+
+  public:
+	SymbolicContext() = default;
+
+	// Parse an expression string and apply variable substitution.
+	// If the expression starts with "let", it defines a new variable.
+	Expression operator()(std::string_view source);
+
+	// Get the current symbol table (read-only access)
+	util::hash_map<std::string, Expression> const &symbol_table() const
+	{
+		return symbol_table_;
+	}
+
+	// Set a variable in the symbol table
+	void set_variable(std::string const &name, Expression const &expr)
+	{
+		symbol_table_[name] = expr;
+	}
+
+	// Clear the symbol table
+	void clear() { symbol_table_.clear(); }
+
+	// Check if a variable exists in the symbol table
+	bool has_variable(std::string const &name) const
+	{
+		return symbol_table_.contains(name);
+	}
+};
+
 // basic math operations
 Expression operator+(Expression const &a);
 Expression operator-(Expression const &a);

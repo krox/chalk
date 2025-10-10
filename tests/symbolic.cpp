@@ -315,3 +315,174 @@ TEST_CASE("expression type predicates", "[expression]")
 	CHECK(!x.is_power());
 	CHECK(!x.is_function());
 }
+
+TEST_CASE("symbolic context - basic functionality", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Basic expression parsing without variables
+	auto result1 = ctx("2 + 3");
+	CHECK(result1 == Expression(5));
+
+	// Variable definition with let
+	auto result2 = ctx("let x = 42");
+	CHECK(result2 == Expression(42));
+	CHECK(ctx.has_variable("x"));
+
+	// Using previously defined variable
+	auto result3 = ctx("x + 1");
+	CHECK(result3 == Expression(43));
+}
+
+TEST_CASE("symbolic context - let expressions", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Define multiple variables
+	ctx("let a = 5");
+	ctx("let b = 3");
+	ctx("let c = a + b");
+
+	CHECK(ctx.has_variable("a"));
+	CHECK(ctx.has_variable("b"));
+	CHECK(ctx.has_variable("c"));
+
+	// Check values
+	CHECK(ctx("a") == Expression(5));
+	CHECK(ctx("b") == Expression(3));
+	CHECK(ctx("c") == Expression(8));
+
+	// Define variable in terms of other variables
+	ctx("let sum = a + b + c");
+	CHECK(ctx("sum") == Expression(16));
+
+	// Redefine existing variable
+	ctx("let a = 10");
+	CHECK(ctx("a") == Expression(10));
+	// Note: previously defined variables that depended on 'a' won't update
+	// automatically
+	CHECK(ctx("c") == Expression(8)); // still 5 + 3, not 10 + 3
+}
+
+TEST_CASE("symbolic context - symbolic variables", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Define symbolic variables
+	ctx("let x = x"); // This creates a symbolic variable x
+	ctx("let y = y");
+
+	// Use in expressions
+	auto poly = ctx("x^2 + 2*x + 1");
+	CHECK(poly.is_sum());
+
+	// Substitute symbolic with numeric
+	ctx("let x = 3");
+	auto result = ctx("x + 1");
+	CHECK(result == Expression(4));
+}
+
+TEST_CASE("symbolic context - error handling", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Invalid let syntax - missing identifier
+	CHECK_THROWS_AS(ctx("let = 42"), util::ParseError);
+
+	// Invalid let syntax - missing assignment
+	CHECK_THROWS_AS(ctx("let x 42"), util::ParseError);
+
+	// Trailing input
+	CHECK_THROWS_AS(ctx("42 + 3 extra"), util::ParseError);
+
+	// Invalid expression
+	CHECK_THROWS_AS(ctx("2 + + 3"), util::ParseError);
+}
+
+TEST_CASE("symbolic context - symbol table access", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Initially empty
+	CHECK(ctx.symbol_table().empty());
+	CHECK(!ctx.has_variable("x"));
+
+	// Add variables
+	ctx("let x = 42");
+	ctx("let y = x + 1");
+
+	// Check symbol table
+	auto const &table = ctx.symbol_table();
+	CHECK(table.size() == 2);
+	CHECK(table.contains("x"));
+	CHECK(table.contains("y"));
+	CHECK(table.at("x") == Expression(42));
+	CHECK(table.at("y") == Expression(43));
+
+	// Manual variable setting
+	ctx.set_variable("z", Expression(100));
+	CHECK(ctx.has_variable("z"));
+	CHECK(ctx("z") == Expression(100));
+
+	// Clear symbol table
+	ctx.clear();
+	CHECK(ctx.symbol_table().empty());
+	CHECK(!ctx.has_variable("x"));
+	CHECK(!ctx.has_variable("y"));
+	CHECK(!ctx.has_variable("z"));
+}
+
+TEST_CASE("symbolic context - function expressions", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Define variables and use in functions
+	ctx("let x = 5");
+	auto func_result = ctx("sin(x + 1)");
+
+	CHECK(func_result.is_function());
+	CHECK(func_result.as_function().name == "sin");
+	CHECK(func_result.as_function().arguments.size() == 1);
+	CHECK(func_result.as_function().arguments[0] == Expression(6));
+
+	// Functions with multiple arguments
+	ctx("let a = 1");
+	ctx("let b = 2");
+	auto multi_func = ctx("f(a, b, a + b)");
+
+	CHECK(multi_func.is_function());
+	CHECK(multi_func.as_function().name == "f");
+	CHECK(multi_func.as_function().arguments.size() == 3);
+	CHECK(multi_func.as_function().arguments[0] == Expression(1));
+	CHECK(multi_func.as_function().arguments[1] == Expression(2));
+	CHECK(multi_func.as_function().arguments[2] == Expression(3));
+}
+
+TEST_CASE("symbolic context - calculator workflow", "[expression][context]")
+{
+	SymbolicContext ctx;
+
+	// Simulate a calculator session
+	CHECK(ctx("let pi = 3") == Expression(3));
+	CHECK(ctx("let r = 5") == Expression(5));
+
+	// Compute area using previously defined variables
+	auto area = ctx("let area = pi * r^2");
+	CHECK(area == Expression(75));
+
+	// Use the stored variable
+	CHECK(ctx("area") == Expression(75));
+
+	// Symbolic computation
+	ctx("let x = x"); // Define symbolic variable
+	auto poly = ctx("let poly = x^2 + 2*x + 1");
+	CHECK(poly.is_sum());
+
+	// Substitute and recompute
+	ctx("let x = 10");
+	auto poly_val = ctx("poly"); // This should still be the symbolic polynomial
+
+	// Define new expression using current x value
+	auto new_poly = ctx("x^2 + 2*x + 1");
+	CHECK(new_poly == Expression(121)); // 100 + 20 + 1
+}

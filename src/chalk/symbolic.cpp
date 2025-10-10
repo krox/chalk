@@ -149,6 +149,8 @@ Expression Expression::product(std::span<const Expression> terms)
 		return Expression(0);
 	if (!is_one(coeff))
 		r.insert(r.begin(), Expression(coeff));
+	if (r.size() == 0)
+		return Expression(1);
 	if (r.size() == 1)
 		return std::move(r[0]);
 	return Expression(ProductExpression(std::move(r)));
@@ -565,6 +567,36 @@ Expression substitute(Expression const &expr,
 			    args.push_back(substitute(arg, table));
 		    return Expression::function(f.name, args);
 	    }});
+}
+
+Expression SymbolicContext::operator()(std::string_view source)
+{
+	auto parser = util::Parser(source);
+
+	std::string_view variable_name;
+
+	// Check for "let" expression
+	if (parser.ident("let"))
+	{
+		variable_name = parser.expect_ident();
+		parser.expect('=');
+	}
+
+	// Parse the expression
+	auto expr = Expression::parse(parser);
+
+	// Ensure we consumed the entire input
+	if (!parser.end())
+		throw util::ParseError("unexpected trailing input");
+
+	// Apply variable substitution
+	expr = substitute(expr, symbol_table_);
+
+	// If this was a "let" expression, store the variable
+	if (!variable_name.empty())
+		symbol_table_[std::string(variable_name)] = expr;
+
+	return expr;
 }
 
 } // namespace chalk
