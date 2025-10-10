@@ -1,4 +1,8 @@
 #include "chalk/symbolic.h"
+#include "util/string.h"
+#include <fmt/format.h>
+#include <fstream>
+#include <sstream>
 
 namespace chalk {
 
@@ -770,6 +774,61 @@ Expression SymbolicContext::operator()(std::string_view source)
 
 		return expr;
 	}
+}
+
+// Execute statements from a string, separated by newlines or semicolons
+void SymbolicContext::execute_statements(std::string const &content)
+{
+	std::istringstream stream(content);
+	std::string line;
+	int lineNumber = 1;
+
+	while (std::getline(stream, line))
+	{
+		// Handle semicolon-separated statements on the same line
+		std::istringstream lineStream(line);
+		std::string statement;
+
+		while (std::getline(lineStream, statement, ';'))
+		{
+			statement = util::trim_white(statement);
+
+			// Skip empty statements and comments
+			if (statement.empty() || statement[0] == '#')
+				continue;
+
+			try
+			{
+				(*this)(statement);
+			}
+			catch (util::ParseError const &e)
+			{
+				// throw with line number
+				throw util::ParseError(fmt::format(
+				    "parse error on line {}: {}\n", lineNumber, e.what()));
+			}
+		}
+
+		lineNumber++;
+	}
+}
+
+// Execute statements from a file
+// Returns true if successful, false on error
+void SymbolicContext::execute_file(std::string const &filename)
+{
+	std::ifstream file(filename);
+	if (!file.is_open())
+		throw std::runtime_error(
+		    fmt::format("could not open file '{}'", filename));
+
+	// Read entire file content
+	std::string content((std::istreambuf_iterator<char>(file)),
+	                    std::istreambuf_iterator<char>());
+	file.close();
+
+	fmt::print("Executing file: {}\n", filename);
+	execute_statements(content);
 }
 
 } // namespace chalk

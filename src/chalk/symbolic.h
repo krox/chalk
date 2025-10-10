@@ -212,6 +212,13 @@ class SymbolicContext
 	{
 		return symbol_table_.contains(name);
 	}
+
+	// Execute statements from a file
+	void execute_file(std::string const &filename);
+
+  private:
+	// Execute statements from a string, separated by newlines or semicolons
+	void execute_statements(std::string const &content);
 };
 
 // basic math operations
