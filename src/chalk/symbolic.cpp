@@ -332,25 +332,38 @@ void print_impl(ProductExpression const &prod,
                 format_type format, int depth)
 {
 	if (format == format_type::debug)
+	{
+		bool written = false;
 		sink("Product[");
-	bool written = false;
+		for (auto const &term : prod.terms)
+		{
+			if (written)
+				sink(", ");
+			written = true;
+			print(term, sink, format, depth);
+		}
+		sink("]");
+		return;
+	}
 
-	std::string_view sep = (format == format_type::debug) ? ", " : " * ";
-
+	bool first = true;
 	for (auto const &term : prod.terms)
 	{
-		if (written)
-			sink(sep);
-		written = true;
+		if (first && term.is_constant() && term.as_constant().value == -1)
+		{
+			sink("-");
+			continue;
+		}
+		if (!first)
+			sink(" * ");
+		first = false;
 
-		if (format != format_type::debug && need_parens_product(term))
+		if (need_parens_product(term))
 			sink("(");
 		print(term, sink, format, depth);
-		if (format != format_type::debug && need_parens_product(term))
+		if (need_parens_product(term))
 			sink(")");
 	}
-	if (format == format_type::debug)
-		sink("]");
 }
 void print_impl(PowerExpression const &pow,
                 util::function_view<void(std::string_view)> sink,

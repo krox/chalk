@@ -48,7 +48,7 @@ TEST_CASE("expression parsing - basic arithmetic", "[expression]")
 	CHECK(fmt::format("{}", Expression::parse("x - y")) == "x - y");
 	CHECK(fmt::format("{}", Expression::parse("5 - 3")) == "2");
 	CHECK(fmt::format("{}", Expression::parse("x - 0")) == "x");
-	CHECK(fmt::format("{}", Expression::parse("0 - x")) == "-1 * x");
+	CHECK(fmt::format("{}", Expression::parse("0 - x")) == "-x");
 
 	// Multiplication
 	CHECK(fmt::format("{}", Expression::parse("x * y")) == "x * y");
@@ -72,7 +72,7 @@ TEST_CASE("expression parsing - powers", "[expression]")
 	CHECK(fmt::format("{}", Expression::parse("x^1")) == "x");
 	CHECK(fmt::format("{}", Expression::parse("x^0")) == "1");
 	CHECK(fmt::format("{}", Expression::parse("x^-1")) == "x^-1");
-	CHECK(fmt::format("{}", Expression::parse("-x^2")) == "-1 * x^2");
+	CHECK(fmt::format("{}", Expression::parse("-x^2")) == "-x^2");
 }
 
 TEST_CASE("expression parsing - parentheses", "[expression]")
