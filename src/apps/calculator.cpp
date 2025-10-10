@@ -42,88 +42,6 @@ class Parser
   private:
 	util::hash_map<std::string, Expression> var_table;
 
-	Expression parse_primary()
-	{
-		if (lexer.match('('))
-		{
-			auto r = parse_sum();
-			lexer.expect(')');
-			return r;
-		}
-		else if (auto tok = lexer.integer(); !tok.empty())
-		{
-			return Expression::integer(tok);
-		}
-		/*else if (auto tok = lexer.try_match(Tok::floating()); tok)
-		{
-		    return T(FloatingOctuple(tok->value));
-		}*/
-		else if (auto ident = lexer.ident(); !ident.empty())
-		{
-			if (lexer.match('(')) // function call
-			{
-				std::vector<Expression> args;
-				while (true)
-				{
-					args.push_back(parse_sum());
-					if (lexer.match(')'))
-						break;
-					else
-						lexer.expect(',');
-				}
-
-				return Expression::function(ident, args);
-			}
-			else // variable / constant
-			{
-				if (auto it = var_table.find(ident); it != var_table.end())
-					return it->second;
-
-				return Expression::variable(ident);
-			}
-		}
-		else
-			throw util::ParseError(fmt::format("unexpected token in input"));
-	}
-
-	Expression parse_power()
-	{
-		bool neg = (bool)lexer.match('-');
-		auto r = parse_primary();
-		if (lexer.match('^') || lexer.match("**"))
-		{
-			if (lexer.match('-'))
-				r = pow(r, -util::parse_int(lexer.expect_integer()));
-			else
-				r = pow(r, util::parse_int(lexer.expect_integer()));
-		}
-		return neg ? -r : r;
-	}
-
-	Expression parse_product()
-	{
-		auto r = parse_power();
-		while (true)
-			if (lexer.match('*'))
-				r = r * parse_power();
-			else if (lexer.match('/'))
-				r = r / parse_power();
-			else
-				return r;
-	}
-
-	Expression parse_sum()
-	{
-		auto r = parse_product();
-		while (true)
-			if (lexer.match('+'))
-				r = r + parse_product();
-			else if (lexer.match('-'))
-				r = r - parse_product();
-			else
-				return r;
-	}
-
   public:
 	Parser() : lexer({}) {}
 
@@ -139,9 +57,10 @@ class Parser
 			lexer.expect('=');
 		}
 
-		auto expr = parse_sum();
+		auto expr = Expression::parse(lexer);
 		if (!lexer.end())
 			throw util::ParseError("unexpected trailing input");
+		expr = substitute(expr, var_table);
 
 		if (!id.empty())
 			var_table[id] = expr;

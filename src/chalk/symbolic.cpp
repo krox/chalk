@@ -33,14 +33,28 @@ std::strong_ordering
 Expression::operator<=>(Expression const &) const = default;
 bool Expression::operator==(Expression const &) const = default;
 
-Expression::Expression(int value) : Expression(Rational(value)) {}
+Expression::Expression(Expression &&other) noexcept
+    : data_(std::exchange(other.data_, {}))
+{}
+
+Expression &Expression::operator=(Expression &&other) noexcept
+{
+	if (this != &other)
+		data_ = std::exchange(other.data_, ConstantExpression{Rational(0)});
+	return *this;
+}
+
+Expression::Expression(int value)
+    : Expression(ConstantExpression{Rational(value)})
+{}
 
 Expression::Expression(Rational const &value)
-    : variant(ConstantExpression{value})
+    : Expression(ConstantExpression{value})
 {}
 
 Expression Expression::variable(std::string_view name)
 {
+	assert(!name.empty());
 	return Expression(VariableExpression(std::string(name)));
 }
 
@@ -55,24 +69,30 @@ Expression Expression::sum(std::span<const Expression> summands)
 	std::vector<Term> terms;
 
 	for (auto const &s : summands)
-	{
-		if (auto p = std::get_if<SumExpression>(&s))
-			terms.insert(terms.end(), p->terms.begin(), p->terms.end());
-		else if (auto c = std::get_if<ConstantExpression>(&s))
-			terms.emplace_back(c->value, Expression(1));
-		else if (auto p = std::get_if<ProductExpression>(&s))
-		{
-			assert(p->terms.size() >= 2);
-			if (auto c = std::get_if<ConstantExpression>(&p->terms[0]))
-				terms.emplace_back(
-				    c->value,
-				    Expression::product(std::span(p->terms).subspan(1)));
-			else
-				terms.emplace_back(Rational(1), Expression(s));
-		}
-		else
-			terms.emplace_back(Rational(1), Expression(s));
-	}
+		s.visit(util::overloaded{
+		    [&](SumExpression const &ex) {
+			    terms.insert(terms.end(), ex.terms.begin(), ex.terms.end());
+		    },
+		    [&](ProductExpression const &ex) {
+			    assert(ex.terms.size() >= 2);
+			    if (ex.terms[0].is_constant())
+			    {
+				    auto coeff = ex.terms[0].as_constant().value;
+				    auto tail =
+				        Expression::product(std::span(ex.terms).subspan(1));
+				    terms.emplace_back(coeff, std::move(tail));
+			    }
+			    else
+				    terms.emplace_back(Rational(1), s);
+		    },
+		    [&](ConstantExpression const &ex) {
+			    terms.emplace_back(ex.value, Expression(1));
+		    },
+		    [&](auto const &ex) {
+			    terms.emplace_back(Rational(1), Expression(ex));
+		    }
+
+		});
 
 	// sort terms, combine them, and remove zeros
 	std::ranges::sort(terms, {}, &Term::second);
@@ -109,16 +129,17 @@ Expression Expression::product(std::span<const Expression> terms)
 	// flatten product of products
 	std::vector<Expression> r;
 	for (auto const &t : terms)
-		if (auto p = std::get_if<ProductExpression>(&t))
-			r.insert(r.end(), p->terms.begin(), p->terms.end());
-		else
-			r.push_back(t);
+		t.visit(util::overloaded{[&](ProductExpression const &p) {
+			                         r.insert(r.end(), p.terms.begin(),
+			                                  p.terms.end());
+		                         },
+		                         [&](auto const &) { r.push_back(t); }});
 
 	auto coeff = Rational(1);
 	std::erase_if(r, [&](Expression const &x) {
-		if (auto c = std::get_if<ConstantExpression>(&x))
+		if (x.is_constant())
 		{
-			coeff *= c->value;
+			coeff *= x.as_constant().value;
 			return true;
 		}
 		return false;
@@ -139,10 +160,10 @@ Expression Expression::power(Expression const &base, int exp)
 		return Expression(1);
 	else if (exp == 1)
 		return base;
-	else if (auto c = std::get_if<ConstantExpression>(&base))
+	else if (base.is_constant())
 	{
 		// special case: (constant)^n
-		return Expression(pow(c->value, exp));
+		return Expression(pow(base.as_constant().value, exp));
 	}
 	else
 		return Expression(PowerExpression(base, exp));
@@ -190,48 +211,45 @@ Expression pow(Expression const &base, int exp)
 
 bool is_zero(Expression const &a)
 {
-	auto v = util::overloaded{
+	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &x) { return is_zero(x.value); },
-	    [](auto const &) { return false; }};
-	return std::visit(v, a);
+	    [](auto const &) { return false; }});
 }
 bool is_one(Expression const &a)
 {
-	auto v = util::overloaded{
+	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &x) { return is_one(x.value); },
-	    [](auto const &) { return false; }};
-	return std::visit(v, a);
+	    [](auto const &) { return false; }});
 }
 bool is_negative(Expression const &a)
 {
-	auto v = util::overloaded{
+	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &x) { return is_negative(x.value); },
 	    [](ProductExpression const &p) {
 		    assert(p.terms.size() >= 2);
-		    if (auto c = std::get_if<ConstantExpression>(&p.terms[0]))
-			    return is_negative(c->value);
+		    if (p.terms[0].is_constant() &&
+		        is_negative(p.terms[0].as_constant().value))
+			    return true;
 		    return false;
 	    },
-	    [](auto const &) { return false; }};
-	return std::visit(v, a);
+	    [](auto const &) { return false; }});
 }
 
 bool need_parens_product(Expression const &a)
 {
-	auto v = util::overloaded{[](SumExpression const &) { return true; },
-	                          [](auto const &) { return false; }};
-	return std::visit(v, a);
+	return a.visit<bool>(
+	    util::overloaded{[](SumExpression const &) { return true; },
+	                     [](auto const &) { return false; }});
 }
 bool need_parens_power(Expression const &a)
 {
-	auto v = util::overloaded{
+	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &b) { return need_parens_power(b.value); },
 	    [](VariableExpression const &) { return false; },
 	    [](PowerExpression const &) { return true; },
 	    [](ProductExpression const &) { return true; },
 	    [](SumExpression const &) { return true; },
-	    [](FunctionExpression const &) { return false; }};
-	return std::visit(v, a);
+	    [](FunctionExpression const &) { return false; }});
 }
 
 namespace {
@@ -402,7 +420,138 @@ void print(Expression const &a,
            util::function_view<void(std::string_view)> sink, format_type format,
            int depth)
 {
-	std::visit([&](auto const &x) { print_impl(x, sink, format, depth); }, a);
+	a.visit([&](auto const &x) { print_impl(x, sink, format, depth); });
+}
+
+Expression Expression::parse(std::string_view expr)
+{
+	auto parser = util::Parser(expr);
+	auto result = parse(parser);
+	parser.expect_end();
+	return result;
+}
+
+namespace {
+
+Expression parse_sum(util::Parser &parser);
+Expression parse_product(util::Parser &parser);
+Expression parse_power(util::Parser &parser);
+Expression parse_primary(util::Parser &parser);
+
+Expression parse_primary(util::Parser &parser)
+{
+	if (parser.match('('))
+	{
+		auto r = parse_sum(parser);
+		parser.expect(')');
+		return r;
+	}
+	else if (auto tok = parser.integer(); !tok.empty())
+	{
+		return Expression::integer(tok);
+	}
+	/*else if (auto tok = parser.try_match(Tok::floating()); tok)
+	{
+	    return T(FloatingOctuple(tok->value));
+	}*/
+	else if (auto ident = parser.ident(); !ident.empty())
+	{
+		if (parser.match('(')) // function call
+		{
+			std::vector<Expression> args;
+			while (true)
+			{
+				args.push_back(parse_sum(parser));
+				if (parser.match(')'))
+					break;
+				else
+					parser.expect(',');
+			}
+
+			return Expression::function(ident, args);
+		}
+		else // variable / constant
+		{
+			return Expression::variable(ident);
+		}
+	}
+	else
+		throw util::ParseError(fmt::format("unexpected token in input"));
+}
+
+Expression parse_power(util::Parser &parser)
+{
+	bool neg = (bool)parser.match('-');
+	auto r = parse_primary(parser);
+	if (parser.match('^') || parser.match("**"))
+	{
+		if (parser.match('-'))
+			r = pow(r, -util::parse_int(parser.expect_integer()));
+		else
+			r = pow(r, util::parse_int(parser.expect_integer()));
+	}
+	return neg ? -r : r;
+}
+
+Expression parse_product(util::Parser &parser)
+{
+	auto r = parse_power(parser);
+	while (true)
+		if (parser.match('*'))
+			r = r * parse_power(parser);
+		else if (parser.match('/'))
+			r = r / parse_power(parser);
+		else
+			return r;
+}
+
+Expression parse_sum(util::Parser &parser)
+{
+	auto r = parse_product(parser);
+	while (true)
+		if (parser.match('+'))
+			r = r + parse_product(parser);
+		else if (parser.match('-'))
+			r = r - parse_product(parser);
+		else
+			return r;
+}
+} // namespace
+
+Expression Expression::parse(util::Parser &parser) { return parse_sum(parser); }
+
+Expression substitute(Expression const &expr,
+                      util::hash_map<std::string, Expression> const &table)
+{
+	return expr.visit<Expression>(util::overloaded{
+	    [&](ConstantExpression const &) { return expr; },
+	    [&](VariableExpression const &v) {
+		    if (auto it = table.find(v.name); it != table.end())
+			    return it->second;
+		    else
+			    return expr;
+	    },
+	    [&](SumExpression const &s) {
+		    std::vector<Expression> terms;
+		    for (auto const &[coeff, term] : s.terms)
+			    terms.push_back(Expression(coeff) * substitute(term, table));
+		    return Expression::sum(terms);
+	    },
+	    [&](ProductExpression const &p) {
+		    std::vector<Expression> terms;
+		    for (auto const &term : p.terms)
+			    terms.push_back(substitute(term, table));
+		    return Expression::product(terms);
+	    },
+	    [&](PowerExpression const &p) {
+		    return pow(substitute(*p.base, table), p.exp);
+	    },
+	    [&](FunctionExpression const &f) {
+		    std::vector<Expression> args;
+		    for (auto const &arg : f.arguments)
+			    args.push_back(substitute(arg, table));
+		    return Expression::function(f.name, args);
+	    }});
 }
 
 } // namespace chalk

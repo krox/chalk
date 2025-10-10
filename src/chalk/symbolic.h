@@ -20,32 +20,32 @@ struct ConstantExpression
 {
 	Rational value;
 
-	std::strong_ordering operator<=>(ConstantExpression const &other) const;
-	bool operator==(ConstantExpression const &other) const;
+	std::strong_ordering operator<=>(ConstantExpression const &) const;
+	bool operator==(ConstantExpression const &) const;
 };
 
 struct VariableExpression
 {
 	std::string name;
 
-	std::strong_ordering operator<=>(VariableExpression const &other) const;
-	bool operator==(VariableExpression const &other) const;
+	std::strong_ordering operator<=>(VariableExpression const &) const;
+	bool operator==(VariableExpression const &) const;
 };
 
 struct SumExpression
 {
 	std::vector<std::pair<Rational, Expression>> terms;
 
-	std::strong_ordering operator<=>(SumExpression const &other) const;
-	bool operator==(SumExpression const &other) const;
+	std::strong_ordering operator<=>(SumExpression const &) const;
+	bool operator==(SumExpression const &) const;
 };
 
 struct ProductExpression
 {
 	std::vector<Expression> terms;
 
-	std::strong_ordering operator<=>(ProductExpression const &other) const;
-	bool operator==(ProductExpression const &other) const;
+	std::strong_ordering operator<=>(ProductExpression const &) const;
+	bool operator==(ProductExpression const &) const;
 };
 
 struct PowerExpression
@@ -53,9 +53,8 @@ struct PowerExpression
 	util::value_ptr<Expression> base; // not null
 	int exp;
 
-	std::strong_ordering operator<=>(PowerExpression const &other) const;
-
-	bool operator==(PowerExpression const &other) const;
+	std::strong_ordering operator<=>(PowerExpression const &) const;
+	bool operator==(PowerExpression const &) const;
 
 	PowerExpression(Expression const &base, int exp)
 	    : base(util::make_value<Expression>(base)), exp(exp)
@@ -67,26 +66,36 @@ struct FunctionExpression
 	std::string name;
 	std::vector<Expression> arguments;
 
-	std::strong_ordering operator<=>(FunctionExpression const &other) const;
-	bool operator==(FunctionExpression const &other) const;
+	std::strong_ordering operator<=>(FunctionExpression const &) const;
+	bool operator==(FunctionExpression const &) const;
 };
+
 using ExpressionVariant =
     std::variant<ConstantExpression, VariableExpression, SumExpression,
                  ProductExpression, PowerExpression, FunctionExpression>;
-class Expression : public ExpressionVariant
+
+class Expression
 {
-	Expression(ExpressionVariant const &v) : ExpressionVariant(v) {}
-	Expression(ExpressionVariant &&v) : ExpressionVariant(std::move(v)) {}
+	ExpressionVariant data_;
+
+	Expression(ExpressionVariant &&data) : data_(std::move(data)) {}
 
   public:
 	// default = ConstantExpression(0)
 	Expression() = default;
 
+	Expression(Expression const &) = default;
+	Expression &operator=(Expression const &) = default;
+
+	// moved-from object is 'ConstantExpression(0)'
+	Expression(Expression &&) noexcept;
+	Expression &operator=(Expression &&) noexcept;
+
 	// convenience conversions
 	explicit Expression(int value);
 	explicit Expression(Rational const &value);
 
-	// constructors of explicit types
+	// factory functions
 	// note: due to normalization rules, the result might not actually be of
 	// that type. E.g.:
 	//   sum({0, X}) -> X
@@ -98,6 +107,31 @@ class Expression : public ExpressionVariant
 	static Expression function(std::string_view fun,
 	                           std::span<const Expression> args);
 
+	template <class T> bool is() const
+	{
+		return std::holds_alternative<T>(data_);
+	}
+	bool is_constant() const { return is<ConstantExpression>(); }
+	bool is_variable() const { return is<VariableExpression>(); }
+	bool is_sum() const { return is<SumExpression>(); }
+	bool is_product() const { return is<ProductExpression>(); }
+	bool is_power() const { return is<PowerExpression>(); }
+	bool is_function() const { return is<FunctionExpression>(); }
+
+	template <class T> T const &as() const { return std::get<T>(data_); }
+	auto const &as_constant() const { return as<ConstantExpression>(); }
+	auto const &as_variable() const { return as<VariableExpression>(); }
+	auto const &as_sum() const { return as<SumExpression>(); }
+	auto const &as_product() const { return as<ProductExpression>(); }
+	auto const &as_power() const { return as<PowerExpression>(); }
+	auto const &as_function() const { return as<FunctionExpression>(); }
+
+	// throws if not the full string is consumed
+	static Expression parse(std::string_view expr);
+
+	// consumes as much as possible, possibly leaving trailing tokens
+	static Expression parse(util::Parser &parser);
+
 	// this defines an arbitrary syntactic order on expressions, nothing
 	// mathematically meaningful
 	std::strong_ordering operator<=>(Expression const &other) const;
@@ -105,11 +139,15 @@ class Expression : public ExpressionVariant
 	// syntactic equality
 	// (i.e. sufficient but not necessary for mathematical equivalence)
 	bool operator==(Expression const &other) const;
+
+	template <class R = void> R visit(auto &&visitor) const
+	{
+		return std::visit(visitor, data_);
+	}
 };
 
-// TODO: move this into 'Rational' itself. should be useful more generally, also
-// related to finally getting a small-size-optimization for 'Integer'.
-// inline const Rational one_rat = Rational(1);
+Expression substitute(Expression const &expr,
+                      util::hash_map<std::string, Expression> const &table);
 
 // basic math operations
 Expression operator+(Expression const &a);
