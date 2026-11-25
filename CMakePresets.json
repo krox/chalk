@@ -1,0 +1,76 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 28,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "dev",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CPM_util_SOURCE": "${sourceParentDir}/util",
+                "CMAKE_C_FLAGS_DEBUG": "-O2 -g",
+                "CMAKE_CXX_FLAGS_DEBUG": "-O2 -g",
+                "CHALK_COMPILE_OPTIONS": "-Wall;-Wextra;-Werror",
+                "CHALK_BUILD_APPS": "ON",
+                "CHALK_BUILD_TESTS": "ON",
+                "CMAKE_C_COMPILER": "/usr/lib/ccache/clang-20",
+                "CMAKE_CXX_COMPILER": "/usr/lib/ccache/clang++-20"
+            }
+        },
+        {
+            "name": "dev-gcc",
+            "inherits": "dev",
+            "binaryDir": "${sourceDir}/build-gcc",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "/usr/lib/ccache/gcc-16",
+                "CMAKE_CXX_COMPILER": "/usr/lib/ccache/g++-16"
+            }
+        },
+        {
+            "name": "bench",
+            "inherits": "dev",
+            "binaryDir": "${sourceDir}/build-bench",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_EXE_LINKER_FLAGS": "-s",
+                "CHALK_COMPILE_OPTIONS": "-Wall;-Wextra;-Werror;-march=native",
+                "CHALK_BUILD_TESTS": "OFF"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "dev",
+            "configurePreset": "dev"
+        },
+        {
+            "name": "dev-gcc",
+            "configurePreset": "dev-gcc"
+        },
+        {
+            "name": "bench",
+            "configurePreset": "bench"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "dev",
+            "configurePreset": "dev",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "dev-gcc",
+            "configurePreset": "dev-gcc",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
+}

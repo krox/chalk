@@ -4,7 +4,10 @@
 #include "chalk/parser.h"
 #include "fmt/format.h"
 #include "util/functional.h"
+#include "util/hash_map.h"
 #include "util/json.h" // for 'overloaded'. should be moved eventually
+#include "util/memory.h"
+#include "util/string.h"
 #include <compare>
 #include <memory>
 #include <string>

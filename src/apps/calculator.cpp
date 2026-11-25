@@ -1,30 +1,11 @@
 #include "CLI/CLI.hpp"
 #include "chalk/number.h"
 #include "chalk/symbolic.h"
+#include "util/linenoise.h"
+#include "util/string.h"
 #include <fmt/format.h>
-#include <optional>
-#include <readline/history.h>
-#include <readline/readline.h>
 #include <string>
 using namespace chalk;
-
-static char historyFile[] = ".chalk_history";
-
-// Get one line of user input from the terminal using readline library
-//   - trims whitespace from both ends
-//   - returns std::nullpt on EOF (i.e. CRTL-D), which is different from ""
-//   - TODO: switch to 'linenoise' library.
-std::optional<std::string> getInput()
-{
-	char *s = readline(">> ");
-	if (s == nullptr)
-		return std::nullopt;
-	auto line = std::string(util::trim_white(s));
-	if (!line.empty())
-		add_history(s); // add non-trimmed to history, to preserve indentation
-	free(s);
-	return line;
-}
 
 int main(int argc, char **argv)
 {
@@ -43,9 +24,6 @@ int main(int argc, char **argv)
 		return app.exit(e);
 	}
 
-	using_history();
-	read_history(historyFile);
-
 	SymbolicContext context;
 
 	// Execute file if provided
@@ -63,15 +41,25 @@ int main(int argc, char **argv)
 		fmt::print("\n"); // Separator between file output and REPL
 	}
 
+	util::Linenoise linenoise("chalk");
+
 	// Start REPL
 	fmt::print("Welcome to Chalk\n");
 	fmt::print("Type expressions, or 'quit' to exit.\n\n");
 
-	while (auto line = getInput())
+	while (true)
 	{
+		auto line = linenoise(">> ");
+		if (line.empty())
+			break;
+
+		line = std::string(util::trim_white(line));
+		if (line == "quit" || line == "exit")
+			break;
+
 		try
 		{
-			auto val = context(*line);
+			auto val = context(line);
 			fmt::print("{}\n", val);
 		}
 		catch (util::ParseError const &e)
@@ -80,6 +68,5 @@ int main(int argc, char **argv)
 		}
 	}
 
-	write_history(historyFile);
 	fmt::print("\nquit\n");
 }

@@ -1,5 +1,7 @@
 *~
-.*
 *.singular
 *.maple
-build*/*
+build/
+build-*
+.vscode
+.*_history

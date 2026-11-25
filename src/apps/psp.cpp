@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
 	util::ThreadPool threadpool(nthreads);
 
-	std::deque<std::future<std::vector<uint64_t>>> q;
+	std::deque<util::Task<std::vector<uint64_t>>> q;
 
 	uint64_t m = 1; // (exclusive) limit up to which we queued jobs already
 	while (true)

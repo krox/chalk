@@ -431,7 +431,7 @@ template <> struct formatter<chalk::IntMod>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <typename FormatContext>
-	auto format(const chalk::IntMod &a, FormatContext &ctx)
+	auto format(const chalk::IntMod &a, FormatContext &ctx) const
 	    -> decltype(ctx.out())
 	{
 		return format_to(ctx.out(), "[{}]", a.a());
