@@ -8,7 +8,7 @@
 
 namespace chalk {
 
-template <class R, class G> struct MultinomialTerm
+template <ring_element R, class G> struct MultinomialTerm
 {
 	R coefficient;
 	G index;
@@ -29,7 +29,7 @@ template <class R, class G> struct MultinomialTerm
 };
 
 // If more customization is required, might add a trait-type template parameter
-template <class R, class G> class Multinomial
+template <ring_element R, class G> class Multinomial
 {
   public:
 	using Term = MultinomialTerm<R, G>;
@@ -57,7 +57,7 @@ template <class R, class G> class Multinomial
 
 			// if coeff = 0 -> remove term
 			assert(j);
-			if (terms_[j - 1].coefficient == 0)
+			if (is_zero(terms_[j - 1].coefficient))
 				--j;
 		}
 		terms_.resize(j);
@@ -233,11 +233,12 @@ bool operator==(Multinomial<R, G> const &a, Multinomial<R, G> const &b)
 
 template <class R, class G> bool operator==(Multinomial<R, G> const &a, int b)
 {
+	auto const scalar = R(b);
 	if (a.terms().empty())
-		return b == 0;
-	if (a.terms().size() > 1)
+		return is_zero(scalar);
+	if (a.terms().size() != 1)
 		return false;
-	return a.terms()[0].index == one && a.terms()[0].coefficient == b;
+	return a.terms()[0].index == one && a.terms()[0].coefficient == scalar;
 }
 
 /** print in multi-line (hopefully more human-readable for huge sums) */
@@ -261,7 +262,8 @@ template <class R, class G> bool is_zero(Multinomial<R, G> const &a)
 }
 template <class R, class G> bool is_one(Multinomial<R, G> const &a)
 {
-	return a == 1;
+	return a.terms().size() == 1 && a.terms()[0].index == one &&
+	       is_one(a.terms()[0].coefficient);
 }
 template <class R, class G> bool is_negative(Multinomial<R, G> const &)
 {
@@ -278,18 +280,22 @@ template <class R, class G> bool need_parens_power(Multinomial<R, G> const &)
 	return true;
 }
 
-template <typename R> using FreeAlgebra = Multinomial<R, FreeProduct>;
+template <ring_element R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
 } // namespace chalk
 
-template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
+template <class R, class G>
+struct fmt::formatter<chalk::Multinomial<R, G>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::Multinomial<R, G> &a,
 	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
+		using chalk::is_one;
+		using chalk::is_negative;
+		using chalk::need_parens_product;
 		// empty sum -> '0'
 		if (a.terms().empty())
 			return fmt::format_to(ctx.out(), "0");

@@ -11,8 +11,8 @@
 namespace chalk {
 
 // some forward declarations to make the compiler find everything...
-template <typename R, int N, char X> class Series;
-template <typename R, int N, char X, typename F>
+template <ring_element R, int N, char X> class Series;
+template <class R, int N, char X, class F>
 auto mapCoefficients(F f, Series<R, N, X> const &a)
     -> Series<decltype(f(a[0])), N, X>;
 
@@ -21,7 +21,7 @@ auto mapCoefficients(F f, Series<R, N, X> const &a)
  *   - order is compile-time
  *   - can be used for automatic differentiation (for a single variable)
  */
-template <typename R, int N, char X = 'x'> class Series
+template <ring_element R, int N, char X = 'x'> class Series
 {
 	static_assert(N >= 1);
 
@@ -59,7 +59,7 @@ template <typename R, int N, char X = 'x'> class Series
 	R const &operator[](int i) const { return coefficients_.at(i); }
 
 	/** s.mapCoefficients(fun, args...) = mapCoefficients(fun(_, args...), s) */
-	template <typename Fun, typename... Args>
+	template <class Fun, class... Args>
 	auto mapCoefficients(Fun fun, Args const &...args)
 	{
 		return chalk::mapCoefficients(
@@ -67,13 +67,13 @@ template <typename R, int N, char X = 'x'> class Series
 	}
 };
 
-template <typename R, int N, char X>
+template <class R, int N, char X>
 bool operator==(Series<R, N, X> const &a, Series<R, N, X> const &b)
 {
 	return a.coefficients() == b.coefficients();
 }
 
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 bool operator==(Series<R, N, X> const &a, Scalar<U> const &b)
 {
 	for (int i = 1; i <= N; ++i)
@@ -82,7 +82,7 @@ bool operator==(Series<R, N, X> const &a, Scalar<U> const &b)
 	return a[0] == b.value;
 }
 
-template <typename R, int N, char X>
+template <class R, int N, char X>
 bool operator==(Series<R, N, X> const &a, R const &b)
 {
 	for (int i = 1; i <= N; ++i)
@@ -91,27 +91,27 @@ bool operator==(Series<R, N, X> const &a, R const &b)
 	return a[0] == b;
 }
 
-template <typename R, int N, char X>
+template <class R, int N, char X>
 bool operator==(Series<R, N, X> const &a, int b)
 {
 	for (int i = 1; i <= N; ++i)
 		if (!is_zero(a[i]))
 			return false;
-	return a[0] == b;
+	return a[0] == R(b);
 }
 
 /** unary operations */
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> operator-(Series<R, N, X> const &a)
 {
 	Series<R, N, X> r;
-	for (int i = 0; i < N; ++i)
+	for (int i = 0; i <= N; ++i)
 		r[i] = -a[i];
 	return r;
 }
 
 /** binary operations (Series <-> Series) */
-template <typename R, int N, typename S, char X>
+template <class R, int N, class S, char X>
 auto operator+(Series<R, N, X> const &a, Series<S, N, X> const &b)
 {
 	using T = decltype(a[0] + b[0]);
@@ -120,7 +120,7 @@ auto operator+(Series<R, N, X> const &a, Series<S, N, X> const &b)
 		r[i] = a[i] + b[i];
 	return r;
 }
-template <typename R, int N, typename S, char X>
+template <class R, int N, class S, char X>
 auto operator-(Series<R, N, X> const &a, Series<S, N, X> const &b)
 {
 	using T = decltype(a[0] - b[0]);
@@ -129,7 +129,7 @@ auto operator-(Series<R, N, X> const &a, Series<S, N, X> const &b)
 		r[i] = a[i] - b[i];
 	return r;
 }
-template <typename R, int N, typename S, char X>
+template <class R, int N, class S, char X>
 auto operator*(Series<R, N, X> const &a, Series<S, N, X> const &b)
 {
 	using T = decltype(a[0] * b[0]);
@@ -141,21 +141,21 @@ auto operator*(Series<R, N, X> const &a, Series<S, N, X> const &b)
 }
 
 /** binary operations (Series <-> scalar) */
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> operator+(Series<R, N, X> const &a, Scalar<U> const &b)
 {
 	auto r = a;
 	r[0] += b.value;
 	return r;
 }
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> operator-(Series<R, N, X> const &a, Scalar<U> const &b)
 {
 	auto r = a;
 	r[0] -= b.value;
 	return r;
 }
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 auto operator*(Series<R, N, X> const &a, Scalar<U> const &b)
 {
 	using T = decltype(a[0] * b.value);
@@ -164,7 +164,7 @@ auto operator*(Series<R, N, X> const &a, Scalar<U> const &b)
 		r[i] = a[i] * b.value;
 	return r;
 }
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> operator/(Series<R, N, X> const &a, Scalar<U> const &b)
 {
 	using T = decltype(a[0] / b.value);
@@ -173,7 +173,7 @@ Series<R, N, X> operator/(Series<R, N, X> const &a, Scalar<U> const &b)
 		r[i] = a[i] / b.value;
 	return r;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 auto operator*(Series<R, N, X> const &a, R b)
 {
 	using T = decltype(a[0] * b);
@@ -182,7 +182,7 @@ auto operator*(Series<R, N, X> const &a, R b)
 		r[i] = a[i] * b;
 	return r;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 auto operator*(R a, Series<R, N, X> const &b)
 {
 	using T = decltype(a * b[0]);
@@ -191,7 +191,7 @@ auto operator*(R a, Series<R, N, X> const &b)
 		r[i] = a * b[i];
 	return r;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> operator/(Series<R, N, X> const &a, R b)
 {
 	using T = decltype(a[0] / b);
@@ -200,41 +200,40 @@ Series<R, N, X> operator/(Series<R, N, X> const &a, R b)
 		r[i] = a[i] / b;
 	return r;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 auto operator*(Series<R, N, X> const &a, int b)
 {
-	using T = decltype(a[0] * b);
-	Series<T, N, X> r;
+	auto const scalar = R(b);
+	Series<R, N, X> r;
 	for (int i = 0; i <= N; ++i)
-		r[i] = a[i] * b;
+		r[i] = a[i] * scalar;
 	return r;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> operator/(Series<R, N, X> const &a, int b)
 {
-	using T = decltype(a[0] / b);
-	Series<T, N, X> r;
+	Series<R, N, X> r;
 	for (int i = 0; i <= N; ++i)
 		r[i] = a[i] / b;
 	return r;
 }
 
 /** op-assigns for convenience and speed */
-template <typename R, int N, typename S, char X>
+template <class R, int N, class S, char X>
 Series<R, N, X> &operator+=(Series<R, N, X> &a, Series<S, N, X> const &b)
 {
 	for (int i = 0; i <= N; ++i)
 		a[i] += b[i];
 	return a;
 }
-template <typename R, int N, typename S, char X>
+template <class R, int N, class S, char X>
 Series<R, N, X> &operator-=(Series<R, N, X> &a, Series<S, N, X> const &b)
 {
 	for (int i = 0; i <= N; ++i)
 		a[i] -= b[i];
 	return a;
 }
-template <typename R, int N, typename S, char X>
+template <class R, int N, class S, char X>
 Series<R, N, X> &operator*=(Series<R, N, X> &a, Series<S, N, X> const &b)
 {
 	a = a * b;
@@ -242,54 +241,55 @@ Series<R, N, X> &operator*=(Series<R, N, X> &a, Series<S, N, X> const &b)
 }
 
 /** op-assigns with scalar */
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> &operator+=(Series<R, N, X> &a, Scalar<U> const b)
 {
 	a[0] += b.value;
 	return a;
 }
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> &operator-=(Series<R, N, X> &a, Scalar<U> const b)
 {
 	a[0] -= b.value;
 	return a;
 }
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> &operator*=(Series<R, N, X> &a, Scalar<U> const &b)
 {
 	for (int i = 0; i <= N; ++i)
 		a[i] *= b.value;
 	return a;
 }
-template <typename R, int N, char X, typename U>
+template <class R, int N, char X, class U>
 Series<R, N, X> &operator/=(Series<R, N, X> &a, Scalar<U> const &b)
 {
 	for (int i = 0; i <= N; ++i)
 		a[i] /= b.value;
 	return a;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> &operator*=(Series<R, N, X> &a, R b)
 {
 	for (int i = 0; i <= N; ++i)
 		a[i] *= b;
 	return a;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> &operator/=(Series<R, N, X> &a, R b)
 {
 	for (int i = 0; i <= N; ++i)
 		a[i] /= b;
 	return a;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> &operator*=(Series<R, N, X> &a, int b)
 {
+	auto const scalar = R(b);
 	for (int i = 0; i <= N; ++i)
-		a[i] *= b;
+		a[i] *= scalar;
 	return a;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 Series<R, N, X> &operator/=(Series<R, N, X> &a, int b)
 {
 	for (int i = 0; i <= N; ++i)
@@ -297,7 +297,7 @@ Series<R, N, X> &operator/=(Series<R, N, X> &a, int b)
 	return a;
 }
 
-template <typename R, int N, char X, typename F>
+template <class R, int N, char X, class F>
 auto mapCoefficients(F f, Series<R, N, X> const &a)
     -> Series<decltype(f(a[0])), N, X>
 {
@@ -308,7 +308,7 @@ auto mapCoefficients(F f, Series<R, N, X> const &a)
 	return r;
 }
 
-template <typename R, int N, char X, typename F>
+template <class R, int N, char X, class F>
 auto mapCoefficientsNested(F f, Series<R, N, X> const &a)
     -> Series<decltype(mapCoefficients(f, a[0])), N, X>
 {
@@ -319,14 +319,14 @@ auto mapCoefficientsNested(F f, Series<R, N, X> const &a)
 	return r;
 }
 
-template <typename R, int N, char X> bool is_zero(Series<R, N, X> const &s)
+template <class R, int N, char X> bool is_zero(Series<R, N, X> const &s)
 {
 	for (R const &c : s.coefficients())
 		if (!is_zero(c))
 			return false;
 	return true;
 }
-template <typename R, int N, char X> bool is_one(Series<R, N, X> const &s)
+template <class R, int N, char X> bool is_one(Series<R, N, X> const &s)
 {
 	for (int i = 1; i <= N; ++i)
 		if (!is_zero(s[i]))
@@ -334,16 +334,16 @@ template <typename R, int N, char X> bool is_one(Series<R, N, X> const &s)
 	return is_one(s[0]);
 }
 
-template <typename R, int N, char X> bool is_negative(Series<R, N, X> const &)
+template <class R, int N, char X> bool is_negative(Series<R, N, X> const &)
 {
 	return false;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 bool need_parens_product(Series<R, N, X> const &)
 {
 	return true;
 }
-template <typename R, int N, char X>
+template <class R, int N, char X>
 bool need_parens_power(Series<R, N, X> const &)
 {
 	return true;
@@ -351,15 +351,18 @@ bool need_parens_power(Series<R, N, X> const &)
 
 } // namespace chalk
 
-template <typename R, int N, char X>
+template <class R, int N, char X>
 struct fmt::formatter<chalk::Series<R, N, X>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::Series<R, N, X> &s,
 	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
+		using chalk::is_zero;
+		using chalk::is_one;
+		using chalk::is_negative;
 		auto it = ctx.out();
 
 		bool first = true;
@@ -367,7 +370,7 @@ struct fmt::formatter<chalk::Series<R, N, X>>
 		for (int i = 0; i <= N; ++i)
 		{
 			auto c = s[i];
-			if (c == 0)
+			if (is_zero(c))
 				continue;
 			printed_someting = true;
 
@@ -385,7 +388,7 @@ struct fmt::formatter<chalk::Series<R, N, X>>
 
 			if (i == 0)
 				it = fmt::format_to(it, "({})", c);
-			else if (!(c == 1))
+			else if (!is_one(c))
 				it = fmt::format_to(it, "({})*", c);
 
 			if (i == 1)

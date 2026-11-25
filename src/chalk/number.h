@@ -122,6 +122,29 @@ CHALK_DEFINE_NUMBER_BINARY(operator-, trySub)
 CHALK_DEFINE_NUMBER_BINARY(operator*, tryMul)
 CHALK_DEFINE_NUMBER_BINARY(operator/, tryDiv)
 
+#undef CHALK_DEFINE_NUMBER_BINARY
+
+inline Number &operator+=(Number &a, Number const &b)
+{
+	a = a + b;
+	return a;
+}
+inline Number &operator-=(Number &a, Number const &b)
+{
+	a = a - b;
+	return a;
+}
+inline Number &operator*=(Number &a, Number const &b)
+{
+	a = a * b;
+	return a;
+}
+inline Number &operator/=(Number &a, Number const &b)
+{
+	a = a / b;
+	return a;
+}
+
 // comparisons
 
 inline bool operator==(Number const &a, Number const &b)
@@ -141,7 +164,14 @@ inline bool operator==(Number const &a, int b)
 		return a.approx() == b;
 }
 
-// misc functions
+inline bool is_zero(Number const &value) { return value == 0; }
+inline bool is_one(Number const &value) { return value == 1; }
+inline bool is_negative(Number const &value) { return value.to_double() < 0; }
+inline bool need_parens_product(Number const &) { return false; }
+inline bool need_parens_power(Number const &value)
+{
+	return is_negative(value);
+}
 
 // Polynomial root finding. Can give exact answers for some simple cases
 inline std::vector<Number> roots(Polynomial<Number> const &poly)
@@ -210,15 +240,6 @@ inline std::vector<Number> roots(Polynomial<Number> const &poly)
 	});
 
 	return r;
-}
-
-inline bool is_zero(Number const &value) { return value == 0; }
-inline bool is_one(Number const &value) { return value == 1; }
-inline bool is_negative(Number const &value) { return value.to_double() < 0; }
-inline bool need_parens_product(Number const &) { return false; }
-inline bool need_parens_power(Number const &value)
-{
-	return is_negative(value);
 }
 
 } // namespace chalk

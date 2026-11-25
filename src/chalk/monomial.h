@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chalk/rings.h"
 #include "fmt/format.h"
 #include "util/span.h"
 #include <array>
@@ -13,13 +14,13 @@
 namespace chalk {
 
 /** a single term of a polynomial: a*x1^e1*...*xn^en */
-template <typename R, size_t rank> struct Monomial
+template <ring_element R, size_t rank> struct Monomial
 {
 	R coefficient = {};
 	std::array<int, rank> exponent = {};
 };
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 Monomial<R, rank> operator*(Monomial<R, rank> const &a,
                             Monomial<R, rank> const &b)
 {
@@ -29,7 +30,7 @@ Monomial<R, rank> operator*(Monomial<R, rank> const &a,
 	return Monomial<R, rank>{a.coefficient * b.coefficient, ex};
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 std::optional<Monomial<R, rank>> operator/(Monomial<R, rank> const &a,
                                            Monomial<R, rank> const &b)
 {
@@ -42,13 +43,13 @@ std::optional<Monomial<R, rank>> operator/(Monomial<R, rank> const &a,
 	return Monomial<R, rank>{a.coefficient / b.coefficient, ex};
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 bool operator==(Monomial<R, rank> const &a, Monomial<R, rank> const &b)
 {
 	return a.coefficient == b.coefficient && a.exponent == b.exponent;
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 bool order_degrevlex(Monomial<R, rank> const &a, Monomial<R, rank> const &b,
                      std::array<int, rank> const &ws)
 {

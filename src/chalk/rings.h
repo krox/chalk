@@ -3,6 +3,8 @@
 #include "fmt/format.h"
 #include "util/complex.h"
 #include <complex>
+#include <concepts>
+#include <cstdint>
 
 namespace chalk {
 
@@ -83,24 +85,41 @@ template <typename T> struct Scalar
 	Scalar() = default;
 	explicit Scalar(T v) : value(std::move(v)) {}
 };
-/*
-template <typename T> struct RingTraits<Scalar<T>>
-{
-    static bool is_zero(Scalar<T> const &value) { return is_zero(value.value); }
-    static bool is_one(Scalar<T> const &value) { return is_one(value.value); }
-    static bool is_negative(Scalar<T> const &value)
-    {
-        return is_negative(value.value);
-    }
-    static bool need_parens_product(Scalar<T> const &value)
-    {
-        return need_parens_product(value.value);
-    }
-    static bool need_parens_power(Scalar<T> const &value)
-    {
-        return need_parens_power(value.value);
-    }
-};*/
+
+// A type of ring *elements* (Integer, Fraction<R>, Polynomial<R>, …), not
+// the ring as a structure. Customization is by operators / ADL free
+// functions (is_zero, is_one). Mixed comparison with int is not required:
+// T(int) together with is_zero/is_one is enough. Compound assignment may
+// return anything.
+template <class T>
+concept ring_element = requires(T a, T b, int n) {
+	T{};
+	T(n);
+	{ a + b } -> std::convertible_to<T>;
+	{ a - b } -> std::convertible_to<T>;
+	{ a * b } -> std::convertible_to<T>;
+	{ -a } -> std::convertible_to<T>;
+	a += b;
+	a -= b;
+	a *= b;
+	{ a == b } -> std::convertible_to<bool>;
+	{ is_zero(a) } -> std::convertible_to<bool>;
+	{ is_one(a) } -> std::convertible_to<bool>;
+};
+
+// Visible here so gcd_domain<int64_t> does not depend on include order.
+// Definitions live in numtheory.h.
+constexpr int64_t gcd(int64_t a, int64_t b) noexcept;
+constexpr void remove_common_factor(int64_t &a, int64_t &b) noexcept;
+
+// What Fraction<R> actually needs to reduce a/b. gcd's return type must be T;
+// remove_common_factor may return anything (Integer returns the gcd, int64_t
+// returns void).
+template <class T>
+concept gcd_domain = ring_element<T> && requires(T a, T b) {
+	{ gcd(a, b) } -> std::convertible_to<T>;
+	remove_common_factor(a, b);
+};
 
 using std::pow;
 using std::sqrt;

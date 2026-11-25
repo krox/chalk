@@ -2,9 +2,49 @@
 
 #include "chalk/fraction.h"
 #include "chalk/free_group.h"
+#include "chalk/group_ring.h"
+#include "chalk/quadratic.h"
+#include "chalk/series.h"
 #include "chalk/sparse_polynomial.h"
 #include <fmt/format.h>
+#include <string>
 using namespace chalk;
+
+static_assert(ring_element<int>);
+static_assert(ring_element<int64_t>);
+static_assert(ring_element<double>);
+static_assert(ring_element<Integer>);
+static_assert(ring_element<Rational>);
+static_assert(ring_element<Rational64>);
+static_assert(ring_element<Polynomial<Integer>>);
+static_assert(ring_element<Polynomial<Rational>>);
+static_assert(ring_element<Polynomial<Polynomial<Integer, 'x'>, 'y'>>);
+static_assert(ring_element<Series<Integer, 4>>);
+static_assert(ring_element<Series<Rational, 3>>);
+static_assert(ring_element<Multinomial<Integer, FreeProduct>>);
+static_assert(ring_element<FreeAlgebra<Rational>>);
+static_assert(ring_element<Multinomial<Rational, FreeAbelianProduct>>);
+static_assert(ring_element<SparsePolynomial<Rational64, 2>>);
+static_assert(ring_element<Quadratic<Rational>>);
+static_assert(ring_element<Polynomial<Fraction<Integer>>>);
+
+static_assert(gcd_domain<int64_t>);
+static_assert(gcd_domain<Integer>);
+static_assert(!gcd_domain<int>);
+static_assert(!gcd_domain<Polynomial<Integer>>);
+static_assert(!gcd_domain<Series<Integer, 2>>);
+
+static_assert(!ring_element<std::string>);
+
+TEST_CASE("ring constructions", "[ring]")
+{
+	using P = Polynomial<Fraction<Integer>>;
+	auto x = P::generator();
+	auto p = (x + P(1)) * (x - P(1));
+	CHECK(is_zero(p + P(1) - x * x));
+	CHECK(is_one(P(1)));
+	CHECK(!is_one(p));
+}
 
 TEST_CASE("univariate polynomials", "[polynomial]")
 {

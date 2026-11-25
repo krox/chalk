@@ -22,7 +22,7 @@ namespace chalk {
  *     or in some future maybe
  *       Scalar(Poly<T,x>) * Poly<T,y>
  */
-template <typename R, char X = 'x'> class Polynomial
+template <ring_element R, char X = 'x'> class Polynomial
 {
 	std::vector<R> coefficients_;
 	inline static const R zero_ = R(0); // stupid workaround...
@@ -69,41 +69,42 @@ template <typename R, char X = 'x'> class Polynomial
 	}
 
 	// these need private access for efficient implementations */
-	template <typename R2, typename S, char X2>
+	template <class R2, class S, char X2>
 	friend Polynomial<R2, X2> &operator+=(Polynomial<R2, X2> &a,
 	                                      Polynomial<S, X2> const &b);
-	template <typename R2, typename S, char X2>
+	template <class R2, class S, char X2>
 	friend Polynomial<R2, X2> &operator-=(Polynomial<R2, X2> &a,
 	                                      Polynomial<S, X2> const &b);
-	template <typename R2, typename S, char X2>
+	template <class R2, class S, char X2>
 	friend Polynomial<R2, X2> &operator*=(Polynomial<R2, X2> &a,
 	                                      Polynomial<S, X2> const &b);
-	template <typename R2, char X2, typename U>
+	template <class R2, char X2, class U>
 	friend Polynomial<R2, X2> &operator+=(Polynomial<R2, X2> &a, U const b);
-	template <typename R2, char X2, typename U>
+	template <class R2, char X2, class U>
 	friend Polynomial<R2, X2> &operator-=(Polynomial<R2, X2> &a, U const b);
-	template <typename R2, char X2, typename U>
+	template <class R2, char X2, class U>
 	friend Polynomial<R2, X2> &operator*=(Polynomial<R2, X2> &a, U const b);
-	template <typename R2, char X2, typename U>
+	template <class R2, char X2, class U>
 	friend Polynomial<R2, X2> &operator/=(Polynomial<R2, X2> &a, U const b);
 };
 
-template <typename R, char X>
+template <class R, char X>
 bool operator==(Polynomial<R, X> const &a, Polynomial<R, X> const &b)
 {
 	return a.coefficients() == b.coefficients();
 }
 
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 bool operator==(Polynomial<R, X> const &a, U const &b)
 {
-	if (is_zero(b))
+	auto const scalar = R(b);
+	if (is_zero(scalar))
 		return is_zero(a);
-	return a.degree() == 0 && a[0] == b;
+	return a.degree() == 0 && a[0] == scalar;
 }
 
 /** unary operations */
-template <typename R, char X>
+template <class R, char X>
 Polynomial<R, X> operator-(Polynomial<R, X> const &a)
 {
 	std::vector<R> r;
@@ -114,7 +115,7 @@ Polynomial<R, X> operator-(Polynomial<R, X> const &a)
 }
 
 /** binary operations (Polynomial <-> Polynomial) */
-template <typename R, typename S, char X>
+template <class R, class S, char X>
 auto operator+(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 {
 	using T = decltype(a[0] + b[0]);
@@ -125,7 +126,7 @@ auto operator+(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 		r.emplace_back(a[i] + b[i]);
 	return Polynomial<T, X>(std::move(r));
 }
-template <typename R, typename S, char X>
+template <class R, class S, char X>
 auto operator-(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 {
 	using T = decltype(a[0] - b[0]);
@@ -136,7 +137,7 @@ auto operator-(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 		r.emplace_back(a[i] - b[i]);
 	return Polynomial<T, X>(std::move(r));
 }
-template <typename R, typename S, char X>
+template <class R, class S, char X>
 auto operator*(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 {
 	using T = decltype(a[0] * b[0]);
@@ -147,72 +148,71 @@ auto operator*(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 	return Polynomial<T, X>(std::move(r));
 }
 
-/** binary operations (Polynomial <-> scalar) */
-template <typename R, char X, typename U>
+/** binary operations (Polynomial <-> scalar). int is embedded via R(int). */
+template <class R, char X, class U>
 Polynomial<R, X> operator+(Polynomial<R, X> const &a, U const &b)
 {
 	auto coeffs = a.coefficients();
 	if (coeffs.empty())
-		coeffs.emplace_back(b);
+		coeffs.emplace_back(R(b));
 	else
-		coeffs[0] += b;
+		coeffs[0] += R(b);
 	return Polynomial<R, X>(std::move(coeffs));
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 Polynomial<R, X> operator-(Polynomial<R, X> const &a, U const &b)
 {
 	auto coeffs = a.coefficients();
 	if (coeffs.empty())
-		coeffs.emplace_back(-b);
+		coeffs.emplace_back(-R(b));
 	else
-		coeffs[0] -= b;
+		coeffs[0] -= R(b);
 	return Polynomial<R, X>(std::move(coeffs));
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 auto operator*(Polynomial<R, X> const &a, U const &b)
 {
-	using T = decltype(a[0] * b);
-	std::vector<T> r;
+	auto const scalar = R(b);
+	std::vector<R> r;
 	r.reserve(a.degree() + 1);
 	for (int i = 0; i <= a.degree(); ++i)
-		r.emplace_back(a[i] * b);
-	return Polynomial<T, X>(std::move(r));
+		r.emplace_back(a[i] * scalar);
+	return Polynomial<R, X>(std::move(r));
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 Polynomial<R, X> operator/(Polynomial<R, X> const &a, U const &b)
 {
-	using T = decltype(a[0] / b);
-	std::vector<T> r;
+	std::vector<R> r;
 	r.reserve(a.degree() + 1);
 	for (int i = 0; i <= a.degree(); ++i)
 		r.emplace_back(a[i] / b);
-	return Polynomial<T, X>(std::move(r));
+	return Polynomial<R, X>(std::move(r));
 }
-template <typename U, typename R, char X>
+template <class U, class R, char X>
 Polynomial<R, X> operator+(U const &a, Polynomial<R, X> const &b)
 {
 	return b + a;
 }
-template <typename U, typename R, char X>
+template <class U, class R, char X>
 Polynomial<R, X> operator-(U const &a, Polynomial<R, X> const &b)
 {
 	auto r = -b;
 	r += a;
 	return r;
 }
-template <typename U, typename R, char X>
+template <class U, class R, char X>
 auto operator*(U const &a, Polynomial<R, X> const &b)
 {
-	using T = decltype(a * b[0]);
-	std::vector<T> r;
+	auto const scalar = R(a);
+	std::vector<R> r;
 	r.reserve(b.degree() + 1);
 	for (int i = 0; i <= b.degree(); ++i)
-		r.emplace_back(a * b[i]);
-	return Polynomial<T, X>(std::move(r));
+		r.emplace_back(scalar * b[i]);
+	return Polynomial<R, X>(std::move(r));
 }
 
 /** op-assigns for convenience and speed */
-template <typename R, typename S, char X>
+template <class R, class S, char X>
 Polynomial<R, X> &operator+=(Polynomial<R, X> &a, Polynomial<S, X> const &b)
 {
 	if (a.degree() < b.degree())
@@ -222,7 +222,7 @@ Polynomial<R, X> &operator+=(Polynomial<R, X> &a, Polynomial<S, X> const &b)
 	a.cleanup();
 	return a;
 }
-template <typename R, typename S, char X>
+template <class R, class S, char X>
 Polynomial<R, X> &operator-=(Polynomial<R, X> &a, Polynomial<S, X> const &b)
 {
 	if (a.degree() < b.degree())
@@ -232,41 +232,42 @@ Polynomial<R, X> &operator-=(Polynomial<R, X> &a, Polynomial<S, X> const &b)
 	a.cleanup();
 	return a;
 }
-template <typename R, typename S, char X>
+template <class R, class S, char X>
 Polynomial<R, X> &operator*=(Polynomial<R, X> &a, Polynomial<S, X> const &b)
 {
 	a = a * b;
 	return a;
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 Polynomial<R, X> &operator+=(Polynomial<R, X> &a, U const b)
 {
 	if (a.degree() == -1)
-		a.coefficients_.emplace_back(b);
+		a.coefficients_.emplace_back(R(b));
 	else
-		a.coefficients_[0] += b;
+		a.coefficients_[0] += R(b);
 	a.cleanup();
 	return a;
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 Polynomial<R, X> &operator-=(Polynomial<R, X> &a, U const b)
 {
 	if (a.degree() == -1)
-		a.coefficients_.emplace_back(-b);
+		a.coefficients_.emplace_back(-R(b));
 	else
-		a.coefficients_[0] -= b;
+		a.coefficients_[0] -= R(b);
 	a.cleanup();
 	return a;
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 Polynomial<R, X> &operator*=(Polynomial<R, X> &a, U const b)
 {
+	auto const scalar = R(b);
 	for (R &coeff : a.coefficients_)
-		coeff *= b;
+		coeff *= scalar;
 	a.cleanup();
 	return a;
 }
-template <typename R, char X, typename U>
+template <class R, char X, class U>
 Polynomial<R, X> &operator/=(Polynomial<R, X> &a, U const b)
 {
 	for (R &coeff : a.coefficients_)
@@ -275,7 +276,7 @@ Polynomial<R, X> &operator/=(Polynomial<R, X> &a, U const b)
 	return a;
 }
 
-template <typename R, char X, typename F>
+template <class R, char X, class F>
 auto map_coefficients(F f, Polynomial<R, X> const &a)
     -> Polynomial<decltype(f(a[0]))>
 {
@@ -286,40 +287,43 @@ auto map_coefficients(F f, Polynomial<R, X> const &a)
 	return Polynomial<decltype(f(a[0]))>(std::move(coeffs));
 }
 
-template <typename R, char X> bool is_zero(Polynomial<R, X> const &poly)
+template <class R, char X> bool is_zero(Polynomial<R, X> const &poly)
 {
 	return poly.coefficients().empty();
 }
-template <typename R, char X> bool is_one(Polynomial<R, X> const &poly)
+template <class R, char X> bool is_one(Polynomial<R, X> const &poly)
 {
 	return poly.coefficients().size() == 1 &&
 	       chalk::is_one(poly.coefficients()[0]);
 }
-template <typename R, char X> bool is_negative(Polynomial<R, X> const &poly)
+template <class R, char X> bool is_negative(Polynomial<R, X> const &poly)
 {
 	return poly.degree() >= 0 && chalk::is_negative(poly.coefficients().back());
 }
 
 /** not exactly correct... */
-template <typename R, char X> bool need_parens_product(Polynomial<R, X> const &)
+template <class R, char X> bool need_parens_product(Polynomial<R, X> const &)
 {
 	return true;
 }
-template <typename R, char X> bool need_parens_power(Polynomial<R, X> const &)
+template <class R, char X> bool need_parens_power(Polynomial<R, X> const &)
 {
 	return true;
 }
 
 } // namespace chalk
 
-template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
+template <class R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::Polynomial<R, X> &poly,
 	            FormatContext &ctx) const -> decltype(ctx.out())
 	{
+		using chalk::is_zero;
+		using chalk::is_one;
+		using chalk::is_negative;
 		auto it = ctx.out();
 
 		// no terms -> output "0"
@@ -332,10 +336,10 @@ template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 		for (int i = poly.degree(); i >= 0; --i)
 		{
 			auto c = poly[i];
-			if (c == 0)
+			if (is_zero(c))
 				continue;
 
-			if (chalk::is_negative(c))
+			if (is_negative(c))
 			{
 				if (first)
 					it = fmt::format_to(it, "-");
@@ -348,7 +352,7 @@ template <typename R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 			first = false;
 			if (i == 0)
 				it = fmt::format_to(it, "{}", c);
-			else if (!(c == 1))
+			else if (!is_one(c))
 				it = fmt::format_to(it, "{}*", c);
 
 			if (i == 1)
