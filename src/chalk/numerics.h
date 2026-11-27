@@ -9,7 +9,7 @@ std::vector<double> roots(Polynomial<double> const &poly);
 
 // polynomial root finding using Durand–Kerner method
 // should work for float/double/Floating/...
-template <typename Real>
+template <class Real>
 std::vector<util::complex<Real>>
 rootsDurandKerner(Polynomial<util::complex<Real>> poly, Real const &eps)
 {
@@ -58,10 +58,8 @@ rootsDurandKerner(Polynomial<util::complex<Real>> poly, Real const &eps)
 	return r;
 }
 
-/**
- * jacobi polynomial (d/dx)^k P_n^(α,β)(x)
- */
-template <typename T, typename T2 = T>
+// jacobi polynomial (d/dx)^k P_n^(α,β)(x)
+template <class T, class T2 = T>
 T jacobiPolynomial(T2 alpha, T2 beta, int n, int k, T x)
 {
 	assert(n >= 0 && k >= 0);
@@ -99,8 +97,8 @@ T jacobiPolynomial(T2 alpha, T2 beta, int n, int k, T x)
 	return y1;
 }
 
-/** value and derivative of the n'th Legendre polynomial */
-template <typename T> std::pair<T, T> legendrePolynomial(int n, T x)
+// value and derivative of the n'th Legendre polynomial
+template <class T> std::pair<T, T> legendrePolynomial(int n, T x)
 {
 	// "Bonnet's recursion formula"
 	auto y0 = T(0);
@@ -126,7 +124,7 @@ struct LegendreRule
 	std::vector<double> ws;
 };
 
-/** compute points/weights for legendre quadrature */
+// compute points/weights for legendre quadrature
 LegendreRule computeLegendreQuadrature(int n);
 
 } // namespace chalk

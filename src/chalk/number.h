@@ -248,7 +248,7 @@ template <> struct fmt::formatter<chalk::Number>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::Number &x, FormatContext &ctx) const
 	{
 		if (x.isExact())

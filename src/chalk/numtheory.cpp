@@ -6,9 +6,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-using namespace util;
 
-namespace chalk {
+using namespace chalk;
 
 // note on storage requirements:
 // a bit_vector indicating primeness of all odd numbers is more efficint than
@@ -45,7 +44,7 @@ util::bit_vector const &get_odd_prime_table(uint64_t n)
 }
 } // namespace
 
-util::bit_vector odd_prime_table(uint64_t o, uint64_t n)
+util::bit_vector chalk::odd_prime_table(uint64_t o, uint64_t n)
 {
 	assert(o <= uint64_t(1) << 62);
 	assert(n <= uint64_t(1) << 48);
@@ -70,7 +69,7 @@ util::bit_vector odd_prime_table(uint64_t o, uint64_t n)
 	return table;
 }
 
-util::bit_vector odd_prime_table(uint64_t n)
+util::bit_vector chalk::odd_prime_table(uint64_t n)
 {
 	assert(n <= uint64_t(1) << 48);
 	if (!n)
@@ -86,7 +85,7 @@ util::bit_vector odd_prime_table(uint64_t n)
 	return table;
 }
 
-std::vector<util::bit_vector> prime_table(int64_t n, int64_t w)
+std::vector<util::bit_vector> chalk::prime_table(int64_t n, int64_t w)
 {
 	// fmt::print("init...\n");
 	assert(n >= 0);
@@ -105,7 +104,7 @@ std::vector<util::bit_vector> prime_table(int64_t n, int64_t w)
 	for (int64_t i = 0; i < w; ++i)
 		if (gcd(i, w) == 1)
 		{
-			r[i] = bit_vector(n / w, true);
+			r[i] = util::bit_vector(n / w, true);
 			inv[i] = invmod(i, w);
 		}
 	r[1][0] = false; // mark '1' as non-prime
@@ -156,7 +155,7 @@ std::vector<util::bit_vector> prime_table(int64_t n, int64_t w)
 	return r;
 }
 
-std::vector<int64_t> primes(int64_t n)
+std::vector<int64_t> chalk::primes(int64_t n)
 {
 	constexpr int64_t w = 30;
 	static constexpr int64_t xs[] = {1, 7, 11, 13, 17, 19, 23, 29};
@@ -183,14 +182,14 @@ std::vector<int64_t> primes(int64_t n)
 	return primes;
 }
 
-bool is_prp(int64_t a, int64_t n)
+bool chalk::is_prp(int64_t a, int64_t n)
 {
 	assert(a >= 0);
 	assert(n > 1 && n % 2 == 1);
 	return powmod(a % n, n - 1, n) == 1;
 }
 
-bool is_sprp(int64_t a, int64_t n)
+bool chalk::is_sprp(int64_t a, int64_t n)
 {
 	assert(a >= 0);
 	assert(n > 1 && n % 2 == 1);
@@ -224,7 +223,7 @@ bool is_sprp(int64_t a, int64_t n)
 	return false;
 }
 
-bool is_prime(int64_t n)
+bool chalk::is_prime(int64_t n)
 {
 	// Idea: use SPRP with fixed bases for which the smalles composite pseudo-
 	// prime is known. This gives a fast deterministic primality test for
@@ -290,6 +289,7 @@ bool is_prime(int64_t n)
 	}*/
 }
 
+namespace {
 // Returns either a proper factor of n (not necessarily prime itself),
 // or n if none was found. In the latter case try using a different value for c.
 int64_t find_factor_pollard_rho(int64_t n, int64_t c)
@@ -317,8 +317,9 @@ int64_t find_factor_pollard_rho(int64_t n, int64_t c)
 		runLength *= 2;
 	}
 }
+} // namespace
 
-int64_t find_factor(int64_t n)
+int64_t chalk::find_factor(int64_t n)
 {
 	assert(n >= 2 && !is_prime(n));
 
@@ -328,7 +329,7 @@ int64_t find_factor(int64_t n)
 	return d;
 }
 
-std::vector<int64_t> factor(int64_t n)
+std::vector<int64_t> chalk::factor(int64_t n)
 {
 	assert(n > 0);
 	std::vector<int64_t> f;
@@ -348,7 +349,7 @@ std::vector<int64_t> factor(int64_t n)
 	return f;
 }
 
-int jacobi(int64_t a, int64_t n)
+int chalk::jacobi(int64_t a, int64_t n)
 {
 	assert(n > 0 && n % 2 == 1);
 
@@ -382,7 +383,7 @@ int jacobi(int64_t a, int64_t n)
 	}
 }
 
-int64_t phi(int64_t n)
+int64_t chalk::phi(int64_t n)
 {
 	assert(n >= 1);
 	int64_t last = 0;
@@ -395,7 +396,7 @@ int64_t phi(int64_t n)
 	return r;
 }
 
-int64_t ordermod(int64_t a, int64_t m)
+int64_t chalk::ordermod(int64_t a, int64_t m)
 {
 	assert(0 <= a && a < m);
 	if (gcd(a, m) != 1)
@@ -410,7 +411,7 @@ int64_t ordermod(int64_t a, int64_t m)
 	return r;
 }
 
-int64_t factorial(int64_t n)
+int64_t chalk::factorial(int64_t n)
 {
 	assert(0 <= n && n <= 20); // n=20 is the biggest possible in int64_t
 	int64_t r = 1;
@@ -419,7 +420,7 @@ int64_t factorial(int64_t n)
 	return r;
 }
 
-int64_t binomial(int64_t n, int64_t k)
+int64_t chalk::binomial(int64_t n, int64_t k)
 {
 	assert(n >= 0 && k >= 0);
 	if (k > n)
@@ -435,5 +436,3 @@ int64_t binomial(int64_t n, int64_t k)
 	}
 	return r;
 }
-
-} // namespace chalk

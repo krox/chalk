@@ -1,30 +1,28 @@
 #pragma once
 
-/** ideals in multivariate polynomial rings */
+// ideals in multivariate polynomial rings
 
 #include "chalk/numerics.h"
 #include "chalk/sparse_polynomial.h"
+#include "fmt/os.h"
 #include "fmt/ranges.h"
 #include "util/random.h"
 #include <Eigen/Dense>
-#include <fmt/os.h>
 #include <iostream>
 #include <map>
 
 namespace chalk {
 
-/**
- * NOTE: previously, there was an actual 'Ideal' class. But after some thought,
- *       thats not too useful because we don't actually want to enforce a
- *       strong normal form all the time. Also it lead to plenty of
- *       code-duplication, because operations on raw vector<Polynomial> were
- *       still neccessary.
- */
-template <typename R, size_t rank>
+// NOTE: previously, there was an actual 'Ideal' class. But after some thought,
+//       thats not too useful because we don't actually want to enforce a
+//       strong normal form all the time. Also it lead to plenty of
+//       code-duplication, because operations on raw vector<Polynomial> were
+//       still neccessary.
+template <class R, size_t rank>
 using Ideal = std::vector<SparsePolynomial<R, rank>>;
 
-/** reduce f using g */
-template <typename R, size_t rank>
+// reduce f using g
+template <class R, size_t rank>
 bool reduce(SparsePolynomial<R, rank> &f, SparsePolynomial<R, rank> const &g)
 {
 	if (g.terms().empty())
@@ -42,8 +40,8 @@ bool reduce(SparsePolynomial<R, rank> &f, SparsePolynomial<R, rank> const &g)
 	return change;
 }
 
-/** reduce f using g, leading term only */
-template <typename R, size_t rank>
+// reduce f using g, leading term only
+template <class R, size_t rank>
 bool reduce_partial(SparsePolynomial<R, rank> &f,
                     SparsePolynomial<R, rank> const &g)
 {
@@ -61,7 +59,7 @@ bool reduce_partial(SparsePolynomial<R, rank> &f,
 		return false;
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 bool reduce(SparsePolynomial<R, rank> &f, Ideal<R, rank> const &gs)
 {
 	bool r = false;
@@ -78,7 +76,7 @@ bool reduce(SparsePolynomial<R, rank> &f, Ideal<R, rank> const &gs)
 	return r;
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 bool reduce_partial(SparsePolynomial<R, rank> &f, Ideal<R, rank> const &gs)
 {
 	bool r = false;
@@ -95,7 +93,7 @@ bool reduce_partial(SparsePolynomial<R, rank> &f, Ideal<R, rank> const &gs)
 	return r;
 }
 
-template <typename R, size_t rank> void reduce(Ideal<R, rank> &fs)
+template <class R, size_t rank> void reduce(Ideal<R, rank> &fs)
 {
 	if (fs.empty())
 		return;
@@ -127,7 +125,7 @@ template <typename R, size_t rank> void reduce(Ideal<R, rank> &fs)
 		reduce(fs);
 }
 
-template <typename R, size_t rank> void reduce_partial(Ideal<R, rank> &fs)
+template <class R, size_t rank> void reduce_partial(Ideal<R, rank> &fs)
 {
 	if (fs.empty())
 		return;
@@ -159,7 +157,7 @@ template <typename R, size_t rank> void reduce_partial(Ideal<R, rank> &fs)
 		reduce_partial(fs);
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 SparsePolynomial<R, rank> resolvent(SparsePolynomial<R, rank> const &a,
                                     SparsePolynomial<R, rank> const &b)
 {
@@ -173,8 +171,8 @@ SparsePolynomial<R, rank> resolvent(SparsePolynomial<R, rank> const &a,
 	return a * (mon / a.terms()[0]).value() - b * (mon / b.terms()[0]).value();
 }
 
-/** enumerate variables that actually occur in the polynomials */
-template <typename R, size_t rank>
+// enumerate variables that actually occur in the polynomials
+template <class R, size_t rank>
 std::vector<std::string> active_variables(Ideal<R, rank> const &fs)
 {
 	if (fs.empty())
@@ -194,8 +192,8 @@ std::vector<std::string> active_variables(Ideal<R, rank> const &fs)
 	return r;
 }
 
-/** change basis ring */
-template <typename R2, typename R, size_t rank>
+// change basis ring
+template <class R2, class R, size_t rank>
 Ideal<R2, rank> change_ring(Ideal<R, rank> const &fs)
 {
 	if (fs.empty())
@@ -216,7 +214,7 @@ Ideal<R2, rank> change_ring(Ideal<R, rank> const &fs)
 	return r;
 }
 
-template <typename R, size_t rank> inline void dump(Ideal<R, rank> const &ideal)
+template <class R, size_t rank> inline void dump(Ideal<R, rank> const &ideal)
 {
 	auto vars = active_variables(ideal);
 	fmt::print("polynomial ideal with {} equations for {} variables ({})\n",
@@ -225,7 +223,7 @@ template <typename R, size_t rank> inline void dump(Ideal<R, rank> const &ideal)
 		fmt::print("    f{} = {}\n", i, ideal[i]);
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 inline void dump_summary(Ideal<R, rank> const &ideal)
 {
 	auto vars = active_variables(ideal);
@@ -242,11 +240,9 @@ inline void dump_summary(Ideal<R, rank> const &ideal)
 	}
 }
 
-/**
- * Write the ideal with the current basis polynomials into a textfile that
- * can be read by Singular.
- */
-template <typename R, size_t rank>
+// Write the ideal with the current basis polynomials into a textfile that
+// can be read by Singular.
+template <class R, size_t rank>
 inline void dump_singular(Ideal<R, rank> const &ideal,
                           std::string const &filename)
 {
@@ -281,8 +277,8 @@ inline void dump_singular(Ideal<R, rank> const &ideal,
 	// file.print("print(dim(Is));\n");
 }
 
-/** write a file to be used by Maple to find a Gröbner basis. */
-template <typename R, size_t rank>
+// write a file to be used by Maple to find a Gröbner basis.
+template <class R, size_t rank>
 inline void dump_maple(Ideal<R, rank> const &ideal, std::string const &filename)
 {
 	auto file = fmt::output_file(filename);
@@ -306,8 +302,8 @@ inline void dump_maple(Ideal<R, rank> const &ideal, std::string const &filename)
 	file.print("mybasis := Basis(ideal, tdeg);\n");
 }
 
-/** write a file to be used by PHCpack */
-template <typename R, size_t rank>
+// write a file to be used by PHCpack
+template <class R, size_t rank>
 inline void dump_phcpack(Ideal<R, rank> const &ideal,
                          std::string const &filename)
 {
@@ -317,7 +313,7 @@ inline void dump_phcpack(Ideal<R, rank> const &ideal,
 		file.print("{};\n", f);
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 inline void groebner(Ideal<R, rank> &fs, size_t max_polys = 999999999)
 {
 	int batch_size = 5;
@@ -354,8 +350,8 @@ inline void groebner(Ideal<R, rank> &fs, size_t max_polys = 999999999)
 	reduce(fs);
 }
 
-/** if a variable occurs in exactly one polynomial, remove that polynomial */
-template <typename R, size_t rank>
+// if a variable occurs in exactly one polynomial, remove that polynomial
+template <class R, size_t rank>
 std::vector<std::string> removeTrivialVariables(Ideal<R, rank> &ideal)
 {
 	std::vector<std::string> r;
@@ -392,8 +388,8 @@ again:
 	return r;
 }
 
-/* some future project to have some more clever analysis than just gröbner */
-template <typename R, size_t rank>
+// some future project to have some more clever analysis than just gröbner
+template <class R, size_t rank>
 Ideal<R, rank> analyze_ideal(Ideal<R, rank> &ideal)
 {
 	fmt::print("--------- analyzing polynomial ideal ----------\n");
@@ -452,11 +448,9 @@ Ideal<R, rank> analyze_ideal(Ideal<R, rank> &ideal)
 	return {};
 }
 
-/**
- * Numerically solve as many basis polynomials as possible.
- * For best result, compute groebner basis first, but even without, it might
- * produce something useful.
- */
+// Numerically solve as many basis polynomials as possible.
+// For best result, compute groebner basis first, but even without, it might
+// produce something useful.
 template <size_t rank>
 inline std::vector<std::map<std::string, double>> analyze_variety(
     Ideal<double, rank> const &ideal,
@@ -557,7 +551,7 @@ inline std::vector<std::map<std::string, double>> analyze_variety(
 	return result;
 }
 
-template <typename R, size_t rank>
+template <class R, size_t rank>
 void solve_numerical(Ideal<R, rank> const &ideal,
                      std::map<std::string, R> startingValues = {},
                      std::vector<std::string> fixedVars = {})

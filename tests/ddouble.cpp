@@ -1,11 +1,11 @@
 #include "catch2/catch_test_macros.hpp"
 
 #include "chalk/floating.h"
+#include "fmt/format.h"
 #include "util/ddouble.h"
 #include "util/random.h"
 #include "util/stopwatch.h"
 #include <Eigen/Dense>
-#include <fmt/format.h>
 using namespace chalk;
 using util::ddouble;
 
@@ -33,7 +33,7 @@ FloatingOctuple to_octuple(ddouble a)
 	return ddouble::sum(high, low);
 } // namespace
 
-template <typename F>
+template <class F>
 void test_unary([[maybe_unused]] std::string const &label, F f, double min,
                 double max, double eps, bool relative)
 {
@@ -61,7 +61,7 @@ void test_unary([[maybe_unused]] std::string const &label, F f, double min,
 	           relative ? "relative" : "absolute", worst, (double)worst_x);*/
 }
 
-template <typename F>
+template <class F>
 void benchmark_unary(std::string const &label, F &&f, double min = 0,
                      double max = 1)
 {
@@ -81,7 +81,7 @@ void benchmark_unary(std::string const &label, F &&f, double min = 0,
 	fmt::print("{}: {:.3f} seconds\n", label, sw.secs());
 }
 
-template <typename F> void test_binary(F &&f)
+template <class F> void test_binary(F &&f)
 {
 	auto rng = util::xoshiro256(0);
 	double worst = 0.0;

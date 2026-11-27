@@ -1,5 +1,4 @@
-#ifndef CHALK_BCH_H
-#define CHALK_BCH_H
+#pragma once
 
 #include <cassert>
 #include <vector>
@@ -108,14 +107,11 @@ inline BchStage stages[] = {
 
 } // namespace bch_detail
 
-/**
- * Computes log(exp(a)*exp(b)) using a Baker–Campbell–Hausdorff formula
- *   - comm can be set to  '[](auto& a, auto& b){ return a*b-b*a; }' usually
- *   - order <= 8 is currently implemented. Up to order 20 is available at
- *     www.ehu.eus/ccwmuura/bch.html ( but the required tables are enormous )
- */
-template <typename R, typename F>
-R bch(R const &a, R const &b, int order, F &&comm)
+// Computes log(exp(a)*exp(b)) using a Baker–Campbell–Hausdorff formula
+//   - comm can be set to  '[](auto& a, auto& b){ return a*b-b*a; }' usually
+//   - order <= 8 is currently implemented. Up to order 20 is available at
+//     www.ehu.eus/ccwmuura/bch.html ( but the required tables are enormous )
+template <class R, class F> R bch(R const &a, R const &b, int order, F &&comm)
 {
 	using namespace bch_detail;
 	std::vector<R> hall;
@@ -144,5 +140,3 @@ R bch(R const &a, R const &b, int order, F &&comm)
 	return r;
 }
 } // namespace chalk
-
-#endif

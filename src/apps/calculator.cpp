@@ -1,9 +1,9 @@
 #include "CLI/CLI.hpp"
 #include "chalk/number.h"
 #include "chalk/symbolic.h"
+#include "fmt/format.h"
 #include "util/linenoise.h"
 #include "util/string.h"
-#include <fmt/format.h>
 #include <string>
 using namespace chalk;
 

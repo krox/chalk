@@ -1,10 +1,8 @@
 #pragma once
 
-/**
- * C++ wrapper for arbitrary precision integers.
- * In contrast to the c++ wrapper provided by GMP itself, this one does not use
- * expression-templates.
- */
+// C++ wrapper for arbitrary precision integers.
+// In contrast to the c++ wrapper provided by GMP itself, this one does not use
+// expression-templates.
 
 #include "chalk/parser.h"
 #include "chalk/rings.h"
@@ -465,7 +463,7 @@ template <> struct fmt::formatter<chalk::Integer>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::Integer &x, FormatContext &ctx) const
 	{
 		return fmt::format_to(ctx.out(), "{}", x.to_string());

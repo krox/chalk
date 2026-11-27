@@ -1,8 +1,8 @@
 #include "CLI/CLI.hpp"
 #include "chalk/numtheory.h"
+#include "fmt/format.h"
 #include <algorithm>
 #include <cassert>
-#include <fmt/format.h>
 using namespace chalk;
 
 int main(int argc, char *argv[])

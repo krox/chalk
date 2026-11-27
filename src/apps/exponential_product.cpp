@@ -7,7 +7,7 @@
 #include "chalk/polynomial.h"
 #include "chalk/series.h"
 #include "chalk/sparse_polynomial.h"
-#include <fmt/format.h>
+#include "fmt/format.h"
 using namespace chalk;
 
 using Poly = SparsePolynomial<Rational, 8>;
@@ -30,13 +30,11 @@ Term exp(Term const &a)
 
 int main()
 {
-	/**
-	  - we only consider symmetric schemes
-	  - 3 steps, order 2 -> unique solution, leapfrog
-	  - 7 steps, order 4 -> unique solution, negative coeffs
-	                        (Eq. 42 in arxiv.org/pdf/math-ph/0506007.pdf)
-	  - 11 steps, order 6 -> no solutions
-	*/
+	// - we only consider symmetric schemes
+	// - 3 steps, order 2 -> unique solution, leapfrog
+	// - 7 steps, order 4 -> unique solution, negative coeffs
+	//                       (Eq. 42 in arxiv.org/pdf/math-ph/0506007.pdf)
+	// - 11 steps, order 6 -> no solutions
 	auto R = PolynomialRing<Rational, 8>();
 	auto eps = Term::generator() * Algebra(R(1));
 	auto alpha = Algebra(R.generator("alpha"));

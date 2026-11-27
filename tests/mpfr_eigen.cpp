@@ -1,9 +1,9 @@
 #include "catch2/catch_test_macros.hpp"
 
 #include "chalk/floating.h"
+#include "fmt/format.h"
 #include "util/random.h"
 #include <Eigen/Dense>
-#include <fmt/format.h>
 
 using namespace chalk;
 

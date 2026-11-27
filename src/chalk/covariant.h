@@ -1,12 +1,9 @@
-#ifndef CHALK_COVARIANT
-#define CHALK_COVARIANT
+#pragma once
 
-/**
- * A 'Covariant' is a linear combination of indexed expressions, i.e. a
- * monoid ring over indexed expressions. This module provides
- *   - wrappers around operations on 'Indexed' to work with whole expressions
- *   - simplifications based on algebra of Lie-derivatives
- */
+// A 'Covariant' is a linear combination of indexed expressions, i.e. a
+// monoid ring over indexed expressions. This module provides
+//   - wrappers around operations on 'Indexed' to work with whole expressions
+//   - simplifications based on algebra of Lie-derivatives
 
 #include "chalk/group_ring.h"
 #include "chalk/indexed.h"
@@ -22,10 +19,10 @@
 
 namespace chalk {
 
-template <typename R> using Covariant = Multinomial<R, Indexed>;
-template <typename R> using CovariantTerm = MultinomialTerm<R, Indexed>;
+template <class R> using Covariant = Multinomial<R, Indexed>;
+template <class R> using CovariantTerm = MultinomialTerm<R, Indexed>;
 
-template <typename R>
+template <class R>
 Covariant<R> inner_product(Covariant<R> const &a, Covariant<R> const &b)
 {
 	std::vector<CovariantTerm<R>> terms;
@@ -37,7 +34,7 @@ Covariant<R> inner_product(Covariant<R> const &a, Covariant<R> const &b)
 	return Covariant<R>(std::move(terms));
 }
 
-template <typename R> Covariant<R> contract(Covariant<R> const &a, int i, int j)
+template <class R> Covariant<R> contract(Covariant<R> const &a, int i, int j)
 {
 	auto terms = a.terms();
 	for (auto &term : terms)
@@ -45,12 +42,10 @@ template <typename R> Covariant<R> contract(Covariant<R> const &a, int i, int j)
 	return Covariant<R>(std::move(terms));
 }
 
-/**
- * derivative adding new index to the right
- * lower-case symbols are assumed to be constants
- * upper-case symbols simply obtain new indices
- */
-template <typename R> inline Covariant<R> diff(Covariant<R> const &a)
+// derivative adding new index to the right
+// lower-case symbols are assumed to be constants
+// upper-case symbols simply obtain new indices
+template <class R> inline Covariant<R> diff(Covariant<R> const &a)
 {
 	std::vector<CovariantTerm<R>> terms;
 	for (auto &t : a.terms())
@@ -66,12 +61,10 @@ template <typename R> inline Covariant<R> diff(Covariant<R> const &a)
 	return Covariant<R>(std::move(terms));
 }
 
-/**
- * derivative adding a "'" to symbols
- * lower-case symbols are assumed to be constants
- * upper-case symbols optain new prime.
- */
-template <typename R> inline Covariant<R> diff_1d(Covariant<R> const &a)
+// derivative adding a "'" to symbols
+// lower-case symbols are assumed to be constants
+// upper-case symbols optain new prime.
+template <class R> inline Covariant<R> diff_1d(Covariant<R> const &a)
 {
 	std::vector<CovariantTerm<R>> terms;
 	for (auto &t : a.terms())
@@ -87,12 +80,10 @@ template <typename R> inline Covariant<R> diff_1d(Covariant<R> const &a)
 	return Covariant<R>(std::move(terms));
 }
 
-/**
- * build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
- *   - f needs exactly one open index
- *   - S can have arbitrary open indices (which simply stay that way)
- */
-template <typename R>
+// build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
+//   - f needs exactly one open index
+//   - S can have arbitrary open indices (which simply stay that way)
+template <class R>
 inline Covariant<R> taylor(Covariant<R> const &S, Covariant<R> const &force,
                            int degree)
 {
@@ -117,12 +108,10 @@ inline Covariant<R> taylor(Covariant<R> const &S, Covariant<R> const &force,
 	return result;
 }
 
-/**
- * build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
- *   - f may not have any open index
- *   - S can have arbitrary open indices (which simply stay that way)
- */
-template <typename R>
+// build a taylor like expression  S(f) = S + S'f + 1/2 S''ff + ...
+//   - f may not have any open index
+//   - S can have arbitrary open indices (which simply stay that way)
+template <class R>
 inline Covariant<R> taylor_1d(Covariant<R> const &S, Covariant<R> const &force,
                               int degree)
 {
@@ -147,7 +136,7 @@ inline Covariant<R> taylor_1d(Covariant<R> const &S, Covariant<R> const &force,
 	return result;
 }
 
-template <typename R>
+template <class R>
 Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
                            R const &variance)
 {
@@ -170,7 +159,7 @@ Covariant<R> wick_contract(Covariant<R> const &a, std::string const &eta,
 // private building-blocks for Lie-simplification
 namespace {
 
-/** move double-indices to the front */
+// move double-indices to the front
 inline void move_double_indices(util::small_vector<int, 4> &inds)
 {
 	while (true)
@@ -190,7 +179,7 @@ inline void move_double_indices(util::small_vector<int, 4> &inds)
 	}
 }
 
-/** sort indices, returns signum (1,-1,0) of permutation */
+// sort indices, returns signum (1,-1,0) of permutation
 inline int sort_antisym(util::small_vector<int, 4> &inds)
 {
 	int r = 1;
@@ -207,7 +196,7 @@ inline int sort_antisym(util::small_vector<int, 4> &inds)
 	return r;
 }
 
-/** returns true if a<->b can be proved to be symmetric, excluding symbol 'f' */
+// returns true if a<->b can be proved to be symmetric, excluding symbol 'f'
 inline bool is_symmetric(std::vector<IndexedAtom> const &atoms, int a, int b)
 {
 	std::vector<IndexedAtom> atoms2 = atoms;
@@ -235,28 +224,25 @@ inline bool is_symmetric(std::vector<IndexedAtom> const &atoms, int a, int b)
 	return atoms2 == atoms;
 };
 
-/**
- * modifies term inplace, returns new extra term if one was generated
- * (needs to be repeated in that case)
- */
-template <typename R>
+// modifies term inplace, returns new extra term if one was generated
+// (needs to be repeated in that case)
+template <class R>
 std::optional<CovariantTerm<R>>
 sort_indices_brute_force(CovariantTerm<R> &term, std::string const &symbol)
 {
 	auto atoms = term.index.release();
 
-	/** obsolete rules:
-	 * 'sandwich rules':
-	     - S(aba) -> S(baa) + cA/2 S(b)
-	     - S(abcab) -> S(aabcb) + cA S(bcb)
-	 * direct ordering rules:
-	     - S(..ab..)S(..ba..) -> S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
-	 These are now handled by explicitly ordering indices of S (introducing
-	 structure constants f), and than contracting f with f and f with S
-	 which produces some cA's.
-	 (The explicit index-ordering only makes sense because the index-naming
-	 quite strongly follows pure graph-structure.)
-	 */
+	// obsolete rules:
+	// 'sandwich rules':
+	//      - S(aba) -> S(baa) + cA/2 S(b)
+	//      - S(abcab) -> S(aabcb) + cA S(bcb)
+	// direct ordering rules:
+	//      - S(..ab..)S(..ba..) -> S(..ab..)S(..ab..) - cA/2 S(..c..) S(..c..)
+	// These are now handled by explicitly ordering indices of S (introducing
+	// structure constants f), and than contracting f with f and f with S
+	// which produces some cA's.
+	// (The explicit index-ordering only makes sense because the index-naming
+	// quite strongly follows pure graph-structure.)
 
 	// sort indices by adding explicit structure constants
 	for (size_t ai = 0; ai < atoms.size(); ++ai)
@@ -297,13 +283,11 @@ sort_indices_brute_force(CovariantTerm<R> &term, std::string const &symbol)
 
 } // namespace
 
-/**
- * Simplifications that dont create new terms:
- *  - move double-indices to the front
- *  - sort indices of antisymmetric f
- *  - contract combinations of f using cA
- */
-template <typename R>
+// Simplifications that dont create new terms:
+//  - move double-indices to the front
+//  - sort indices of antisymmetric f
+//  - contract combinations of f using cA
+template <class R>
 void simplify_lie_term_basic(CovariantTerm<R> &term, std::string const &symbol)
 {
 	auto atoms = term.index.release();
@@ -412,8 +396,8 @@ again:
 	term.index = Indexed(std::move(atoms));
 }
 
-/** reorder lie-derivative indices using relations with the casimir operator */
-template <typename R>
+// reorder lie-derivative indices using relations with the casimir operator
+template <class R>
 Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol)
 {
 	(void)symbol;
@@ -448,7 +432,7 @@ Covariant<R> simplify_lie(Covariant<R> const &a, std::string const &symbol)
 	return Covariant<R>(std::move(terms));
 }
 
-template <typename R>
+template <class R>
 Covariant<R> simplify_lie_commutative(Covariant<R> const &a,
                                       std::string const &symbol)
 {
@@ -469,5 +453,3 @@ Covariant<R> simplify_lie_commutative(Covariant<R> const &a,
 }
 
 } // namespace chalk
-
-#endif

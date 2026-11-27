@@ -6,9 +6,9 @@
 #include <complex>
 #include <stdexcept>
 
-namespace chalk {
+using namespace chalk;
 
-std::vector<double> roots(Polynomial<double> const &poly)
+std::vector<double> chalk::roots(Polynomial<double> const &poly)
 {
 	// TODO: more sophisticated cutoffs. hardcoded 1.0e-12 is kinda stupid...
 	// leading coefficient should determine the overall scale
@@ -61,7 +61,7 @@ std::vector<double> roots(Polynomial<double> const &poly)
 	return r;
 }
 
-LegendreRule computeLegendreQuadrature(int n)
+LegendreRule chalk::computeLegendreQuadrature(int n)
 {
 	assert(n >= 1 && n % 2 == 1);
 	LegendreRule rule;
@@ -89,5 +89,3 @@ LegendreRule computeLegendreQuadrature(int n)
 	}
 	return rule;
 }
-
-} // namespace chalk

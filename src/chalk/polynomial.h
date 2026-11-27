@@ -10,18 +10,16 @@
 
 namespace chalk {
 
-/**
- * Univariate polynomial with dense storage and coefficients in R.
- *   - mixed-type operations are supported. for example
- *       Poly<int> * Poly<float> -> Poly<float>
- *       Poly<int> * float -> Poly<float>
- *   - in order to get things like
- *       Poly<T,x> * Poly<T,y> -> Poly<Poly<T,x>,y>
- *     some more work is needed. for example
- *       Poly<Poly<T,x>,y>(...) * Poly<T,y>
- *     or in some future maybe
- *       Scalar(Poly<T,x>) * Poly<T,y>
- */
+// Univariate polynomial with dense storage and coefficients in R.
+//   - mixed-type operations are supported. for example
+//       Poly<int> * Poly<float> -> Poly<float>
+//       Poly<int> * float -> Poly<float>
+//   - in order to get things like
+//       Poly<T,x> * Poly<T,y> -> Poly<Poly<T,x>,y>
+//     some more work is needed. for example
+//       Poly<Poly<T,x>,y>(...) * Poly<T,y>
+//     or in some future maybe
+//       Scalar(Poly<T,x>) * Poly<T,y>
 template <ring_element R, char X = 'x'> class Polynomial
 {
 	std::vector<R> coefficients_;
@@ -45,13 +43,13 @@ template <ring_element R, char X = 'x'> class Polynomial
 
 	static Polynomial generator() { return Polynomial({R(0), R(1)}); }
 
-	/** highest power with non-zero coefficient (convention: deg(0) = -1) */
+	// highest power with non-zero coefficient (convention: deg(0) = -1)
 	int degree() const { return (int)coefficients_.size() - 1; }
 
-	/** highest is non-zero */
+	// highest is non-zero
 	std::vector<R> const &coefficients() const { return coefficients_; }
 
-	/** array-like access to coefficients */
+	// array-like access to coefficients
 	R const &operator[](int i) const
 	{
 		if (i < 0 || i > degree())
@@ -59,7 +57,7 @@ template <ring_element R, char X = 'x'> class Polynomial
 		return coefficients_[i];
 	}
 
-	/** evaluate the polynomial */
+	// evaluate the polynomial
 	R operator()(R const &x) const
 	{
 		R y = R(0);
@@ -103,9 +101,8 @@ bool operator==(Polynomial<R, X> const &a, U const &b)
 	return a.degree() == 0 && a[0] == scalar;
 }
 
-/** unary operations */
-template <class R, char X>
-Polynomial<R, X> operator-(Polynomial<R, X> const &a)
+// unary operations
+template <class R, char X> Polynomial<R, X> operator-(Polynomial<R, X> const &a)
 {
 	std::vector<R> r;
 	r.reserve(a.degree() + 1);
@@ -114,7 +111,7 @@ Polynomial<R, X> operator-(Polynomial<R, X> const &a)
 	return Polynomial<R, X>(std::move(r));
 }
 
-/** binary operations (Polynomial <-> Polynomial) */
+// binary operations (Polynomial <-> Polynomial)
 template <class R, class S, char X>
 auto operator+(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 {
@@ -148,7 +145,7 @@ auto operator*(Polynomial<R, X> const &a, Polynomial<S, X> const &b)
 	return Polynomial<T, X>(std::move(r));
 }
 
-/** binary operations (Polynomial <-> scalar). int is embedded via R(int). */
+// binary operations (Polynomial <-> scalar). int is embedded via R(int).
 template <class R, char X, class U>
 Polynomial<R, X> operator+(Polynomial<R, X> const &a, U const &b)
 {
@@ -211,7 +208,7 @@ auto operator*(U const &a, Polynomial<R, X> const &b)
 	return Polynomial<R, X>(std::move(r));
 }
 
-/** op-assigns for convenience and speed */
+// op-assigns for convenience and speed
 template <class R, class S, char X>
 Polynomial<R, X> &operator+=(Polynomial<R, X> &a, Polynomial<S, X> const &b)
 {
@@ -301,7 +298,7 @@ template <class R, char X> bool is_negative(Polynomial<R, X> const &poly)
 	return poly.degree() >= 0 && chalk::is_negative(poly.coefficients().back());
 }
 
-/** not exactly correct... */
+// not exactly correct...
 template <class R, char X> bool need_parens_product(Polynomial<R, X> const &)
 {
 	return true;
@@ -318,12 +315,12 @@ template <class R, char X> struct fmt::formatter<chalk::Polynomial<R, X>>
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <class FormatContext>
-	auto format(const chalk::Polynomial<R, X> &poly,
-	            FormatContext &ctx) const -> decltype(ctx.out())
+	auto format(const chalk::Polynomial<R, X> &poly, FormatContext &ctx) const
+	    -> decltype(ctx.out())
 	{
-		using chalk::is_zero;
-		using chalk::is_one;
 		using chalk::is_negative;
+		using chalk::is_one;
+		using chalk::is_zero;
 		auto it = ctx.out();
 
 		// no terms -> output "0"

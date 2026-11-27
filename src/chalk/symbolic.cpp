@@ -1,10 +1,10 @@
 #include "chalk/symbolic.h"
+#include "fmt/format.h"
 #include "util/string.h"
-#include <fmt/format.h>
 #include <fstream>
 #include <sstream>
 
-namespace chalk {
+using namespace chalk;
 
 std::strong_ordering
 ConstantExpression::operator<=>(ConstantExpression const &) const = default;
@@ -182,52 +182,52 @@ Expression Expression::function(std::string_view fun,
 	    std::string(fun), std::vector<Expression>(args.begin(), args.end())));
 }
 
-Expression operator+(Expression const &a) { return a; }
+Expression chalk::operator+(Expression const &a) { return a; }
 
-Expression operator-(Expression const &a)
+Expression chalk::operator-(Expression const &a)
 {
 	return Expression::product(std::array{Expression(-1), a});
 }
 
-Expression operator+(Expression const &a, Expression const &b)
+Expression chalk::operator+(Expression const &a, Expression const &b)
 {
 	return Expression::sum(std::array{a, b});
 }
 
-Expression operator-(Expression const &a, Expression const &b)
+Expression chalk::operator-(Expression const &a, Expression const &b)
 {
 	return Expression::sum(
 	    std::array{a, Expression::product(std::array{Expression(-1), b})});
 }
 
-Expression operator*(Expression const &a, Expression const &b)
+Expression chalk::operator*(Expression const &a, Expression const &b)
 {
 	return Expression::product(std::array{a, b});
 }
 
-Expression operator/(Expression const &a, Expression const &b)
+Expression chalk::operator/(Expression const &a, Expression const &b)
 {
 	return Expression::product(std::array{a, Expression::power(b, -1)});
 }
 
-Expression pow(Expression const &base, int exp)
+Expression chalk::pow(Expression const &base, int exp)
 {
 	return Expression::power(base, exp);
 }
 
-bool is_zero(Expression const &a)
+bool chalk::is_zero(Expression const &a)
 {
 	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &x) { return is_zero(x.value); },
 	    [](auto const &) { return false; }});
 }
-bool is_one(Expression const &a)
+bool chalk::is_one(Expression const &a)
 {
 	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &x) { return is_one(x.value); },
 	    [](auto const &) { return false; }});
 }
-bool is_negative(Expression const &a)
+bool chalk::is_negative(Expression const &a)
 {
 	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &x) { return is_negative(x.value); },
@@ -241,13 +241,13 @@ bool is_negative(Expression const &a)
 	    [](auto const &) { return false; }});
 }
 
-bool need_parens_product(Expression const &a)
+bool chalk::need_parens_product(Expression const &a)
 {
 	return a.visit<bool>(
 	    util::overloaded{[](SumExpression const &) { return true; },
 	                     [](auto const &) { return false; }});
 }
-bool need_parens_power(Expression const &a)
+bool chalk::need_parens_power(Expression const &a)
 {
 	return a.visit<bool>(util::overloaded{
 	    [](ConstantExpression const &b) { return need_parens_power(b.value); },
@@ -435,9 +435,9 @@ void print_impl(FunctionExpression const &f,
 
 } // namespace
 
-void print(Expression const &a,
-           util::function_view<void(std::string_view)> sink, format_type format,
-           int depth)
+void chalk::print(Expression const &a,
+                  util::function_view<void(std::string_view)> sink,
+                  format_type format, int depth)
 {
 	a.visit([&](auto const &x) { print_impl(x, sink, format, depth); });
 }
@@ -539,8 +539,9 @@ Expression parse_sum(util::Parser &parser)
 
 Expression Expression::parse(util::Parser &parser) { return parse_sum(parser); }
 
-Expression substitute(Expression const &expr,
-                      util::hash_map<std::string, Expression> const &table)
+Expression
+chalk::substitute(Expression const &expr,
+                  util::hash_map<std::string, Expression> const &table)
 {
 	return expr.visit<Expression>(util::overloaded{
 	    [&](ConstantExpression const &) { return expr; },
@@ -574,7 +575,7 @@ Expression substitute(Expression const &expr,
 }
 
 std::optional<util::hash_map<std::string, Expression>>
-match_pattern(Expression const &pattern, Expression const &expr)
+chalk::match_pattern(Expression const &pattern, Expression const &expr)
 {
 	util::hash_map<std::string, Expression> bindings;
 
@@ -661,8 +662,8 @@ match_pattern(Expression const &pattern, Expression const &expr)
 }
 
 Expression
-apply_rules(Expression const &expr,
-            std::vector<std::pair<Expression, Expression>> const &rules)
+chalk::apply_rules(Expression const &expr,
+                   std::vector<std::pair<Expression, Expression>> const &rules)
 {
 	// Try to apply rules to the current expression
 	for (auto const &[pattern, replacement] : rules)
@@ -830,5 +831,3 @@ void SymbolicContext::execute_file(std::string const &filename)
 	fmt::print("Executing file: {}\n", filename);
 	execute_statements(content);
 }
-
-} // namespace chalk

@@ -13,7 +13,7 @@
 
 namespace chalk {
 
-/** a single term of a polynomial: a*x1^e1*...*xn^en */
+// a single term of a polynomial: a*x1^e1*...*xn^en
 template <ring_element R, size_t rank> struct Monomial
 {
 	R coefficient = {};

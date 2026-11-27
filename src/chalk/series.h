@@ -16,11 +16,9 @@ template <class R, int N, char X, class F>
 auto mapCoefficients(F f, Series<R, N, X> const &a)
     -> Series<decltype(f(a[0])), N, X>;
 
-/**
- * Truncated series.
- *   - order is compile-time
- *   - can be used for automatic differentiation (for a single variable)
- */
+// Truncated series.
+//   - order is compile-time
+//   - can be used for automatic differentiation (for a single variable)
 template <ring_element R, int N, char X = 'x'> class Series
 {
 	static_assert(N >= 1);
@@ -54,11 +52,11 @@ template <ring_element R, int N, char X = 'x'> class Series
 	std::array<R, N + 1> &coefficients() { return coefficients_; }
 	std::array<R, N + 1> const &coefficients() const { return coefficients_; }
 
-	/** array-like access to coefficients */
+	// array-like access to coefficients
 	R &operator[](int i) { return coefficients_.at(i); }
 	R const &operator[](int i) const { return coefficients_.at(i); }
 
-	/** s.mapCoefficients(fun, args...) = mapCoefficients(fun(_, args...), s) */
+	// s.mapCoefficients(fun, args...) = mapCoefficients(fun(_, args...), s)
 	template <class Fun, class... Args>
 	auto mapCoefficients(Fun fun, Args const &...args)
 	{
@@ -100,7 +98,7 @@ bool operator==(Series<R, N, X> const &a, int b)
 	return a[0] == R(b);
 }
 
-/** unary operations */
+// unary operations
 template <class R, int N, char X>
 Series<R, N, X> operator-(Series<R, N, X> const &a)
 {
@@ -110,7 +108,7 @@ Series<R, N, X> operator-(Series<R, N, X> const &a)
 	return r;
 }
 
-/** binary operations (Series <-> Series) */
+// binary operations (Series <-> Series)
 template <class R, int N, class S, char X>
 auto operator+(Series<R, N, X> const &a, Series<S, N, X> const &b)
 {
@@ -140,7 +138,7 @@ auto operator*(Series<R, N, X> const &a, Series<S, N, X> const &b)
 	return r;
 }
 
-/** binary operations (Series <-> scalar) */
+// binary operations (Series <-> scalar)
 template <class R, int N, char X, class U>
 Series<R, N, X> operator+(Series<R, N, X> const &a, Scalar<U> const &b)
 {
@@ -173,8 +171,7 @@ Series<R, N, X> operator/(Series<R, N, X> const &a, Scalar<U> const &b)
 		r[i] = a[i] / b.value;
 	return r;
 }
-template <class R, int N, char X>
-auto operator*(Series<R, N, X> const &a, R b)
+template <class R, int N, char X> auto operator*(Series<R, N, X> const &a, R b)
 {
 	using T = decltype(a[0] * b);
 	Series<T, N, X> r;
@@ -182,8 +179,7 @@ auto operator*(Series<R, N, X> const &a, R b)
 		r[i] = a[i] * b;
 	return r;
 }
-template <class R, int N, char X>
-auto operator*(R a, Series<R, N, X> const &b)
+template <class R, int N, char X> auto operator*(R a, Series<R, N, X> const &b)
 {
 	using T = decltype(a * b[0]);
 	Series<T, N, X> r;
@@ -218,7 +214,7 @@ Series<R, N, X> operator/(Series<R, N, X> const &a, int b)
 	return r;
 }
 
-/** op-assigns for convenience and speed */
+// op-assigns for convenience and speed
 template <class R, int N, class S, char X>
 Series<R, N, X> &operator+=(Series<R, N, X> &a, Series<S, N, X> const &b)
 {
@@ -240,7 +236,7 @@ Series<R, N, X> &operator*=(Series<R, N, X> &a, Series<S, N, X> const &b)
 	return a;
 }
 
-/** op-assigns with scalar */
+// op-assigns with scalar
 template <class R, int N, char X, class U>
 Series<R, N, X> &operator+=(Series<R, N, X> &a, Scalar<U> const b)
 {
@@ -351,18 +347,17 @@ bool need_parens_power(Series<R, N, X> const &)
 
 } // namespace chalk
 
-template <class R, int N, char X>
-struct fmt::formatter<chalk::Series<R, N, X>>
+template <class R, int N, char X> struct fmt::formatter<chalk::Series<R, N, X>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <class FormatContext>
-	auto format(const chalk::Series<R, N, X> &s,
-	            FormatContext &ctx) const -> decltype(ctx.out())
+	auto format(const chalk::Series<R, N, X> &s, FormatContext &ctx) const
+	    -> decltype(ctx.out())
 	{
-		using chalk::is_zero;
-		using chalk::is_one;
 		using chalk::is_negative;
+		using chalk::is_one;
+		using chalk::is_zero;
 		auto it = ctx.out();
 
 		bool first = true;

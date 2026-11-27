@@ -5,7 +5,7 @@
 #include "chalk/free_group.h"
 #include "chalk/group_ring.h"
 #include "chalk/series.h"
-#include <fmt/format.h>
+#include "fmt/format.h"
 using namespace chalk;
 
 using Rat = Fraction<int64_t>;

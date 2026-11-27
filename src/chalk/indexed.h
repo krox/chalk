@@ -1,5 +1,4 @@
-#ifndef CHALK_INDEXED_H
-#define CHALK_INDEXED_H
+#pragma once
 
 #include "chalk/rings.h"
 #include "fmt/format.h"
@@ -13,11 +12,9 @@
 
 namespace chalk {
 
-/**
- * A named object with indices
- *   - TODO: symbols should have some flags (constant/(anti-)symmetric)
- *           (right now its hardcoded to the symbol name)
- */
+// A named object with indices
+//   - TODO: symbols should have some flags (constant/(anti-)symmetric)
+//           (right now its hardcoded to the symbol name)
 struct IndexedAtom
 {
 	std::string symbol;
@@ -27,18 +24,16 @@ struct IndexedAtom
 	int64_t prio_ = {};
 };
 
-/** arbitrary order ( not the one used in Indexed::cleanup() ) */
+// arbitrary order ( not the one used in Indexed::cleanup() )
 bool operator==(IndexedAtom const &a, IndexedAtom const &b);
 bool operator<(IndexedAtom const &a, IndexedAtom const &b);
 
-/**
- * Product of indexed symbols.
- *   - repeated indices are summed over
- *   - multiplication '*' is outer product, so that this is a monoid
- *   - not quite commutative, due to numbering of open indices
- *   - does not distinguish upper/lower indices
- *   - does not know what the indices are for (tensor, derivatives)
- */
+// Product of indexed symbols.
+//   - repeated indices are summed over
+//   - multiplication '*' is outer product, so that this is a monoid
+//   - not quite commutative, due to numbering of open indices
+//   - does not distinguish upper/lower indices
+//   - does not know what the indices are for (tensor, derivatives)
 class Indexed
 {
 	std::vector<IndexedAtom> atoms_;
@@ -48,7 +43,7 @@ class Indexed
 	void cleanup();
 
   public:
-	/** constructors */
+	// constructors
 	Indexed() = default;
 	Indexed(one_t) {}
 	explicit Indexed(std::vector<IndexedAtom> atoms) : atoms_(atoms)
@@ -77,7 +72,7 @@ class Indexed
 		cleanup();
 	}
 
-	/** array-like access to atoms */
+	// array-like access to atoms
 	std::vector<IndexedAtom> const &atoms() const { return atoms_; }
 	IndexedAtom const &operator[](size_t i) const { return atoms_.at(i); }
 	size_t size() const { return atoms_.size(); }
@@ -85,30 +80,30 @@ class Indexed
 
 	int rank() const { return rank_; }
 
-	/** move out internal storage */
+	// move out internal storage
 	std::vector<IndexedAtom> release() { return std::move(atoms_); }
 
 	void operator*=(Indexed const &b);
 };
 
-/** outer product */
+// outer product
 Indexed operator*(Indexed const &a, Indexed const &b);
 
-/** inner product contracting last index of a with first index of b */
+// inner product contracting last index of a with first index of b
 Indexed inner_product(Indexed const &a, Indexed const &b);
 
-/** contract indices i and j */
+// contract indices i and j
 Indexed contract(Indexed const &a, int i, int j);
 
-/** returns list of new term, and number of eta's found */
+// returns list of new term, and number of eta's found
 std::pair<std::vector<Indexed>, int> wick_contract(Indexed const &a,
                                                    std::string const &eta);
 
-/** arbitrary order */
+// arbitrary order
 bool operator==(Indexed const &a, Indexed const &b);
 bool operator<(Indexed const &a, Indexed const &b);
 
-/** only for checking " == 1" */
+// only for checking " == 1"
 bool operator==(Indexed const &a, one_t);
 
 } // namespace chalk
@@ -117,9 +112,9 @@ template <> struct fmt::formatter<chalk::IndexedAtom>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
-	auto format(const chalk::IndexedAtom &atom,
-	            FormatContext &ctx) const -> decltype(ctx.out())
+	template <class FormatContext>
+	auto format(const chalk::IndexedAtom &atom, FormatContext &ctx) const
+	    -> decltype(ctx.out())
 	{
 		auto it = ctx.out();
 		it = format_to(it, "{}", atom.symbol);
@@ -135,9 +130,9 @@ template <> struct fmt::formatter<chalk::Indexed>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
-	auto format(const chalk::Indexed &indexed,
-	            FormatContext &ctx) const -> decltype(ctx.out())
+	template <class FormatContext>
+	auto format(const chalk::Indexed &indexed, FormatContext &ctx) const
+	    -> decltype(ctx.out())
 	{
 
 		// empty product -> '1'
@@ -155,5 +150,3 @@ template <> struct fmt::formatter<chalk::Indexed>
 		return it;
 	}
 };
-
-#endif

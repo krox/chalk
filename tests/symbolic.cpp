@@ -1,10 +1,9 @@
 #include "catch2/catch_test_macros.hpp"
 
 #include "chalk/symbolic.h"
+#include "fmt/format.h"
 #include "util/hash_map.h"
-#include <fmt/format.h>
 using namespace chalk;
-using namespace util;
 
 TEST_CASE("expression parsing - constants", "[expression]")
 {

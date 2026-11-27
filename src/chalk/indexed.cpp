@@ -2,14 +2,14 @@
 
 #include "util/hash_map.h"
 
-namespace chalk {
+using namespace chalk;
 
-bool operator==(IndexedAtom const &a, IndexedAtom const &b)
+bool chalk::operator==(IndexedAtom const &a, IndexedAtom const &b)
 {
 	return a.symbol == b.symbol && a.indices == b.indices;
 }
 
-bool operator<(IndexedAtom const &a, IndexedAtom const &b)
+bool chalk::operator<(IndexedAtom const &a, IndexedAtom const &b)
 {
 	if (a.symbol != b.symbol)
 		return a.symbol < b.symbol;
@@ -18,11 +18,11 @@ bool operator<(IndexedAtom const &a, IndexedAtom const &b)
 	return a.indices < b.indices;
 }
 
-bool operator==(Indexed const &a, Indexed const &b)
+bool chalk::operator==(Indexed const &a, Indexed const &b)
 {
 	return a.atoms() == b.atoms();
 }
-bool operator<(Indexed const &a, Indexed const &b)
+bool chalk::operator<(Indexed const &a, Indexed const &b)
 {
 	// first by number of atoms
 	if (a.size() != b.size())
@@ -41,7 +41,7 @@ bool operator<(Indexed const &a, Indexed const &b)
 	return a.atoms() < b.atoms();
 }
 
-bool operator==(Indexed const &a, one_t) { return a.atoms().empty(); }
+bool chalk::operator==(Indexed const &a, one_t) { return a.atoms().empty(); }
 
 namespace {
 int count_repeated(IndexedAtom const &a)
@@ -54,7 +54,7 @@ int count_repeated(IndexedAtom const &a)
 	return count;
 }
 
-/** does not require normalized index-names */
+// does not require normalized index-names
 bool simplify_deltas(std::vector<IndexedAtom> &atoms)
 {
 	bool change = false;
@@ -105,9 +105,7 @@ bool simplify_deltas(std::vector<IndexedAtom> &atoms)
 	return change;
 }
 
-/**
- * This kinda has to solve graph-isomorphism, so its a very crude approximation.
- */
+// This kinda has to solve graph-isomorphism, so its a very crude approximation.
 void sort_atoms(std::vector<IndexedAtom> &atoms)
 {
 	if (atoms.size() < 2) // NOTE: the trivial empty case has a problem below
@@ -202,7 +200,7 @@ void Indexed::cleanup()
 	rank_ = rename_indices(atoms_);
 }
 
-Indexed operator*(Indexed const &a, Indexed const &b)
+Indexed chalk::operator*(Indexed const &a, Indexed const &b)
 {
 	std::vector<IndexedAtom> atoms;
 	atoms.reserve(a.atoms().size() + b.atoms().size());
@@ -233,7 +231,7 @@ void Indexed::operator*=(Indexed const &b)
 	cleanup();
 }
 
-Indexed inner_product(Indexed const &a, Indexed const &b)
+Indexed chalk::inner_product(Indexed const &a, Indexed const &b)
 {
 	assert(a.rank() >= 1 && b.rank() >= 1);
 	std::vector<IndexedAtom> atoms;
@@ -255,7 +253,7 @@ Indexed inner_product(Indexed const &a, Indexed const &b)
 	return Indexed(std::move(atoms));
 }
 
-Indexed contract(Indexed const &a, int i, int j)
+Indexed chalk::contract(Indexed const &a, int i, int j)
 {
 	assert(0 <= i && i < a.rank());
 	assert(0 <= j && j < a.rank());
@@ -273,6 +271,7 @@ Indexed contract(Indexed const &a, int i, int j)
 	return Indexed(std::move(atoms));
 }
 
+namespace {
 std::vector<std::vector<std::pair<int, int>>> wick_list(int n)
 {
 	assert(n >= 0);
@@ -302,9 +301,10 @@ std::vector<std::vector<std::pair<int, int>>> wick_list(int n)
 	}
 	return result;
 }
+} // namespace
 
-std::pair<std::vector<Indexed>, int> wick_contract(Indexed const &a,
-                                                   std::string const &eta)
+std::pair<std::vector<Indexed>, int>
+chalk::wick_contract(Indexed const &a, std::string const &eta)
 {
 	// split term into eta / non-eta
 	std::vector<int> indices;
@@ -339,5 +339,3 @@ std::pair<std::vector<Indexed>, int> wick_contract(Indexed const &a,
 
 	return {std::move(result), (int)indices.size()};
 }
-
-} // namespace chalk

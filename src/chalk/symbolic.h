@@ -291,8 +291,8 @@ template <> struct fmt::formatter<chalk::Expression>
 		return it;
 	}
 
-	auto format(chalk::Expression const &a,
-	            auto &ctx) const -> decltype(ctx.out())
+	auto format(chalk::Expression const &a, auto &ctx) const
+	    -> decltype(ctx.out())
 	{
 		auto it = ctx.out();
 		auto sink = [&it](std::string_view s) {

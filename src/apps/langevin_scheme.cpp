@@ -5,8 +5,8 @@
 #include "chalk/ideal.h"
 #include "chalk/series.h"
 #include "chalk/sparse_polynomial.h"
+#include "fmt/format.h"
 #include <cassert>
-#include <fmt/format.h>
 using namespace chalk;
 
 // polynomial ring of coefficients
@@ -22,7 +22,7 @@ auto seps = Term::generator(); // sqrt(epsilon)
 auto eps = seps * seps;
 auto cA = Term(Covariant<R>(Indexed("cA")));
 
-/** diff(A*exp(-S))*exp(S) */
+// diff(A*exp(-S))*exp(S)
 Term myDiff(Term const &a)
 {
 	// NOTE: '*' not abelian in this case due to index-naming
@@ -33,7 +33,7 @@ Term myDiff(Term const &a)
 	    a);
 }
 
-/** check that all terms have the same number of open indices */
+// check that all terms have the same number of open indices
 void checkRank(Term const &a, int rank = -1)
 {
 	for (auto const &tmp : a.coefficients())
@@ -44,7 +44,7 @@ void checkRank(Term const &a, int rank = -1)
 		}
 }
 
-/** commutator c=[a,b]. all three interpreted as  'iT^a f_a' */
+// commutator c=[a,b]. all three interpreted as  'iT^a f_a'
 Term comm(Term const &a, Term const &b)
 {
 	// need exactly one open index
@@ -60,22 +60,20 @@ Term comm(Term const &a, Term const &b)
 	checkRank(c, 1);
 	return c;
 }
-/** commutator [a,[b,c]] */
+// commutator [a,[b,c]]
 Term comm(Term const &a, Term const &b, Term const &c)
 {
 	return comm(a, comm(b, c));
 }
-/** commutator [a,[b,[c,d]]] */
+// commutator [a,[b,[c,d]]]
 Term comm(Term const &a, Term const &b, Term const &c, Term const &d)
 {
 	return comm(a, comm(b, comm(c, d)));
 }
 
-/*
- * S(f) = S + S'f + 1/2 S''ff + ...
- *   - f should have exactly one open index, contracted with derivatives
- *   - S can have arbitrary open indices (which simply stay that way)
- */
+// S(f) = S + S'f + 1/2 S''ff + ...
+//   - f should have exactly one open index, contracted with derivatives
+//   - S can have arbitrary open indices (which simply stay that way)
 Term myTaylor(Term const &S, Term const &force, int degree)
 {
 	checkRank(S, 1);
@@ -200,7 +198,7 @@ std::vector<R> simplifyNLO(std::vector<R> const &nlo,
 	return r;
 }
 
-template <typename T> void append(std::vector<T> &a, std::vector<T> const &b)
+template <class T> void append(std::vector<T> &a, std::vector<T> const &b)
 {
 	a.reserve(a.size() + b.size());
 	a.insert(a.end(), b.begin(), b.end());

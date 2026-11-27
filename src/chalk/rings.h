@@ -78,7 +78,7 @@ template <class T> bool need_parens_power(util::complex<T> const &)
 	return true;
 }
 
-template <typename T> struct Scalar
+template <class T> struct Scalar
 {
 	T value;
 
@@ -97,7 +97,7 @@ concept ring_element = requires(T a, T b, int n) {
 	T(n);
 	{ a + b } -> std::convertible_to<T>;
 	{ a - b } -> std::convertible_to<T>;
-	{ a * b } -> std::convertible_to<T>;
+	{ (a * b) } -> std::convertible_to<T>;
 	{ -a } -> std::convertible_to<T>;
 	a += b;
 	a -= b;

@@ -6,7 +6,7 @@
 #include "chalk/quadratic.h"
 #include "chalk/series.h"
 #include "chalk/sparse_polynomial.h"
-#include <fmt/format.h>
+#include "fmt/format.h"
 #include <string>
 using namespace chalk;
 

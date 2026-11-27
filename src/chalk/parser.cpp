@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace chalk {
+using namespace chalk;
 
 namespace {
 bool isoperator(char c)
@@ -25,7 +25,7 @@ bool isoperator(char c)
 }
 } // namespace
 
-std::vector<std::string_view> lex(std::string_view source)
+std::vector<std::string_view> chalk::lex(std::string_view source)
 {
 	std::vector<std::string_view> tokens;
 
@@ -51,7 +51,8 @@ std::vector<std::string_view> lex(std::string_view source)
 				++len;
 		}
 		else if (isoperator(source[0])) // operators / parentheses
-		{}
+		{
+		}
 		else
 			throw std::runtime_error(
 			    fmt::format("unexpected character '{}'", source[0]));
@@ -62,5 +63,3 @@ std::vector<std::string_view> lex(std::string_view source)
 
 	return tokens;
 }
-
-} // namespace chalk

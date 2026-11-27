@@ -241,14 +241,14 @@ template <class R, class G> bool operator==(Multinomial<R, G> const &a, int b)
 	return a.terms()[0].index == one && a.terms()[0].coefficient == scalar;
 }
 
-/** print in multi-line (hopefully more human-readable for huge sums) */
+// print in multi-line (hopefully more human-readable for huge sums)
 template <class R, class G> void dump(Multinomial<R, G> const &a)
 {
 	for (auto &term : a.terms())
 		fmt::print("{} :: {}\n", term.index, term.coefficient);
 }
 
-/** ditto, but shorter */
+// ditto, but shorter
 template <class R, class G> void dump_summary(Multinomial<R, G> const &a)
 {
 	for (auto &term : a.terms())
@@ -270,7 +270,7 @@ template <class R, class G> bool is_negative(Multinomial<R, G> const &)
 	return false;
 }
 
-/** these two are not precisely correct, but at least not wrong */
+// these two are not precisely correct, but at least not wrong
 template <class R, class G> bool need_parens_product(Multinomial<R, G> const &)
 {
 	return true;
@@ -284,17 +284,16 @@ template <ring_element R> using FreeAlgebra = Multinomial<R, FreeProduct>;
 
 } // namespace chalk
 
-template <class R, class G>
-struct fmt::formatter<chalk::Multinomial<R, G>>
+template <class R, class G> struct fmt::formatter<chalk::Multinomial<R, G>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
 	template <class FormatContext>
-	auto format(const chalk::Multinomial<R, G> &a,
-	            FormatContext &ctx) const -> decltype(ctx.out())
+	auto format(const chalk::Multinomial<R, G> &a, FormatContext &ctx) const
+	    -> decltype(ctx.out())
 	{
-		using chalk::is_one;
 		using chalk::is_negative;
+		using chalk::is_one;
 		using chalk::need_parens_product;
 		// empty sum -> '0'
 		if (a.terms().empty())

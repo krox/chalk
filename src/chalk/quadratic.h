@@ -1,5 +1,4 @@
-#ifndef CHALK_QUADRATIC
-#define CHALK_QUADRATIC
+#pragma once
 
 #include "chalk/rings.h"
 #include "fmt/format.h"
@@ -9,18 +8,16 @@
 
 namespace chalk {
 
-/**
- * numbers of the form a + b√d with a,b,d ∈ R
- *   - R assumed to be abelian (otherwise, inverse() is broken)
- *   - d should be a non-square, we further normalize it to be be 'square-free'
- *     (though depending on R, it might be tricky to define what that means)
- *   - TODO: this implementation is quite inefficient. For example:
- *         - many of the (simple) operators could actually use an 'unchecked'
- *           version of the constructor that skips the 'removeSquareFactor' step
- *         - for R = rational numbers, it would be more efficient to store this
- *           as four integers instead of three rationals
- *         - the op-assign operators should actually operate inplace
- */
+// numbers of the form a + b√d with a,b,d ∈ R
+//   - R assumed to be abelian (otherwise, inverse() is broken)
+//   - d should be a non-square, we further normalize it to be be 'square-free'
+//     (though depending on R, it might be tricky to define what that means)
+//   - TODO: this implementation is quite inefficient. For example:
+//         - many of the (simple) operators could actually use an 'unchecked'
+//           version of the constructor that skips the 'removeSquareFactor' step
+//         - for R = rational numbers, it would be more efficient to store this
+//           as four integers instead of three rationals
+//         - the op-assign operators should actually operate inplace
 template <ring_element R> class Quadratic
 {
 	R a_, b_, d_; // d is undefined if b=0
@@ -245,8 +242,7 @@ Quadratic<R> &operator/=(Quadratic<R> &a, U const &b)
 
 // comparisons
 
-template <class R>
-bool operator==(Quadratic<R> const &a, Quadratic<R> const &b)
+template <class R> bool operator==(Quadratic<R> const &a, Quadratic<R> const &b)
 {
 	return a.real() == b.real() && a.imag() == b.imag() &&
 	       (a.d() == b.d() || is_zero(a.imag()));
@@ -259,8 +255,7 @@ template <class R> bool operator==(Quadratic<R> const &a, int b)
 {
 	return a == R(b);
 }
-template <class R, class U>
-bool operator!=(Quadratic<R> const &a, U const &b)
+template <class R, class U> bool operator!=(Quadratic<R> const &a, U const &b)
 {
 	return !(a == b);
 }
@@ -281,10 +276,7 @@ template <class R> bool need_parens_product(Quadratic<R> const &)
 {
 	return true;
 }
-template <class R> bool need_parens_power(Quadratic<R> const &)
-{
-	return true;
-}
+template <class R> bool need_parens_power(Quadratic<R> const &) { return true; }
 
 } // namespace chalk
 
@@ -295,8 +287,8 @@ template <class R> struct fmt::formatter<chalk::Quadratic<R>>
 	template <class FormatContext>
 	auto format(const chalk::Quadratic<R> &x, FormatContext &ctx) const
 	{
-		using chalk::is_zero;
 		using chalk::is_negative;
+		using chalk::is_zero;
 		if (is_zero(x.imag()))
 			return format_to(ctx.out(), "{}", x.real());
 		else if (is_zero(x.real()))
@@ -309,5 +301,3 @@ template <class R> struct fmt::formatter<chalk::Quadratic<R>>
 			                 x.d());
 	}
 };
-
-#endif

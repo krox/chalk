@@ -5,7 +5,7 @@
 #include "chalk/integer.h"
 #include "chalk/numerics.h"
 #include "chalk/polynomial.h"
-#include <fmt/format.h>
+#include "fmt/format.h"
 using namespace chalk;
 
 TEST_CASE("polynomial roots finding", "[numerics]")

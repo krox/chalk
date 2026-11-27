@@ -3,10 +3,9 @@
 #include "chalk/fraction.h"
 #include "chalk/integer.h"
 #include "chalk/numtheory.h"
+#include "fmt/format.h"
 #include "util/random.h"
-#include <fmt/format.h>
 using namespace chalk;
-using namespace util;
 
 TEST_CASE("rational arithmetic", "[integer]")
 {
@@ -69,7 +68,7 @@ TEST_CASE("prime_table", "[numtheory][integer][primes]")
 			CHECK(is_prime(2 * k + 1) == table[k]);
 	}
 
-	auto rng = xoshiro256();
+	auto rng = util::xoshiro256();
 	for (int iter = 0; iter < 100; ++iter)
 	{
 		auto n = rng.uniform(uint64_t(1000));
@@ -96,7 +95,7 @@ TEST_CASE("factorization", "[numtheory][integer]")
 
 	{
 		auto dist = std::uniform_int_distribution<int64_t>(1, INT64_MAX);
-		xoshiro256 rng = {};
+		util::xoshiro256 rng = {};
 		for (int i = 0; i < 100; ++i)
 		{
 			int64_t n = dist(rng);
@@ -140,7 +139,7 @@ TEST_CASE("square numbers", "[numtheory][integer]")
 		check((3037000499 - i) * (3037000499 - i) - 1);
 	}
 
-	xoshiro256 rng;
+	util::xoshiro256 rng;
 	for (int i = 0; i < 1000; ++i)
 	{
 		check(rng.uniform<int64_t>(0, INT64_MAX));

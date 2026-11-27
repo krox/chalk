@@ -342,7 +342,7 @@ class IntMod
 	int64_t a_ = 0, m_ = 0; // m_=0 corresponds to NaN state
 
   public:
-	/** constructors */
+	// constructors
 	IntMod() = default;
 	explicit IntMod(int64_t a, int64_t m) : a_(a), m_(m)
 	{
@@ -430,7 +430,7 @@ template <> struct formatter<chalk::IntMod>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::IntMod &a, FormatContext &ctx) const
 	    -> decltype(ctx.out())
 	{

@@ -1,5 +1,6 @@
-#ifndef CHALK_PARSER_H
-#define CHALK_PARSER_H
+#pragma once
+
+// TODO: refactor this whole module based on chalk::Lexer
 
 #include "fmt/format.h"
 #include "util/lexer.h"
@@ -9,24 +10,22 @@
 #include <string_view>
 #include <vector>
 
-// TODO: refactor this whole module based on chalk::Lexer
-
 namespace chalk {
 
 namespace parser_detail {
 
-template <typename T, typename F>
+template <class T, class F>
 T parse_sum(std::vector<std::string_view> const &, size_t &, F &&);
-template <typename T, typename F>
+template <class T, class F>
 T parse_product(std::vector<std::string_view> const &, size_t &, F &&);
-template <typename T, typename F>
+template <class T, class F>
 T parse_primary(std::vector<std::string_view> const &, size_t &, F &&);
 
 } // namespace parser_detail
 
 std::vector<std::string_view> lex(std::string_view source);
 
-template <typename T, typename F> T parse(std::string_view source, F &&f)
+template <class T, class F> T parse(std::string_view source, F &&f)
 {
 	using namespace parser_detail;
 	auto tokens = lex(source);
@@ -40,7 +39,7 @@ template <typename T, typename F> T parse(std::string_view source, F &&f)
 
 namespace parser_detail {
 
-template <typename T, typename F>
+template <class T, class F>
 T parse_sum(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 {
 	auto ex = parse_product<T>(tokens, pos, f);
@@ -62,7 +61,7 @@ T parse_sum(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 	return ex;
 }
 
-template <typename T, typename F>
+template <class T, class F>
 T parse_product(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 {
 	auto ex = parse_primary<T>(tokens, pos, f);
@@ -84,7 +83,7 @@ T parse_product(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 	return ex;
 }
 
-template <typename T, typename F>
+template <class T, class F>
 T parse_primary(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 {
 	if (pos == tokens.size())
@@ -122,5 +121,3 @@ T parse_primary(std::vector<std::string_view> const &tokens, size_t &pos, F &&f)
 } // namespace parser_detail
 
 } // namespace chalk
-
-#endif

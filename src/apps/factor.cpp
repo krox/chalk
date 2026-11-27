@@ -1,8 +1,8 @@
 #include "CLI/CLI.hpp"
 #include "chalk/integer.h"
 #include "chalk/numtheory.h"
+#include "fmt/format.h"
 #include <cassert>
-#include <fmt/format.h>
 using namespace chalk;
 
 bool verbose = false;

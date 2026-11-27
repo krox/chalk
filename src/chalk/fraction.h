@@ -8,11 +8,9 @@
 
 namespace chalk {
 
-/**
- * Ring of fractions a/b with a,b ∈ R
- *   - assumes R is commutative
- *   - if R is an integral domain (no zero-divisors), this is a field
- */
+// Ring of fractions a/b with a,b ∈ R
+//   - assumes R is commutative
+//   - if R is an integral domain (no zero-divisors), this is a field
 template <gcd_domain R> class Fraction
 {
 	R num_, denom_;
@@ -23,7 +21,7 @@ template <gcd_domain R> class Fraction
 	}
 
   public:
-	/** constructors */
+	// constructors
 	Fraction() : num_(R(0)), denom_(R(1)) {}
 	explicit Fraction(int num) : num_(R(num)), denom_(R(1)) {}
 	explicit Fraction(R num) : num_(std::move(num)), denom_(1) {}
@@ -33,7 +31,7 @@ template <gcd_domain R> class Fraction
 		reduce();
 	}
 
-	/** field access */
+	// field access
 	R const &num() const { return num_; }
 	R const &denom() const { return denom_; }
 
@@ -67,7 +65,7 @@ template <class R> Fraction<R> pow(Fraction<R> const &a, int exp)
 	}
 }
 
-/** binary operators (Fraction <-> Fraction) */
+// binary operators (Fraction <-> Fraction)
 template <class R>
 Fraction<R> operator+(Fraction<R> const &a, Fraction<R> const &b)
 {
@@ -98,7 +96,7 @@ Fraction<R> operator/(Fraction<R> const &a, Fraction<R> const &b)
 	return Fraction<R>{num, denom};
 }
 
-/** binary operators (Fraction <-> int); embed int via R(int) */
+// binary operators (Fraction <-> int); embed int via R(int)
 template <class R> Fraction<R> operator+(Fraction<R> const &a, int b)
 {
 	return Fraction<R>{a.num() + R(b) * a.denom(), a.denom()};
@@ -132,49 +130,41 @@ template <class R> Fraction<R> operator/(int a, Fraction<R> const &b)
 	return Fraction<R>{R(a) * b.denom(), b.num()};
 }
 
-/** binary operators (Fraction <-> R) */
-template <class R>
-Fraction<R> operator+(Fraction<R> const &a, R const &b)
+// binary operators (Fraction <-> R)
+template <class R> Fraction<R> operator+(Fraction<R> const &a, R const &b)
 {
 	return Fraction<R>{a.num() + b * a.denom(), a.denom()};
 }
-template <class R>
-Fraction<R> operator-(Fraction<R> const &a, R const &b)
+template <class R> Fraction<R> operator-(Fraction<R> const &a, R const &b)
 {
 	return Fraction<R>{a.num() - b * a.denom(), a.denom()};
 }
-template <class R>
-Fraction<R> operator*(Fraction<R> const &a, R const &b)
+template <class R> Fraction<R> operator*(Fraction<R> const &a, R const &b)
 {
 	return Fraction<R>{a.num() * b, a.denom()};
 }
-template <class R>
-Fraction<R> operator/(Fraction<R> const &a, R const &b)
+template <class R> Fraction<R> operator/(Fraction<R> const &a, R const &b)
 {
 	return Fraction<R>{a.num(), a.denom() * b};
 }
-template <class R>
-Fraction<R> operator+(R const &a, Fraction<R> const &b)
+template <class R> Fraction<R> operator+(R const &a, Fraction<R> const &b)
 {
 	return b + a;
 }
-template <class R>
-Fraction<R> operator-(R const &a, Fraction<R> const &b)
+template <class R> Fraction<R> operator-(R const &a, Fraction<R> const &b)
 {
 	return Fraction<R>{a * b.denom() - b.num(), b.denom()};
 }
-template <class R>
-Fraction<R> operator*(R const &a, Fraction<R> const &b)
+template <class R> Fraction<R> operator*(R const &a, Fraction<R> const &b)
 {
 	return b * a;
 }
-template <class R>
-Fraction<R> operator/(R const &a, Fraction<R> const &b)
+template <class R> Fraction<R> operator/(R const &a, Fraction<R> const &b)
 {
 	return Fraction<R>{a * b.denom(), b.num()};
 }
 
-/** binary operators assignments */
+// binary operators assignments
 template <class R> void operator+=(Fraction<R> &a, Fraction<R> const &b)
 {
 	a = a + b;
@@ -219,16 +209,14 @@ template <class R> std::optional<Fraction<R>> trySqrt(Fraction<R> const &a)
 
 // comparisons
 
-template <class R>
-bool operator==(Fraction<R> const &a, Fraction<R> const &b)
+template <class R> bool operator==(Fraction<R> const &a, Fraction<R> const &b)
 {
 	// return a.num() * b.denom() == a.denom() * b.num();
 
 	// TODO: check for which class for rings R this optimization is true
 	return a.num() == b.num() && a.denom() == b.denom();
 }
-template <class R>
-auto operator<=>(Fraction<R> const &a, Fraction<R> const &b)
+template <class R> auto operator<=>(Fraction<R> const &a, Fraction<R> const &b)
 {
 	return a.num() * b.denom() <=> b.num() * a.denom();
 }
@@ -305,7 +293,7 @@ void print(Fraction<R> const &x,
 	}
 }
 
-/** main usecase of fractions are of course rational numbers */
+// main usecase of fractions are of course rational numbers
 using Rational = Fraction<Integer>;
 using Rational64 = Fraction<int64_t>;
 

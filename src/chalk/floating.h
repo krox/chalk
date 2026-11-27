@@ -1,10 +1,8 @@
 #pragma once
 
-/**
- * C++ wrapper for arbitrary precision floating point numbers using GNU MPFR.
- */
+// C++ wrapper for arbitrary precision floating point numbers using GNU MPFR.
 
-#include <stdio.h> // needs to be before mpfr.h
+#include <cstdio> // needs to be before mpfr.h
 
 #include "chalk/integer.h"
 #include "fmt/format.h"
@@ -16,10 +14,8 @@
 
 namespace chalk {
 
-/**
- * As far as possible a drop-in replacement for 'double'. M is the number of
- * mantissa bits, all computations use "round to nearest" (MPFR_RNDN).
- */
+// As far as possible a drop-in replacement for 'double'. M is the number of
+// mantissa bits, all computations use "round to nearest" (MPFR_RNDN).
 template <mpfr_prec_t M> class Floating
 {
   public:
@@ -29,7 +25,7 @@ template <mpfr_prec_t M> class Floating
 
 	static constexpr mpfr_prec_t precision = M;
 
-	/** special members */
+	// special members
 	Floating() { mpfr_init2(f_, precision); }
 	~Floating() { mpfr_clear(f_); }
 	Floating(Floating const &other)
@@ -45,7 +41,7 @@ template <mpfr_prec_t M> class Floating
 	void operator=(Floating const &other) { mpfr_set(f_, other.f_, MPFR_RNDN); }
 	void operator=(Floating &&other) { mpfr_swap(f_, other.f_); }
 
-	/** constructors / assignments from other types */
+	// constructors / assignments from other types
 	explicit Floating(double value)
 	{
 		mpfr_init2(f_, precision);
@@ -78,7 +74,7 @@ template <mpfr_prec_t M> class Floating
 		mpfr_set_z(f_, value.z_, MPFR_RNDN);
 	}
 
-	/** convert to double/string */
+	// convert to double/string
 	double to_double() const { return (double)mpfr_get_d(f_, MPFR_RNDN); }
 	std::string to_string() const
 	{
@@ -91,7 +87,7 @@ template <mpfr_prec_t M> class Floating
 	}
 	explicit operator double() const { return to_double(); }
 
-	/** mathematical constants */
+	// mathematical constants
 	static Floating pi()
 	{
 		Floating r;
@@ -124,16 +120,14 @@ template <mpfr_prec_t M> class Floating
 	}
 };
 
-/**
- * Typedefs that match the IEEE-754 types very closely. For low precision,
- * float/double/__float128_t are of course much faster than
- * FloatingSingle/Double/Quadruple. MPFR only shines at higher precisions.
- * IEEE-754 directly only specifies formats up to 'octuple', but it also
- * defines 'interchange formats' with arbitrary larger widths. These use
- * 'round(4*log2(W)) - 13' bits for the exponent. From this we derived the
- * mantissa-width of the large types which therefore correspont to
- * "16/32/64-fold precision IEEE numbers"
- */
+// Typedefs that match the IEEE-754 types very closely. For low precision,
+// float/double/__float128_t are of course much faster than
+// FloatingSingle/Double/Quadruple. MPFR only shines at higher precisions.
+// IEEE-754 directly only specifies formats up to 'octuple', but it also
+// defines 'interchange formats' with arbitrary larger widths. These use
+// 'round(4*log2(W)) - 13' bits for the exponent. From this we derived the
+// mantissa-width of the large types which therefore correspont to
+// "16/32/64-fold precision IEEE numbers"
 using FloatingHalf = Floating<11>;
 using FloatingSingle = Floating<24>;
 using FloatingDouble = Floating<53>;
@@ -143,7 +137,7 @@ using FloatingDoubleOctuple = Floating<489>; // "sexdecuple" ?
 using FloatingQuadrupleOctuple = Floating<997>;
 using FloatingOctupleOctuple = Floating<2017>;
 
-/** unary arithmetic */
+// unary arithmetic
 template <mpfr_prec_t M> Floating<M> operator+(Floating<M> const &a)
 {
 	return a;
@@ -155,7 +149,7 @@ template <mpfr_prec_t M> Floating<M> operator-(Floating<M> const &a)
 	return r;
 }
 
-/** binary arithmetic (Floating <-> Floating) */
+// binary arithmetic (Floating <-> Floating)
 template <mpfr_prec_t M>
 Floating<M> operator+(Floating<M> const &a, Floating<M> const &b)
 {
@@ -185,7 +179,7 @@ Floating<M> operator/(Floating<M> const &a, Floating<M> const &b)
 	return r;
 }
 
-/** assign arithmetic (Floating <-> Floating) */
+// assign arithmetic (Floating <-> Floating)
 template <mpfr_prec_t M>
 Floating<M> &operator+=(Floating<M> &a, Floating<M> const &b)
 {
@@ -211,7 +205,7 @@ Floating<M> &operator/=(Floating<M> &a, Floating<M> const &b)
 	return a;
 }
 
-/** binary arithmetic (Floating <-> double) */
+// binary arithmetic (Floating <-> double)
 template <mpfr_prec_t M> Floating<M> operator+(Floating<M> const &a, double b)
 {
 	Floating<M> r;
@@ -261,7 +255,7 @@ template <mpfr_prec_t M> Floating<M> operator/(double a, Floating<M> const &b)
 	return r;
 }
 
-/** assign arithmetic (Floating <-> double) */
+// assign arithmetic (Floating <-> double)
 template <mpfr_prec_t M> Floating<M> operator+=(Floating<M> &a, double b)
 {
 	mpfr_add_d(a.f_, a.f_, b, MPFR_RNDN);
@@ -283,7 +277,7 @@ template <mpfr_prec_t M> Floating<M> operator/=(Floating<M> &a, double b)
 	return a;
 }
 
-/** basic properties (naming as in std::is{inf,nan}) */
+// basic properties (naming as in std::is{inf,nan})
 template <mpfr_prec_t M> bool isnan(Floating<M> const &a)
 {
 	return mpfr_nan_p(a.f_);
@@ -293,7 +287,7 @@ template <mpfr_prec_t M> bool isinf(Floating<M> const &a)
 	return mpfr_inf_p(a.f_);
 }
 
-/** comparison Floating <-> Floating */
+// comparison Floating <-> Floating
 template <mpfr_prec_t M>
 bool operator>(Floating<M> const &a, Floating<M> const &b)
 {
@@ -325,7 +319,7 @@ bool operator!=(Floating<M> const &a, Floating<M> const &b)
 	return !mpfr_equal_p(a.f_, b.f_);
 }
 
-/** comparison Floating <-> double */
+// comparison Floating <-> double
 template <mpfr_prec_t M> bool operator<(Floating<M> const &a, double b)
 {
 	return mpfr_cmp_d(a.f_, b) < 0; // 0 if either is NaN
@@ -357,7 +351,7 @@ template <mpfr_prec_t M> bool operator!=(Floating<M> const &a, double b)
 	return !(a == b);
 }
 
-/** comparison Floating <-> int */
+// comparison Floating <-> int
 template <mpfr_prec_t M> bool operator<(Floating<M> const &a, int b)
 {
 	return mpfr_cmp_si(a.f_, b) < 0; // 0 if a is NaN
@@ -389,7 +383,7 @@ template <mpfr_prec_t M> bool operator!=(Floating<M> const &a, int b)
 	return !(a == b);
 }
 
-/** comparison double <-> Floating */
+// comparison double <-> Floating
 template <mpfr_prec_t M> bool operator<(double a, Floating<M> const &b)
 {
 	return b > a;
@@ -415,7 +409,7 @@ template <mpfr_prec_t M> bool operator!=(double a, Floating<M> const &b)
 	return b != a;
 }
 
-/** mathematical functions of one parameter */
+// mathematical functions of one parameter
 #define CHALK_DEFINE_FLOATING_FUNCTION(name)                                   \
 	template <mpfr_prec_t M> Floating<M> name(Floating<M> const &a)            \
 	{                                                                          \
@@ -505,7 +499,7 @@ template <mpfr_prec_t M> struct fmt::formatter<chalk::Floating<M>>
 {
 	constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
-	template <typename FormatContext>
+	template <class FormatContext>
 	auto format(const chalk::Floating<M> &x, FormatContext &ctx) const
 	{
 		return fmt::format_to(ctx.out(), "{}", x.to_string());
@@ -516,7 +510,7 @@ namespace Eigen {
 
 // we prefer not to #include any header of Eigen here. Luckily, some forward
 // declarations suffice for our purposes.
-template <typename T> struct NumTraits;
+template <class T> struct NumTraits;
 
 template <mpfr_prec_t M> struct NumTraits<chalk::Floating<M>>
 {
